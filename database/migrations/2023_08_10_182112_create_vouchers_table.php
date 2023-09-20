@@ -13,8 +13,9 @@ return new class extends Migration
     {
         Schema::create('vouchers', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('ticket_id')->references('id')->on('tickets')->onDelete('cascade')->onUpdate('cascade');
+            $table->foreignUuid('event_id')->references('id')->on('events')->onDelete('cascade')->onUpdate('cascade');
             $table->string('name');
+            $table->string('code', 10)->nullable();
             $table->float('discount');
             $table->integer('quantity');
             $table->dateTime('start');

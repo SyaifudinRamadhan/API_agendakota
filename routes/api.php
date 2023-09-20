@@ -17,6 +17,8 @@ use Illuminate\Support\Facades\Route;
 Route::post('/register', [\App\Http\Controllers\Authenticate::class, 'register']);
 Route::post('/login', [\App\Http\Controllers\Authenticate::class, 'login']);
 Route::post('/login-w-google', [\App\Http\Controllers\Authenticate::class, 'loginGoogle']);
+Route::post('/login-w-otp', [\App\Http\Controllers\Authenticate::class, 'loginWithOtp']);
+Route::post('/verify-otp', [\App\Http\Controllers\Authenticate::class, 'verifyOtp']);
 Route::get('/verify/{subId}', [\App\Http\Controllers\Authenticate::class, 'verify'])->name('verify');
 Route::post('/request-reset-pass', [\App\Http\Controllers\Authenticate::class, 'requestResetPass']);
 Route::post('/reset-pass', [\App\Http\Controllers\Authenticate::class, 'resetPassword']);
@@ -28,7 +30,7 @@ Route::get('/event/{eventId}', [\App\Http\Controllers\EventCtrl::class, 'getById
 Route::get('/event-slug/{slug}', [\App\Http\Controllers\EventCtrl::class, 'getBySlug']);
 Route::get('/event-orgs/{orgId}', [\App\Http\Controllers\EventCtrl::class, 'getByOrg']);
 Route::get('/method-trxs', [\App\Http\Controllers\PkgPayCtrl::class, 'listPayMethod']);
-Route::post('/webhook-payment-pkg', [\App\Http\Controllers\PkgPayCtrl::class, 'handleWebhookRedirect'])->name('pkg.payment.redirect');
+Route::post('/webhook-payment-pkg', [\App\Http\Controllers\WebhookCtrl::class, 'handleWebhookRedirect'])->name('pkg.payment.redirect');
 
 // ================= Route for test only ================
 Route::post('/create-trx-pkg/{eventId}', [\App\Http\Controllers\PkgPayCtrl::class, 'createTrxEd']);
@@ -44,6 +46,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/update', [\App\Http\Controllers\UserCtrl::class, 'updateProfile']);
     Route::put('/update-password', [\App\Http\Controllers\UserCtrl::class, 'updatePassword']);
     Route::get('/profile', [\App\Http\Controllers\UserCtrl::class, 'getUser']);
+    // Route Ticket Transaction
+    Route::post('/buy-ticket', [\App\Http\Controllers\PchCtrl::class, 'create']);
+    Route::get('/get-purchase', [\App\Http\Controllers\PchCtrl::class, 'get']);
+    Route::get('/get-purchases', [\App\Http\Controllers\PchCtrl::class, 'purchases']);
     // Route organization
     Route::group(["prefix" => "org"], function () {
         Route::post('/register-org', [\App\Http\Controllers\OrgCtrl::class, 'create']);
@@ -69,10 +75,17 @@ Route::middleware('auth:sanctum')->group(function () {
                     Route::get('/rundown', [\App\Http\Controllers\RundownCtrl::class, 'get']);
                     Route::get('/rundowns', [\App\Http\Controllers\RundownCtrl::class, 'getRundowns']);
                     Route::post('/session/create', [\App\Http\Controllers\EvtSessionCtrl::class, 'create']);
-                    Route::put('/session/update', [\App\Http\Controllers\EvtSessionCtrl::class, 'update']);
-                    Route::delete('/session/delete', [\App\Http\Controllers\EvtSessionCtrl::class, 'delete']);
                     Route::get('/session', [\App\Http\Controllers\EvtSessionCtrl::class, 'get']);
                     Route::get('/sessions', [\App\Http\Controllers\EvtSessionCtrl::class, 'getSessions']);
+                    Route::get('/ticket', [\App\Http\Controllers\TicketCtrl::class, 'get']);
+                    Route::get('/tickets', [\App\Http\Controllers\TicketCtrl::class, 'getTickets']);
+                    Route::middleware('eventSessionData')->group(function(){
+                        Route::put('/session/update', [\App\Http\Controllers\EvtSessionCtrl::class, 'update']);
+                        Route::delete('/session/delete', [\App\Http\Controllers\EvtSessionCtrl::class, 'delete']);
+                        Route::post('/ticket/create', [\App\Http\Controllers\TicketCtrl::class, 'create']);
+                        Route::put('/ticket/update', [\App\Http\Controllers\TicketCtrl::class, 'update']);
+                        Route::delete('/ticket/delete', [\App\Http\Controllers\TicketCtrl::class, 'delete']);
+                    });
                 });
             });
         });

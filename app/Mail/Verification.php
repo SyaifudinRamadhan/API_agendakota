@@ -16,10 +16,11 @@ class Verification extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct($username, $tokenVerify)
+    public function __construct($username, $tokenVerify, $isOtp = false)
     {
         $this->username = $username;
         $this->token = $tokenVerify;
+        $this->isOtp = $isOtp;
     }
 
     /**
@@ -37,12 +38,22 @@ class Verification extends Mailable
      */
     public function content(): Content
     {
+        $data = [
+            'name' => $this->username,
+            'is_otp' => $this->isOtp,
+        ];
+        if($this->isOtp){
+            $data += [
+                'otp_code' => $this->token
+            ];
+        }else{
+            $data += [
+                'url' => route('verify', [$this->token]),
+            ];
+        }
         return new Content(
             markdown: 'emails.verifications',
-            with: [
-                'name' => $this->username,
-                'url' => route('verify', [$this->token]),
-            ]
+            with: $data
         );
     }
 

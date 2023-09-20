@@ -17,7 +17,8 @@ class Purchase extends Model
         'user_id',
         'pay_id',
         'ticket_id',
-        'code'
+        'code',
+        'amount'
     ];
 
     public function user(): BelongsTo{

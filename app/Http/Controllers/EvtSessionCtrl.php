@@ -14,12 +14,12 @@ use DateTimeZone;
 
 class EvtSessionCtrl extends Controller
 {
-    private function checkLink($link)
+    private function checkLink($link, $type)
     {
         $linkFor = "";
-        if (strpos($link, "zoom.us") == true) {
+        if (strpos($link, "zoom.us") == true && $type == '003') {
             $linkFor = "zoom";
-        } else if (strpos($link, "youtube.com") == true || strpos($link, 'youtu.be') == true) {
+        } else if ((strpos($link, "youtube.com") == true || strpos($link, 'youtu.be') == true) && $type == '004') {
             $linkFor = "youtube";
         } else {
             return -1;
@@ -75,10 +75,10 @@ class EvtSessionCtrl extends Controller
         // 2. (002) => Agendakota Stream (RTMP)
         // 3. (003) => Zoom Embeed
         // 4. (004) => Youtube Embeed
-        $sessionCount = EventSession::where('event_id', $req->event->id)->get();
-        if(count($sessionCount) >= $req->event->payment()->first()->package()->first()->session_count){
-            return response()->json(["error" => "Limit of event session can you are create ".count($sessionCount)." event sessions"], 403);
-        }
+        // $sessionCount = EventSession::where('event_id', $req->event->id)->get();
+        // if(count($sessionCount) >= $req->event->payment()->first()->package()->first()->session_count){
+        //     return response()->json(["error" => "Limit of event session can you are create ".count($sessionCount)." event sessions"], 403);
+        // }
         $startRd = Rundown::where('id', $req->start_rundown_id)->where('event_id', $req->event->id)->first();
         $endRd = Rundown::where('id', $req->end_rundown_id)->where('event_id', $req->event->id)->first();
         if(!$startRd || !$endRd){
@@ -96,14 +96,14 @@ class EvtSessionCtrl extends Controller
             if(!$req->stream_type){
                 return response()->json(["error" => "Stream type is required for online or hybrid event"], 403);
             }
-            if($req->stream_type != '001' || $req->stream_type != '002' || $req->stream_type != '003' || $req->stream_type != '004'){
+            if($req->stream_type != '001' && $req->stream_type != '002' && $req->stream_type != '003' && $req->stream_type != '004'){
                 return response()->json(["error" => "Stream type isn't recognized"], 403);
             }
             if(($req->stream_type == '003' || $req->stream_type == '004') && !$req->url_stream){
                 return response()->json(["error" => "For stream type 003 or 004, required url_stream data"], 403);
             }
             if($req->stream_type == '003' || $req->stream_type == '004'){
-                $urlStream = $this->checkLink($req->url_stream);
+                $urlStream = $this->checkLink($req->url_stream, $req->stream_type);
                 if($urlStream == -1){
                     return response()->json(["error" => "Url stream is not recognized. Please check again"], 403);
                 }
@@ -161,14 +161,14 @@ class EvtSessionCtrl extends Controller
             if(!$req->stream_type){
                 return response()->json(["error" => "Stream type is required for online or hybrid event"], 403);
             }
-            if($req->stream_type != '001' || $req->stream_type != '002' || $req->stream_type != '003' || $req->stream_type != '004'){
+            if($req->stream_type != '001' && $req->stream_type != '002' && $req->stream_type != '003' && $req->stream_type != '004'){
                 return response()->json(["error" => "Stream type isn't recognized"], 403);
             }
             if(($req->stream_type == '003' || $req->stream_type == '004') && !$req->url_stream){
                 return response()->json(["error" => "For stream type 003 or 004, required url_stream data"], 403);
             }
             if($req->stream_type == '003' || $req->stream_type == '004'){
-                $urlStream = $this->checkLink($req->url_stream);
+                $urlStream = $this->checkLink($req->url_stream, $req->stream_type);
                 if($urlStream == -1){
                     return response()->json(["error" => "Url stream is not recognized. Please check again"], 403);
                 }
@@ -199,13 +199,21 @@ class EvtSessionCtrl extends Controller
         $deleted = '';
         $purchases = 0;
         foreach ($evtSessionObj->first()->tickets()->get() as $ticket) {
-            $purchases += count($ticket->purchases()->get());
+            foreach ($ticket->purchases()->get() as $purchase) {
+                if($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED'){
+                    $purchases += 1;
+                    break;
+                }
+            }
+            if($purchases > 0){
+                break;
+            }
         }
-        if($purchases <= 0){
+        if($purchases == 0){
             $deleted = $evtSessionObj->delete();
         }else{
-            if(new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($req->event->end_date.' '.$req->event->end_time, new DateTimeZone('Asia/Jakarta'))){
-                return response()->json(["error" => "You can't remove this session. Because your event are in progress and this session have linked with selled tickets"], 403);
+            if($req->event->first()->is_publish == 1 || $req->event->first()->is_publish == 2){
+                return response()->json(["error" => "You can't remove this session. Because your event are in progress or this session have linked with selled tickets in active event"], 403);
             }
             $deleted = $evtSessionObj->update(["deleted" => 1]);
             Ticket::where('session_id', $evtSessionObj->first()->id)->update(["deleted" => 1]);

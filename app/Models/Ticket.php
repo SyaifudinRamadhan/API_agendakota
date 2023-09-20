@@ -32,8 +32,8 @@ class Ticket extends Model
     public function purchases(): HasMany{
         return $this->hasMany(Purchase::class, 'ticket_id');
     }
-
-    public function vouchers(): HasMany{
-        return $this->hasMany(Voucher::class, 'ticket_id');
-    }
+    
+    // public function vouchers(): HasMany{
+    //     return $this->hasMany(Voucher::class, 'ticket_id');
+    // }
 }

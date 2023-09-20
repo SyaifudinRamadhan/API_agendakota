@@ -7,21 +7,15 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class Voucher extends Model
+class Otp extends Model
 {
     use HasFactory, HasUuids;
 
     protected $fillable = [
-        'event_id',
-        'name',
-        'code',
-        'discount',
-        'quantity',
-        'start',
-        'end',
+        'user_id', 'otp_code'
     ];
 
-    public function event(): BelongsTo{
-        return $this->belongsTo(Event::class, 'event_id')->where('deleted', 0);
+    public function user(): BelongsTo{
+        return $this->belongsTo(User::class, 'user_id');
     }
 }

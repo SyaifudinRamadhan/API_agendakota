@@ -11,13 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('purchases', function (Blueprint $table) {
+        Schema::create('otps', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('user_id')->references('id')->on('users')->onUpdate('cascade')->onDelete('cascade');
-            $table->foreignUuid('pay_id')->references('id')->on('payments')->onUpdate('cascade')->onDelete('cascade');
-            $table->foreignUuid('ticket_id')->references('id')->on('tickets')->onUpdate('cascade')->onDelete('cascade');
-            $table->string('code');
-            $table->integer('amount');
+            $table->string('otp_code');
             $table->timestamps();
         });
     }
@@ -27,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('purchases');
+        Schema::dropIfExists('otps');
     }
 };

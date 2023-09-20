@@ -18,15 +18,16 @@ use DateTimeZone;
 class EventCtrl extends Controller
 {
     public function create(Request $req, $orgId){
-        $pkg = PkgPricing::where('id', $req->pkg_id)->where('deleted',  0)->first();
-        if(!$pkg){
-            return response()->json(["error" => "You have selected package is not found"], 404);
-        }
+        // $pkg = PkgPricing::where('id', $req->pkg_id)->where('deleted',  0)->first();
+        // if(!$pkg){
+        //     return response()->json(["error" => "You have selected package is not found"], 404);
+        // }
         $rule = [
             'name' => 'required|string',
             'category' => 'required|string',
             'topics' => 'required|string',
-            'logo' => 'required|image|max:'.$pkg->max_attachment, //handled
+            // 'logo' => 'required|image|max:'.$pkg->max_attachment, //handled
+            'logo' => 'required|image|max:2048',
             'desc' => 'required|string',
             'snk' => 'required|string',
             'exe_type' => 'required|string',// handled
@@ -42,11 +43,11 @@ class EventCtrl extends Controller
             'website' => 'required|string',
             'twn_url' => 'required|string',
         ];
-        if($pkg->price != 0){
-            $rule += [
-                'pay_method' => 'required|string'
-            ];
-        }
+        // if($pkg->price != 0){
+        //     $rule += [
+        //         'pay_method' => 'required|string'
+        //     ];
+        // }
         $validator = Validator::make($req->all(), $rule);
         if($validator->fails()){
             return response()->json($validator->errors(), 403);
@@ -54,9 +55,9 @@ class EventCtrl extends Controller
         // Must be validated manually
         // 1. date time input 
         // 2. exe_type input (online, offline, hybrid)
-        if((intval($req->pay_method) == 14 && !$req->mobile_number) || (intval($req->pay_method) == 15 && !$req->cashtag)){
-            return response()->json(["error" => "mobile number is required for pay method with OVO or $"."cashtag is required for pay method with JeniusPay"], 403);
-        }
+        // if((intval($req->pay_method) == 14 && !$req->mobile_number) || (intval($req->pay_method) == 15 && !$req->cashtag)){
+        //     return response()->json(["error" => "mobile number is required for pay method with OVO or $"."cashtag is required for pay method with JeniusPay"], 403);
+        // }
         try {
             $start = new DateTime($req->start_date.' '.$req->start_time, new DateTimeZone('Asia/Jakarta'));
             $end = new DateTime($req->end_date.' '.$req->end_time, new DateTimeZone('Asia/Jakarta'));
@@ -94,7 +95,7 @@ class EventCtrl extends Controller
             'end_date' => $end->format("Y-m-d"),
             'start_time' => $start->format("H:i:s"),
             'end_time' => $end->format("H:i:s"),
-            'is_publish' => 0,
+            'is_publish' => 1,
             'instagram' => $req->instagram,
             'twitter' => $req->twitter,
             'website' => $req->website,
@@ -110,12 +111,12 @@ class EventCtrl extends Controller
                 ]);
             }
         }
-        $objPkgPay = new PkgPayCtrl();
-        $paymentData = $objPkgPay->createTrx($event->id, $req->pkg_id, $req->pay_method, $req->mobile_number, $req->cashtag);
+        // $objPkgPay = new PkgPayCtrl();
+        // $paymentData = $objPkgPay->createTrx($event->id, $req->pkg_id, $req->pay_method, $req->mobile_number, $req->cashtag);
         return response()->json([
             "event" => $event,
             "breakdowns" => count($breakdowns) == 0 ? null : $breakdowns,
-            "payment_data" => $paymentData
+            // "payment_data" => $paymentData
         ], 201);
     }
     public function update(Request $req, $orgId){
@@ -123,11 +124,12 @@ class EventCtrl extends Controller
         if(!$eventObj->first()){
             return response()->json(["error" => "Event data not found"], 404);
         }
-        $pkg = $eventObj->first()->payment()->first()->package()->first();
+        // $pkg = $eventObj->first()->payment()->first()->package()->first();
         $validator = Validator::make($req->all(),[
             'category' => 'required|string',
             'topics' => 'required|string',
-            'logo' => 'image|max:'.$pkg->max_attachment, //handled
+            // 'logo' => 'image|max:'.$pkg->max_attachment, //handled
+            'logo' => 'image|max:2048',
             'desc' => 'required|string',
             'snk' => 'required|string',
             'exe_type' => 'required|string',// handled
@@ -204,12 +206,14 @@ class EventCtrl extends Controller
     }
 
     public function getById($eventId){
+        $pchCtrl = new PchCtrl();
+        $pchCtrl->loadTrxData();
         $event = Event::where('id', $eventId)->where('deleted', 0)->first();
         if(!$event){
             return response()->json(["error" => "Event data not found"], 404);
         }
         $sessions = $event->sessions()->get();
-        if($event->is_publish == 0 || $event->is_publish == 2){
+        if($event->is_publish == 1 || $event->is_publish == 2){
             foreach ($sessions as $session) {
                 $session->tickets = $session->tickets()->get();
             }
@@ -229,16 +233,19 @@ class EventCtrl extends Controller
             "handbooks" => $event->handbooks()->get(),
             "receptionists" => $event->receptionists()->get(),
             "organization" => $event->org()->first(),
+            "vouchers" => $event->is_publish == 1 || $event->is_publish == 2 ? $event->vouchers()->get() : [],
         ], 200);
     }
 
     public function getBySlug($slug){
+        $pchCtrl = new PchCtrl();
+        $pchCtrl->loadTrxData();
         $event = Event::where('slug', $slug)->where('deleted', 0)->first();
         if(!$event){
             return response()->json(["error" => "Event data not found"], 404);
         }
         $sessions = $event->sessions()->get();
-        if($event->is_publish == 0 || $event->is_publish == 2){
+        if($event->is_publish == 1 || $event->is_publish == 2){
             foreach ($sessions as $session) {
                 $session->tickets = $session->tickets()->get();
             }
@@ -258,10 +265,13 @@ class EventCtrl extends Controller
             "handbooks" => $event->handbooks()->get(),
             "receptionists" => $event->receptionists()->get(),
             "organization" => $event->org()->first(),
+            "vouchers" => $event->is_publish == 1 || $event->is_publish == 2 ? $event->vouchers()->get() : [],
         ], 200);
     }
 
     public function getByOrg($orgId){
+        $pchCtrl = new PchCtrl();
+        $pchCtrl->loadTrxData();
         $events = Event::where('org_id', $orgId)->where('deleted', 0)->get();
         if(count($events) == 0){
             return response()->json(["error" => "Event data not found"], 404);
@@ -269,7 +279,7 @@ class EventCtrl extends Controller
         $data = ["events" => []];
         foreach ($events as $event) {
             $sessions = $event->sessions()->get();
-            if($event->is_publish == 0 || $event->is_publish == 2){
+            if($event->is_publish == 1 || $event->is_publish == 2){
                 foreach ($sessions as $session) {
                     $session->tickets = $session->tickets()->get();
                 }
@@ -289,6 +299,7 @@ class EventCtrl extends Controller
                 "handbooks" => $event->handbooks()->get(),
                 "receptionists" => $event->receptionists()->get(),
                 "organization" => $event->org()->first(),
+                "vouchers" => $event->is_publish == 1 || $event->is_publish == 2 ? $event->vouchers()->get() : [],
             ];
         }
         return response()->json($data, 200);
@@ -297,16 +308,39 @@ class EventCtrl extends Controller
     public function delete(Request $req, $orgId){
         $eventObj = Event::where('id', $req->event_id)->where('org_id', $orgId)->where('deleted', 0);
         if(!$eventObj->first()){
-            return response()->json(["error" => "Event data not fpund"], 404);
+            return response()->json(["error" => "Event data not found"], 404);
         }
-        if($event->first()->is_publish == 1 || $event->first()->is_publish == 2){
-            return response()->json(["error" => "Operation not allowed to your event. Your event still active"], 402);
+        $fixPurchases = 0;
+        foreach ($eventObj->first()->tickets()->get() as $ticket) {
+            foreach ($ticket->purchases()->get() as $purchase) {
+                if($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED'){
+                    $fixPurchases += 1;
+                    break;
+                }
+            }
+            if($fixPurchases > 0){
+                break;
+            }
         }
-        $deleted = $eventObj->update(['deleted' => 1]);
+        $deleted = null;
+        if($fixPurchases == 0){
+            Storage::delete('public/event_banners/'.explode('/', $eventObj->first()->logo)[3]);
+            $deleted = $eventObj->delete();
+        }else{
+            if($eventObj->first()->is_publish == 1 || $eventObj->first()->is_publish == 2){
+                return response()->json(["error" => "Operation not allowed to your event. Your event still active"], 402);
+            }
+            $deleted = $eventObj->update(['deleted' => 1]);
+        }
         return response()->json(["deleted" => $deleted], 200);
     }
 
     public function setPublishState(Request $req, $orgId){
+        // Event statuses
+        // 0 => unpaid
+        // 1 => private
+        // 2 => published
+        // 3 => ended
         $event = Event::where('id', $req->event_id)->where('org_id', $orgId)->where('deleted', 0);
         if(!$event->first()){
             return response()->json(["error" => "Event data not found"], 404);

@@ -144,7 +144,40 @@ class OrgCtrl extends Controller
                 return response()->json(["error" => "Data not found or match"], 404);
             }
         }
-        $deleted = $orgObj->update(['deleted' => '1']);
+        $fixPurchaseActiveEvent = 0;
+        $fixPurchaseInActiveEvent = 0;
+        foreach ($orgObj->first()->events()->get() as $event) {
+            foreach ($event->tickets()->get() as $ticket) {
+                foreach ($ticket->purchases()->get() as $purchase) {
+                    if(($event->is_publish == 1 || $event->is_publish == 2) && ($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED')){
+                        $fixPurchaseActiveEvent += 1;
+                        break;
+                    }else if($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED'){
+                        $fixPurchaseInActiveEvent += 1;
+                    }
+                }
+                if($fixPurchaseActiveEvent > 0){
+                    break;
+                }
+            }
+            if($fixPurchaseActiveEvent > 0){
+                break;
+            }
+        }
+        if($fixPurchaseActiveEvent > 0){
+            return response()->json(["error" => "You can't remove this organization, because this organization have active events"], 403);
+        }
+        $deleted = null;
+        if($fixPurchaseInActiveEvent > 0){
+            $deleted = $orgObj->update(['deleted' => '1']);
+        }else{
+            foreach ($orgObj->first()->events()->get() as $event) {
+                Storage::delete('public/event_banners/'.explode('/', $event->logo)[3]);
+            }
+            Storage::delete('public/org_avatars/'.explode($orgObj->first()->photo)[3]);
+            Storage::delete('public/org_banners/'.explode($orgObj->first()->banner)[3]);
+            $deleted = $orgObj->delete();
+        }
         return response()->json(['deleted' => $deleted], 202);
     }
 

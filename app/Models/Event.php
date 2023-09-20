@@ -85,4 +85,16 @@ class Event extends Model
     public function sponsors(): HasMany{
         return $this->hasMany(Sponsor::class, 'event_id');
     }
+
+    public function vouchers(): HasMany{
+        return $this->hasMany(Voucher::class, 'event_id');
+    }
+
+    public function checkins(): HasMany{
+        return $this->hasMany(Checkin::class, 'event_id');
+    }
+
+    public function tickets(): HasMany{
+        return $this->hasMany(Ticket::class, 'event_id')->where('deleted', 0);
+    }
 }

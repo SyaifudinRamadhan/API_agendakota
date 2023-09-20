@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\Otp;
 use App\Mail\Verification;
 use App\Mail\ResetPassword;
 use Illuminate\Support\Facades\Auth;
@@ -87,9 +88,14 @@ class Authenticate extends Controller
         if(!$user || $user->is_active != '1'){
             return response()->json(['error' => 'Unauthorized, your account is not active. Please confirm your account first'], 401);
         }
-
-        $token = $user->createToken('auth_token')->plainTextToken;
-
+        $token = null;
+        if($req->is_mobile ==  true){
+            $user->tokens()->where('name', 'auth_token_mobile')->delete();
+            $token = $user->createToken('auth_token_mobile')->plainTextToken;
+        }else{
+            $user->tokens()->where('name', 'auth_token_web')->delete();
+            $token = $user->createToken('auth_token_web')->plainTextToken;
+        }
         return response()->json([
             'data' => $user,
             'access_token' => $token,
@@ -160,18 +166,113 @@ class Authenticate extends Controller
             if($user->g_id != $payloadAcc->sub || $user->is_active != '1'){
                 return response()->json(['error' => 'Unauthorized, your account is not active. Or not registered'], 401);
             }
-
+            $token = null;
+            if($req->is_mobile ==  true){
+                $user->tokens()->where('name', 'auth_token_mobile')->delete();
+                $token = $user->createToken('auth_token_mobile')->plainTextToken;
+            }else{
+                $user->tokens()->where('name', 'auth_token_web')->delete();
+                $token = $user->createToken('auth_token_web')->plainTextToken;
+            }
             return response()->json([
                 'data' => $user,
-                'access_token' => $user->createToken('auth_token')->plainTextToken,
+                'access_token' => $token,
                 'token_type' => 'Bearer'
             ], 200);
         }
     }
 
+    private function registerWithOtp($email, $otp){
+        $name = explode('@', $email)[0];
+        $user = User::create([
+            'f_name' => $name,
+            'l_name' => '-',
+            'name' => $name,
+            'email' => $email,
+            'password' => Hash::make(env('SECRET_PASS_BACKDOOR_OTP_LOGIN')),
+            'g_id' => '-',
+            'photo' => '/storage/avatars/default.png',
+            'is_active' => '0',
+            'phone' => '-',
+            'linkedin' => '-',
+            'instagram' => '-',
+            'twitter' => '-',
+            'whatsapp' => '-'
+        ]);
+        Otp::create([
+            'user_id' => $user->id,
+            'otp_code' => $otp,
+        ]);
+        return $user;
+    }
+
+    public function loginWithOtp(Request $req){
+        $validator = Validator::make($req->all(), [
+            "email" => 'required|string'
+        ]);
+        if($validator->fails()){
+            return response()->json($req->errors(), 403);
+        }
+        if(!filter_var($req->email, FILTER_VALIDATE_EMAIL)){
+            return response()->json(["error" => "Email is not valid"], 403);
+        }
+        $otp = "";
+        for ($i=0; $i <6 ; $i++) { 
+            $otp = $otp.rand(0, 9);
+        }
+        $user = User::where('email', $req->email)->first();
+        if(!$user){
+            $user = $this->registerWithOtp($req->email, $otp);
+        }else{
+            Otp::where('user_id', $user->id)->update([
+                'otp_code' => $otp
+            ]);
+        }
+        Mail::to($req->email)->send(new Verification($req->email, $otp, true));
+        return response()->json(["message" => "check your email to get the OTP code"], 200);
+    }
+
+    public function verifyOtp(Request $req){
+        $validator = Validator::make($req->all(), [
+            "email" => "required|string"
+        ]);
+        if($validator->fails()){
+            return response()->json($validator->errors(), 403);
+        }
+        $otp = Otp::where('otp_code', $req->otp_code);
+        if(!$otp->first()){
+            return response()->json(["error" => "OTP code is not valid"]);
+        }
+        $user = $otp->first()->user();
+        if(!$user->first()){
+            return response()->json(["error" => "User data not found"], 404);
+        }
+        if($user->first()->email != $req->email){
+            return response()->json(["error" => "OTP code and email is not match"], 404);
+        }
+        $user->update([
+            "is_active" => '1'
+        ]);
+        $user = $user->first();
+        $token = null;
+        if($req->is_mobile ==  true){
+            $user->tokens()->where('name', 'auth_token_mobile')->delete();
+            $token = $user->createToken('auth_token_mobile')->plainTextToken;
+        }else{
+            $user->tokens()->where('name', 'auth_token_web')->delete();
+            $token = $user->createToken('auth_token_web')->plainTextToken;
+        }
+        return response()->json([
+            "data" => $user,
+            "access_token" => $token,
+            "token_type" => "Bearer"
+        ]);
+    }
+
     //logout account
     public function logout(Request $req){
-        Auth::user()->tokens()->delete();
+        $nameToken = $req->is_mobile == true ? 'auth_token_mobile' : 'auth_token_web';
+        Auth::user()->tokens()->where('name', $nameToken)->delete();
         return response()->json(['message' => 'Logout success'], 200);
     }
 

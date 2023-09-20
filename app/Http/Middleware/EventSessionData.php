@@ -26,7 +26,7 @@ class EventSessionData
         if(!$session){
             return response()->json(["error" => "Session data not found"], 404);
         }
-        $req->evtSession = $session;
+        $request->evtSession = $session;
         return $next($request);
     }
 }

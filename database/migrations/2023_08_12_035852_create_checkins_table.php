@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('checkins', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('pch_id')->references('id')->on('purchases')->onUpdate('cascade')->onDelete('cascade');
+            $table->foreignUuid('event_id')->references('id')->on('events')->onDelete('cascade')->onUpdate('cascade');
             $table->boolean('status')->default(false);
             $table->timestamps();
         });

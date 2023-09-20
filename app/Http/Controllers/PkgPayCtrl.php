@@ -1,5 +1,7 @@
 <?php
 
+// <!-- NOTE : POSTPOND FIRST THIS CTRL -->
+
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
@@ -20,7 +22,7 @@ class PkgPayCtrl extends Controller
         return response()->json(["method_payments" => config('payconfigs.methods')], 200);
     }
     
-    public function createEWallet($eventId, $pkg, $code_method, $mobileNumber = null, $cashtag = null){
+    private function createEWallet($eventId, $pkg, $code_method, $mobileNumber = null, $cashtag = null){
         $methods = config('payconfigs.methods');
         if(!$methods["e-wallet"][$code_method]){
             return response()->json(["error" => "Payment method not found"], 404);
@@ -74,7 +76,7 @@ class PkgPayCtrl extends Controller
         return ["data" => $savePay, "payment" => $createEWalletCharge, "status" => 201];
     }
 
-    public function createQRis($eventId, $pkg, $code_method){
+    private function createQRis($eventId, $pkg, $code_method){
         if(!config('payconfigs.methods')["qris"][$code_method]){
             return response()->json(["error" => "Payment method not found"], 404);
         }
@@ -118,7 +120,7 @@ class PkgPayCtrl extends Controller
         return ["data" => $savePay, "payment" => $response, "status" => 201];
     }
 
-    public function createVirAccount($eventId, $pkg, $code_method){
+    private function createVirAccount($eventId, $pkg, $code_method){
         $methods = config('payconfigs.methods');
         if(!$methods["VA"][$code_method]){
             return response()->json(["error" => "Payment method not found"], 404);
@@ -192,32 +194,13 @@ class PkgPayCtrl extends Controller
         }
     }
 
-    public function handleWebhookRedirect(Request $req){
-        $pkgPay = '';
-        if($req->id){
-            $pkgPay = PkgPayment::where('token_trx', $req->id);
-            $pkgPay->update([
-                "pay_state" => "SUCCEEDED"
-            ]);
-        }else{
-            $pkgPay = PkgPayment::where('order_id', $req->data["reference_id"]);
-            $pkgPay->update([
-                "pay_state" => $req->data["status"]
-            ]);
-        }
-        Event::where('id', $pkgPay->first()->event_id)->update([
-            "is_publish" => 2
-        ]);
-        return response()->json(["message" => "success"], 200);
-    }
-
-    public function getTrxEWallet($event){
+    private function getTrxEWallet($event){
         Xendit::setApiKey(env('XENDIT_API_READ'));
         $eWalletStatus = \Xendit\EWallets::getEWalletChargeStatus($event->payment()->first()->token_trx);
         return response()->json(["payment" => $eWalletStatus], 200);
     }
 
-    public function getTrxQris($event){
+    private function getTrxQris($event){
         $curl = curl_init();
         curl_setopt_array($curl, [
             CURLOPT_URL => 'https://api.xendit.co/qr_codes/'.$event->payment()->first()->token_trx,
@@ -240,7 +223,7 @@ class PkgPayCtrl extends Controller
         return response()->json(["payment" => $response], 200);
     }
 
-    public function getTrxVirAccount($event){
+    private function getTrxVirAccount($event){
         Xendit::setApiKey(env('XENDIT_API_READ'));
         $vaStatus = \Xendit\VirtualAccounts::retrieve($event->payment()->first()->token_trx);
         return response()->json(["payment" => $vaStatus]);

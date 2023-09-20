@@ -253,12 +253,19 @@ Thanks,<br>
                                                             <td
                                                                 style="padding-bottom:10px;padding-left:10px;padding-right:10px;padding-top:20px;text-align:center;">
                                                                 <div align="center">
+                                                                   @if($is_otp == true)
+                                                                   <p style="margin: 0; font-size: 14px; text-align: center;">
+                                                                        <span style="font-size:18px;color:#000000;">
+                                                                         Use this OPT code to sign in <strong><b>{{ $otp_code }}</b></strong>
+                                                                        </span></p>
+                                                                   @else
                                                                    <a
                                                                         href="{{ $url }}"
                                                                         style="text-decoration:none;display:inline-block;color:#ffffff;background-color:#fc7318;border-radius:15px;width:auto;border-top:1px solid #fc7318;border-right:1px solid #fc7318;border-bottom:1px solid #fc7318;border-left:1px solid #fc7318;padding-top:10px;padding-bottom:10px;font-family:Lato, Tahoma, Verdana, Segoe, sans-serif;text-align:center;mso-border-alt:none;word-break:keep-all;"
                                                                         target="_blank"><span
                                                                             style="padding-left:40px;padding-right:40px;font-size:16px;display:inline-block;letter-spacing:normal;"><span
                                                                                 style="font-size: 16px; line-height: 2; word-break: break-word; mso-line-height-alt: 32px;"><strong>LOGIN</strong></span></span></a>
+                                                                   @endif
                                                                 </div>
                                                             </td>
                                                         </tr>

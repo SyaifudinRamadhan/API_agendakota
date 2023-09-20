@@ -13,10 +13,15 @@ class Checkin extends Model
 
     protected $fillable = [
         'pch_id',
+        'event_id',
         'status'
     ];
 
     public function pch(): BelongsTo{
         return $this->belongsTo(Purchase::class, 'pch_id');
+    }
+
+    public function event(): BelongsTo{
+        return $this->belongsTo(Event::class, 'event_id');
     }
 }

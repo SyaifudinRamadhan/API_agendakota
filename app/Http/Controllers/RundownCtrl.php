@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use Illumintae\Support\Facades\Validator;
-use Illumintae\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 use App\Models\Rundown;
 use App\Models\Event;
 use DateTime;
@@ -12,7 +12,7 @@ use DateTimeZone;
 
 class RundownCtrl extends Controller
 {
-    public function create(Requesst $req, $orgId, $eventId){
+    public function create(Request $req, $orgId, $eventId){
         $validator = Validator::make($req->all(), [
             'start_date' => 'required|string',
             'end_date' => 'required|string',
@@ -84,7 +84,7 @@ class RundownCtrl extends Controller
             'name' => $req->name,
             'desc' => $req->desc,
         ]);
-        return response()->json(["updated" => $data], count($data) == 0 ? 404 : 202);
+        return response()->json(["updated" => $data], $data == 0 ? 404 : 202);
     }
 
     public function delete(Request $req, $orgId, $eventId){
