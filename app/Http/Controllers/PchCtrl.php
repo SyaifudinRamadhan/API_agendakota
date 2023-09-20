@@ -414,8 +414,15 @@ class PchCtrl extends Controller
                 $purchase->ticket->end_rundown = $purchase->ticket->session()->first()->endRundown()->first();
                 $purchase->ticket->event = $purchase->ticket->session()->first()->event()->first();
             }
+            $trx = null;
+            if($payData->pay_state == 'PENDING'){
+                $trx = $this->getTrx($payData);
+            }else{
+                $trx = $payData;
+                $trx->status = $trx->pay_state;
+            }
             $payments[] = [
-                "payment" => $this->getTrx($payData),
+                "payment" => $trx,
                 "purchases" => $purchases
             ];
         }
