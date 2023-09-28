@@ -103,7 +103,7 @@ class EventCtrl extends Controller
             'deleted' => 0,
         ]);
         $breakdowns = [];
-        if($req->breakdowns && ($req->exe_type === 'online' || $req->exe_type === 'hybrid')){
+        if($req->breakdowns){
             foreach ($req->breakdowns as $key => $value) {
                 $breakdowns[$key] = Breakdown::create([
                     'event_id' => $event->id,
@@ -123,6 +123,9 @@ class EventCtrl extends Controller
         $eventObj = Event::where('id', $req->event_id)->where('org_id', $orgId)->where('deleted', 0);
         if(!$eventObj->first()){
             return response()->json(["error" => "Event data not found"], 404);
+        }
+        if($eventObj->first()->is_publish >= 3){
+            return response()->json(["error" => "This event is not active"], 403);
         }
         // $pkg = $eventObj->first()->payment()->first()->package()->first();
         $validator = Validator::make($req->all(),[
@@ -193,7 +196,7 @@ class EventCtrl extends Controller
             'website' => $req->website,
             'twn_url' => $req->twn_url,
         ]);
-        if($req->breakdowns && ($req->exe_type === 'online' || $req->exe_type === 'hybird')){
+        if($req->breakdowns){
             Breakdown::where('event_id', $eventObj->first()->id)->delete();
             foreach ($req->breakdowns as $key => $value) {
                 Breakdown::create([
@@ -213,7 +216,8 @@ class EventCtrl extends Controller
             return response()->json(["error" => "Event data not found"], 404);
         }
         $sessions = $event->sessions()->get();
-        if($event->is_publish == 1 || $event->is_publish == 2){
+        if(new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date.' '.$event->end_time, new DateTimeZone('Asia/Jakarta'))){
+        // if($event->is_publish == 1 || $event->is_publish == 2){
             foreach ($sessions as $session) {
                 $session->tickets = $session->tickets()->get();
             }
@@ -233,7 +237,7 @@ class EventCtrl extends Controller
             "handbooks" => $event->handbooks()->get(),
             "receptionists" => $event->receptionists()->get(),
             "organization" => $event->org()->first(),
-            "vouchers" => $event->is_publish == 1 || $event->is_publish == 2 ? $event->vouchers()->get() : [],
+            "vouchers" => new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date.' '.$event->end_time, new DateTimeZone('Asia/Jakarta')) ? $event->vouchers()->get() : [],
         ], 200);
     }
 
@@ -245,7 +249,8 @@ class EventCtrl extends Controller
             return response()->json(["error" => "Event data not found"], 404);
         }
         $sessions = $event->sessions()->get();
-        if($event->is_publish == 1 || $event->is_publish == 2){
+        if(new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date.' '.$event->end_time, new DateTimeZone('Asia/Jakarta'))){
+        // if($event->is_publish == 1 || $event->is_publish == 2){
             foreach ($sessions as $session) {
                 $session->tickets = $session->tickets()->get();
             }
@@ -265,7 +270,7 @@ class EventCtrl extends Controller
             "handbooks" => $event->handbooks()->get(),
             "receptionists" => $event->receptionists()->get(),
             "organization" => $event->org()->first(),
-            "vouchers" => $event->is_publish == 1 || $event->is_publish == 2 ? $event->vouchers()->get() : [],
+            "vouchers" => new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date.' '.$event->end_time, new DateTimeZone('Asia/Jakarta')) ? $event->vouchers()->get() : [],
         ], 200);
     }
 
@@ -279,7 +284,8 @@ class EventCtrl extends Controller
         $data = ["events" => []];
         foreach ($events as $event) {
             $sessions = $event->sessions()->get();
-            if($event->is_publish == 1 || $event->is_publish == 2){
+            if(new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date.' '.$event->end_time, new DateTimeZone('Asia/Jakarta'))){
+            // if($event->is_publish == 1 || $event->is_publish == 2){
                 foreach ($sessions as $session) {
                     $session->tickets = $session->tickets()->get();
                 }
@@ -299,7 +305,7 @@ class EventCtrl extends Controller
                 "handbooks" => $event->handbooks()->get(),
                 "receptionists" => $event->receptionists()->get(),
                 "organization" => $event->org()->first(),
-                "vouchers" => $event->is_publish == 1 || $event->is_publish == 2 ? $event->vouchers()->get() : [],
+                "vouchers" => new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date.' '.$event->end_time, new DateTimeZone('Asia/Jakarta')) ? $event->vouchers()->get() : [],
             ];
         }
         return response()->json($data, 200);
@@ -327,7 +333,8 @@ class EventCtrl extends Controller
             Storage::delete('public/event_banners/'.explode('/', $eventObj->first()->logo)[3]);
             $deleted = $eventObj->delete();
         }else{
-            if($eventObj->first()->is_publish == 1 || $eventObj->first()->is_publish == 2){
+            if(new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($eventObj->first()->end_date.' '.$eventObj->first()->end_time, new DateTimeZone('Asia/Jakarta'))){
+            // if($eventObj->first()->is_publish == 1 || $eventObj->first()->is_publish == 2){
                 return response()->json(["error" => "Operation not allowed to your event. Your event still active"], 402);
             }
             $deleted = $eventObj->update(['deleted' => 1]);
@@ -341,6 +348,8 @@ class EventCtrl extends Controller
         // 1 => private
         // 2 => published
         // 3 => ended
+        // 4 => pending withdraw (first status code 1)
+        // 5 => pending withdraw (first status code 2)
         $event = Event::where('id', $req->event_id)->where('org_id', $orgId)->where('deleted', 0);
         if(!$event->first()){
             return response()->json(["error" => "Event data not found"], 404);

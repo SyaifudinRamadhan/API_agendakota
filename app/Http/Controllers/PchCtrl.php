@@ -181,13 +181,16 @@ class PchCtrl extends Controller
         if($req->voucher_code && !$voucher){
             return response()->json(["error" => "Voucher code not found"], 404);
         }
+        $remainingVoucher = 0;
         if($req->voucher_code){
             $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
             $start = new DateTime($voucher->start, new DateTimeZone('Asia/Jakarta'));
             $end = new DateTime($voucher->end, new DateTimeZone('Asia/Jakarta'));
-            if($voucher->quantity == 0 || $now < $start || $now > $end){
+            $purchasesVc = Purchase::where('code', $req->voucher_code)->get();
+            if($voucher->quantity <= count($purchasesVc) || $now < $start || $now > $end){
                 return response()->json(["error" => "This voucher is no longer available"], 404);
             }
+            $remainingVoucher = intval($voucher->quantity) - count($purchasesVc);
         }
         $ticket_ids = [];
         foreach ($req->ticket_ids as $ticket_id) {
@@ -212,8 +215,12 @@ class PchCtrl extends Controller
             if($ticket->quantity < $value){
                 return response()->json(["error" => "Only ".$ticket->quantity." tickets left for your selected id"], 403);
             }
-            $pubState = $ticket->session()->first()->event()->first()->is_publish;
-            if($pubState != 2 && $pubState != 1){
+            // $pubState = $ticket->session()->first()->event()->first()->is_publish;
+            // if($pubState != 2 && $pubState != 1){
+            //     return response()->json(["error" => "This event has not yet been published"], 403);
+            // }
+            $event = $ticket->session()->first()->event()->first();
+            if(new DateTime('now', new DateTimeZone('Asia/Jakarta')) > new DateTime($event->end_date.' '.$event->end_time, new DateTimeZone('Asia/Jakarta'))){
                 return response()->json(["error" => "This event has not yet been published"], 403);
             }
             if($ticket->type_price == 3){
@@ -249,9 +256,10 @@ class PchCtrl extends Controller
                 $voucherCode = '-';
                 $priceTicket = $ticketObj->first()->type_price == 3 ? $customPrices[$key] : $ticketObj->first()->price;
                 if($req->voucher_code){
-                    if($voucher->event_id == $ticketObj->first()->event_id){
+                    if($voucher->event_id == $ticketObj->first()->event_id && $remainingVoucher > 0){
                         $amount = (intval($priceTicket) - (intval($priceTicket)*(intval($voucher->discount)/100)));
                         $voucherCode = $req->voucher_code;
+                        $remainingVoucher -= 1;
                     }else{
                         $amount = intval($priceTicket);
                     }

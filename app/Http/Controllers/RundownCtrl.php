@@ -12,7 +12,7 @@ use DateTimeZone;
 
 class RundownCtrl extends Controller
 {
-    public function create(Request $req, $orgId, $eventId){
+    public function create(Request $req){
         $validator = Validator::make($req->all(), [
             'start_date' => 'required|string',
             'end_date' => 'required|string',
@@ -37,7 +37,7 @@ class RundownCtrl extends Controller
             return response()->json(["error" => "Rundown start time must be lower than end time"], 403);
         }
         $data = Rundown::create([
-            'event_id' => $eventId,
+            'event_id' => $req->event->id,
             'start_date' => $start->format("Y-m-d"),
             'end_date' => $end->format("Y-m-d"),
             'start_time' => $start->format("H:i:s"),
@@ -50,7 +50,7 @@ class RundownCtrl extends Controller
         return response()->json(["rundown" => $data], 201);
     }
 
-    public function update(Request $req, $orgId, $eventId){
+    public function update(Request $req){
         $validator = Validator::make($req->all(), [
             'rundown_id' => 'required|string',
             'start_date' => 'required|string',
@@ -87,7 +87,7 @@ class RundownCtrl extends Controller
         return response()->json(["updated" => $data], $data == 0 ? 404 : 202);
     }
 
-    public function delete(Request $req, $orgId, $eventId){
+    public function delete(Request $req){
         $rd = Rundown::where('id', $req->rundown_id)->where('event_id', $req->event->id);
         if(!$rd->first()){
             return response()->json(["error" => "Rundown data not found"], 404);
@@ -99,7 +99,7 @@ class RundownCtrl extends Controller
         return response()->json(["deleted" => $deleted], 202);
     }
 
-    public function get(Request $req, $orgId, $eventId){
+    public function get(Request $req){
         $rd = Rundown::where('id', $req->rundown_id)->where('event_id', $req->event->id);
         if(!$rd->first()){
             return response()->json(["error" => "Rundown data not found"], 404);
@@ -107,7 +107,7 @@ class RundownCtrl extends Controller
         return response()->json(["rundown" => $rd->first()], 200);
     }
 
-    public function getRundowns(Request $req, $orgId, $eventId){
+    public function getRundowns(Request $req){
         $rds = Rundown::where('event_id', $req->event->id)->get();
         return response()->json(["rundowns" => $rds], 200);
     }

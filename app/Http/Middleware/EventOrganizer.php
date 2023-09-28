@@ -28,6 +28,7 @@ class EventOrganizer
                 return response()->json(["error" => "Access forbidden. You are not an organizer event"], 403);
             }
         }
+        $request->org = $org;
         return $next($request);
     }
 }

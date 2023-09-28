@@ -60,7 +60,7 @@ class EvtSessionCtrl extends Controller
         }
     }
 
-    public function create(Request $req, $orgId, $eventId){
+    public function create(Request $req){
         $validator = Validator::make($req->all(), [
             "start_rundown_id" => "required|string",
             'end_rundown_id' => "required|string",
@@ -126,7 +126,7 @@ class EvtSessionCtrl extends Controller
         return response()->json(["event_session" => $eventSession], 201);
     }
 
-    public function update(Request $req, $orgId, $eventId){
+    public function update(Request $req){
         $validator = Validator::make($req->all(), [
             "session_id" => "required|string",
             "start_rundown_id" => "required|string",
@@ -191,7 +191,7 @@ class EvtSessionCtrl extends Controller
         return response()->json(["updated" => $updated], 202);
     }
 
-    public function delete(Request $req, $orgId, $eventId){
+    public function delete(Request $req){
         $evtSessionObj = EventSession::where('id', $req->session_id)->where('event_id', $req->event->id)->where('deleted', 0);
         if(!$evtSessionObj->first()){
             return response()->json(["error" => "Event session not found"], 404);
@@ -212,7 +212,8 @@ class EvtSessionCtrl extends Controller
         if($purchases == 0){
             $deleted = $evtSessionObj->delete();
         }else{
-            if($req->event->first()->is_publish == 1 || $req->event->first()->is_publish == 2){
+            if(new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($req->event->end_date.' '.$req->event->end_time, new DateTimeZone('Asia/Jakarta'))){
+            // if($req->event->is_publish == 1 || $req->event->is_publish == 2){
                 return response()->json(["error" => "You can't remove this session. Because your event are in progress or this session have linked with selled tickets in active event"], 403);
             }
             $deleted = $evtSessionObj->update(["deleted" => 1]);
@@ -221,7 +222,7 @@ class EvtSessionCtrl extends Controller
         return response()->json(["deleted" => $deleted], 202);
     }
 
-    public function get(Request $req, $orgId, $eventId){
+    public function get(Request $req){
         $eventSession = EventSession::where('id', $req->session_id)->where('event_id', $req->event->id)->where('deleted', 0)->first();
         if(!$eventSession){
             return response()->json(["error" => "Event session not found"], 404);
@@ -229,7 +230,7 @@ class EvtSessionCtrl extends Controller
         return response()->json(["event_session" => $eventSession], 200);
     }
 
-    public function getSessions(Request $req, $orgId, $eventId){
+    public function getSessions(Request $req){
         $eventSessions = EventSession::where('event_id', $req->event->id)->where('deleted', 0)->get();
         if(count($eventSessions) == 0){
             return response()->json(["error" => "Event session not found"], 404);

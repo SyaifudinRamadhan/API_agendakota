@@ -12,7 +12,7 @@ use DateTimeZone;
 
 class TicketCtrl extends Controller
 {
-    public function create(Request $req, $orgId, $eventId){
+    public function create(Request $req){
         $validator = Validator::make($req->all(), [
             'session_id' => 'required|string',
             'name' => 'required|string',
@@ -62,7 +62,7 @@ class TicketCtrl extends Controller
         return response()->json(["ticket" => $ticket], 201);
     }
 
-    public function update(Request $req, $orgId, $eventId){
+    public function update(Request $req){
         $validator = Validator::make($req->all(), [
             'ticket_id' => 'required|string',
             'session_id' => 'required|string',
@@ -111,7 +111,7 @@ class TicketCtrl extends Controller
         return response()->json(["updated" => $updated], 202);
     }
 
-    public function delete(Request $req, $orgId, $eventId){
+    public function delete(Request $req){
         $ticket = Ticket::where('id', $req->ticket_id)->where('session_id', $req->session_id)->where('event_id', $req->event->id)->where('deleted', 0);
         if(!$ticket->first()){
             return response()->json(["error" => "Ticket data not found"], 404);
@@ -119,8 +119,10 @@ class TicketCtrl extends Controller
         if(count($ticket->first()->purchases()->get()) <= 0){
             $deleted = $ticket->delete();
         }else{
+            // if($ticket->first()->type_price == 1 && 
+            //    ($req->event->is_publish == 1 || $req->event->is_publish == 2)){
             if($ticket->first()->type_price == 1 && 
-               ($req->event->first()->is_publish == 1 || $req->event->first()->is_publish == 2)){
+            (new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($req->event->end_date.' '.$req->event->end_time, new DateTimeZone('Asia/Jakarta')))){
                 return response()->json(["error" => "You can't remove this session. Because your event are in progress and this session have linked with selled active tickets"], 403);
             }
             if($ticket->first()->type_price == 1){
@@ -133,8 +135,10 @@ class TicketCtrl extends Controller
                         break;
                     }
                 }
-                if($fixPurchases > 0 &&
-                   ($req->event->first()->is_publish == 1 || $req->event->first()->is_publish == 2)){
+                // if($fixPurchases > 0 &&
+                //    ($req->event->is_publish == 1 || $req->event->is_publish == 2)){
+                if($fixPurchases > 0 && 
+                new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($req->event->end_date.' '.$req->event->end_time, new DateTimeZone('Asia/Jakarta'))){
                     return response()->json(["error" => "You can't remove this session. Because your event are in progress and this session have linked with selled active tickets"], 403);
                 }
                 if($fixPurchases > 0){
@@ -147,7 +151,7 @@ class TicketCtrl extends Controller
         return response()->json(["deleted" => $deleted], 202);
     }
 
-    public function get(Request $req, $orgId, $eventId){
+    public function get(Request $req){
         $ticket = Ticket::where('id', $req->ticket_id)->where('event_id', $req->event->id)->where('deleted', 0)->first();
         if(!$ticket){
             return response()->json(["error" => "Ticket data not found"], 404);
@@ -166,7 +170,7 @@ class TicketCtrl extends Controller
         return response()->json(["ticket" => $ticket], 200);
     }
 
-    public function getTickets(Request $req, $orgId, $eventId){
+    public function getTickets(Request $req){
         $tickets = Ticket::where('event_id', $req->event->id)->where('deleted', 0)->get();
         if(count($tickets) == 0){
             return response()->json(["error" => "Tickets data not found for this event"], 404);

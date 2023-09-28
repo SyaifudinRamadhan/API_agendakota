@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Otp;
 use App\Mail\Verification;
 use App\Mail\ResetPassword;
+use App\Mail\VerificationBank;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -98,6 +99,7 @@ class Authenticate extends Controller
         }
         return response()->json([
             'data' => $user,
+            'admin' => $user->admin()->first(),
             'access_token' => $token,
             'token_type' => 'Bearer'
         ], 200);
@@ -176,6 +178,7 @@ class Authenticate extends Controller
             }
             return response()->json([
                 'data' => $user,
+                'admin' => $user->admin()->first(),
                 'access_token' => $token,
                 'token_type' => 'Bearer'
             ], 200);
@@ -206,49 +209,66 @@ class Authenticate extends Controller
         return $user;
     }
 
+    public function generateOtp($email, $forLogin = true, $data = null){
+        $otp = "";
+        for ($i=0; $i <6 ; $i++) { 
+            $otp = $otp.rand(0, 9);
+        }
+        $user = User::where('email', $email)->first();
+        if(!$user){
+            $user = $this->registerWithOtp($req->email, $otp);
+        }else{
+            $updated = Otp::where('user_id', $user->id)->update([
+                'otp_code' => $otp
+            ]);
+            if($updated == 0){
+                Otp::create([
+                    'user_id' => $user->id,
+                    'otp_code' => $otp,
+                ]);
+            }
+        }
+        if($forLogin){
+            Mail::to($email)->send(new Verification($email, $otp, true));
+            return ["message" => "check your email to get the OTP code"];
+        }else{
+            Mail::to($email)->send(new VerificationBank($data["code_bank"], $data["acc_number"], $otp));
+            return ["message" => "check your email to get the OTP code"];
+        }
+    }
+
     public function loginWithOtp(Request $req){
         $validator = Validator::make($req->all(), [
             "email" => 'required|string'
         ]);
         if($validator->fails()){
-            return response()->json($req->errors(), 403);
+            return response()->json($validator->errors(), 403);
         }
         if(!filter_var($req->email, FILTER_VALIDATE_EMAIL)){
             return response()->json(["error" => "Email is not valid"], 403);
         }
-        $otp = "";
-        for ($i=0; $i <6 ; $i++) { 
-            $otp = $otp.rand(0, 9);
-        }
-        $user = User::where('email', $req->email)->first();
-        if(!$user){
-            $user = $this->registerWithOtp($req->email, $otp);
-        }else{
-            Otp::where('user_id', $user->id)->update([
-                'otp_code' => $otp
-            ]);
-        }
-        Mail::to($req->email)->send(new Verification($req->email, $otp, true));
-        return response()->json(["message" => "check your email to get the OTP code"], 200);
+        $msg = $this->generateOtp($req->email);
+        return response()->json($msg, 200);
     }
 
     public function verifyOtp(Request $req){
         $validator = Validator::make($req->all(), [
-            "email" => "required|string"
+            "email" => "required|string",
+            "otp_code" => "required|string"
         ]);
         if($validator->fails()){
             return response()->json($validator->errors(), 403);
         }
-        $otp = Otp::where('otp_code', $req->otp_code);
-        if(!$otp->first()){
-            return response()->json(["error" => "OTP code is not valid"]);
-        }
-        $user = $otp->first()->user();
+        $user = User::where('email', $req->email);
         if(!$user->first()){
             return response()->json(["error" => "User data not found"], 404);
         }
-        if($user->first()->email != $req->email){
-            return response()->json(["error" => "OTP code and email is not match"], 404);
+        $otp = $user->first()->otp()->first();
+        if(!$otp){
+            return response()->json(["error" => "OTP code is not found"]);
+        }
+        if($otp->otp_code != $req->otp_code){
+            return response()->json(["error" => "OTP code is not valid"]);
         }
         $user->update([
             "is_active" => '1'
@@ -264,6 +284,7 @@ class Authenticate extends Controller
         }
         return response()->json([
             "data" => $user,
+            'admin' => $user->admin()->first(),
             "access_token" => $token,
             "token_type" => "Bearer"
         ]);

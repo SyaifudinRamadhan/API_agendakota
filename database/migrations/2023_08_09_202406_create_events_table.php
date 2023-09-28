@@ -29,7 +29,7 @@ return new class extends Migration
             $table->date('end_date');
             $table->time('start_time');
             $table->time('end_time');
-            $table->boolean('is_publish');
+            $table->integer('is_publish');
             $table->string('instagram',212)->nullable();
             $table->string('twitter',212)->nullable();
             $table->string('website',212)->nullable();

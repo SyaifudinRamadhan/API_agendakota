@@ -15,6 +15,8 @@ use Firebase\JWT\Key;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Str;
+use DateTime;
+use DateTimeZone;
 
 class OrgCtrl extends Controller
 {
@@ -149,7 +151,8 @@ class OrgCtrl extends Controller
         foreach ($orgObj->first()->events()->get() as $event) {
             foreach ($event->tickets()->get() as $ticket) {
                 foreach ($ticket->purchases()->get() as $purchase) {
-                    if(($event->is_publish == 1 || $event->is_publish == 2) && ($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED')){
+                    if(new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date.' '.$event->end_time, new DateTimeZone('Asia/Jakarta'))){
+                    // if(($event->is_publish == 1 || $event->is_publish == 2) && ($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED')){
                         $fixPurchaseActiveEvent += 1;
                         break;
                     }else if($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED'){

@@ -6,6 +6,7 @@ use Illuminate\Foundation\Http\Kernel as HttpKernel;
 use App\Http\Middleware\EventOrganizer;
 use App\Http\Middleware\EventData;
 use App\Http\Middleware\EventSessionData;
+use App\Http\Middleware\AdminPriv;
 
 class Kernel extends HttpKernel
 {
@@ -70,5 +71,6 @@ class Kernel extends HttpKernel
         'eventOrganizer' => EventOrganizer::class,
         'eventData' => EventData::class,
         'eventSessionData' => EventSessionData::class,
+        'admin' => AdminPriv::class,
     ];
 }

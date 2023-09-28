@@ -58,7 +58,7 @@ class User extends Authenticatable
     ];
 
     public function admin(): HasOne{
-        return $this->hasMany(Admin::class, 'user_id');
+        return $this->hasOne(Admin::class, 'user_id');
     }
 
     public function organizations(): HasMany{
@@ -87,5 +87,9 @@ class User extends Authenticatable
 
     public function teams(): HasMany{
         return $this->hasMany(Team::class, 'user_id');
+    }
+
+    public function otp(): HasOne{
+        return $this->hasOne(Otp::class, 'user_id');
     }
 }

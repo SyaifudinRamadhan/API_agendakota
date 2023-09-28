@@ -23,7 +23,7 @@ class BillAccount extends Model
         return $this->belongsTo(Organization::class, 'org_id');
     }
 
-    public function withdraw(): HasMany{
+    public function withdraws(): HasMany{
         return $this->hasMany(Withdraw::class, 'bill_acc_id');
     }
 }
