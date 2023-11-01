@@ -14,18 +14,19 @@ use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
-use Str;
+use Illuminate\Support\Str;
 use DateTime;
 use DateTimeZone;
 
 class OrgCtrl extends Controller
 {
     // Create organization (can access admin and user basic)
-    public function create(Request $req, $userId = null){
-        if($userId == null){
+    public function create(Request $req, $userId = null)
+    {
+        if ($userId == null) {
             $userId = Auth::user()->id;
-        }else{
-            if(!User::where('id', $userId)->first()){
+        } else {
+            if (!User::where('id', $userId)->first()) {
                 return response()->json(["error" => "User not found"], 404);
             }
         }
@@ -35,7 +36,7 @@ class OrgCtrl extends Controller
             'interest' => 'required|string',
             'desc' => 'required|string'
         ]);
-        if($validator->fails()){
+        if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
         $org = Organization::create([
@@ -45,7 +46,7 @@ class OrgCtrl extends Controller
             'slug' => Str::slug($req->name),
             'interest' => $req->interest,
             'desc' => $req->desc,
-            'photo' => '/storage/org_avatars/default.png', 
+            'photo' => '/storage/org_avatars/default.png',
             'banner' => '/storage/org_banners/default.png',
             'email' => '-',
             'linkedin' => '-',
@@ -59,8 +60,9 @@ class OrgCtrl extends Controller
     }
 
     // Update profile organization (can access admin and user basic)
-    public function update(Request $req, $isAdmin = null){
-        $validator = Validator::make($req->all(),[
+    public function update(Request $req, $isAdmin = null)
+    {
+        $validator = Validator::make($req->all(), [
             'org_id' => 'required|string',
             'type' => 'required|string',
             'name' => 'required|string',
@@ -75,40 +77,40 @@ class OrgCtrl extends Controller
             'website' => 'required|string',
             'desc' => 'required|string'
         ]);
-        if($validator->fails()){
+        if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
         $orgObj = Organization::where('id', $req->org_id);
-        if(!$orgObj->first()){
+        if (!$orgObj->first()) {
             return response()->json(["error" => "Data not found or match"], 404);
         }
-        if($isAdmin == null){
+        if ($isAdmin == null) {
             $user = Auth::user();
-            if($orgObj->first()->user_id != $user->id){
+            if ($orgObj->first()->user_id != $user->id) {
                 return response()->json(["error" => "Data not found or match"], 404);
             }
         }
         // handle upload image
         $namePhoto = $orgObj->first()->photo;
-        if($req->hasFile('photo')){
+        if ($req->hasFile('photo')) {
             $originName = pathinfo($req->file('photo')->getClientOriginalName(), PATHINFO_FILENAME);
-            $namePhoto = $originName.'_'.time().'.'.$req->file('photo')->getClientOriginalExtension();
+            $namePhoto = $originName . '_' . time() . '.' . $req->file('photo')->getClientOriginalExtension();
             $req->file('photo')->storeAs('public/org_avatars', $namePhoto);
-            $namePhoto = '/storage/org_avatars/'.$namePhoto;
-            if($orgObj->first()->photo != '/storage/org_avatars/default.png'){
+            $namePhoto = '/storage/org_avatars/' . $namePhoto;
+            if ($orgObj->first()->photo != '/storage/org_avatars/default.png') {
                 $fileName = explode('/', $orgObj->first()->photo);
-                Storage::delete('public/org_avatars/'.$fileName[3]);
+                Storage::delete('public/org_avatars/' . $fileName[3]);
             }
         }
         $nameBanner = $orgObj->first()->banner;
-        if($req->hasFile('banner')){
+        if ($req->hasFile('banner')) {
             $originalName = pathinfo($req->file('banner')->getClientOriginalName(), PATHINFO_FILENAME);
-            $nameBanner = $originalName.'_'.time().'.'.$req->file('banner')->getClientOriginalExtension();
+            $nameBanner = $originalName . '_' . time() . '.' . $req->file('banner')->getClientOriginalExtension();
             $req->file('banner')->storeAs('public/org_banners', $nameBanner);
-            $nameBanner = '/storage/org_banners/'.$nameBanner;
-            if($orgObj->first()->banner != '/storage/org_banners/default.png'){
+            $nameBanner = '/storage/org_banners/' . $nameBanner;
+            if ($orgObj->first()->banner != '/storage/org_banners/default.png') {
                 $fileName = explode('/', $orgObj->first()->banner);
-                Storage::delete('public/org_banners/'.$fileName[3]);
+                Storage::delete('public/org_banners/' . $fileName[3]);
             }
         }
         $updated = $orgObj->update([
@@ -117,7 +119,7 @@ class OrgCtrl extends Controller
             'slug' => Str::slug($req->name),
             'interest' => $req->interest,
             'desc' => $req->desc,
-            'photo' => $namePhoto, 
+            'photo' => $namePhoto,
             'banner' => $nameBanner,
             'email' => $req->email,
             'linkedin' => $req->linkedin,
@@ -131,18 +133,19 @@ class OrgCtrl extends Controller
     }
 
     // Delete organiztion (can access admin only)
-    public function delete(Request $req, $isAdmin = null){
+    public function delete(Request $req, $isAdmin = null)
+    {
         $validator = Validator::make($req->all(), ["org_id" => 'required']);
-        if($validator->fails()){
+        if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
         $orgObj = Organization::where('id', $req->org_id);
-        if(!$orgObj->first()){
+        if (!$orgObj->first()) {
             return response()->json(["error" => "Data not found or match"], 404);
         }
-        if($isAdmin == null){
+        if ($isAdmin == null) {
             $user = Auth::user();
-            if($orgObj->first()->user_id != $user->id){
+            if ($orgObj->first()->user_id != $user->id) {
                 return response()->json(["error" => "Data not found or match"], 404);
             }
         }
@@ -151,50 +154,52 @@ class OrgCtrl extends Controller
         foreach ($orgObj->first()->events()->get() as $event) {
             foreach ($event->tickets()->get() as $ticket) {
                 foreach ($ticket->purchases()->get() as $purchase) {
-                    if(new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date.' '.$event->end_time, new DateTimeZone('Asia/Jakarta'))){
-                    // if(($event->is_publish == 1 || $event->is_publish == 2) && ($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED')){
+                    if (new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta')) && $event->deleted == 0) {
+                        // if(($event->is_publish == 1 || $event->is_publish == 2) && ($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED')){
                         $fixPurchaseActiveEvent += 1;
                         break;
-                    }else if($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED'){
+                    } else if ($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED') {
                         $fixPurchaseInActiveEvent += 1;
                     }
                 }
-                if($fixPurchaseActiveEvent > 0){
+                if ($fixPurchaseActiveEvent > 0) {
                     break;
                 }
             }
-            if($fixPurchaseActiveEvent > 0){
+            if ($fixPurchaseActiveEvent > 0) {
                 break;
             }
         }
-        if($fixPurchaseActiveEvent > 0){
+        if ($fixPurchaseActiveEvent > 0) {
             return response()->json(["error" => "You can't remove this organization, because this organization have active events"], 403);
         }
         $deleted = null;
-        if($fixPurchaseInActiveEvent > 0){
+        if ($fixPurchaseInActiveEvent > 0) {
             $deleted = $orgObj->update(['deleted' => '1']);
-        }else{
+        } else {
             foreach ($orgObj->first()->events()->get() as $event) {
-                Storage::delete('public/event_banners/'.explode('/', $event->logo)[3]);
+                Storage::delete('public/event_banners/' . explode('/', $event->logo)[3]);
             }
-            Storage::delete('public/org_avatars/'.explode($orgObj->first()->photo)[3]);
-            Storage::delete('public/org_banners/'.explode($orgObj->first()->banner)[3]);
+            Storage::delete('public/org_avatars/' . explode('/', $orgObj->first()->photo)[3]);
+            Storage::delete('public/org_banners/' . explode('/', $orgObj->first()->banner)[3]);
             $deleted = $orgObj->delete();
         }
         return response()->json(['deleted' => $deleted], 202);
     }
 
     // Read organization (can access admin and user basic)
-    public function getOrg($orgId){
+    public function getOrg($orgId)
+    {
         $org = Organization::where('id', $orgId)->where('deleted', 0)->first();
-        if(!$org){
+        if (!$org) {
             return response()->json(["error" => "Data not found or match"], 404);
         }
         return response()->json(["organization" => $org], 200);
     }
 
-    public function getOrgsByUser($userId = null){
-        if($userId == null){
+    public function getOrgsByUser($userId = null)
+    {
+        if ($userId == null) {
             $userId = Auth::user()->id;
         }
         $orgs = Organization::where('user_id', $userId)->where('deleted', 0)->get();
@@ -202,18 +207,19 @@ class OrgCtrl extends Controller
     }
 
     // Create teams (admin and user basic)
-    public function inviteTeam(Request $req, $orgId){
+    public function inviteTeam(Request $req, $orgId)
+    {
         $validator = Validator::make($req->all(), [
             "email" => 'required'
         ]);
-        if($validator->fails()){
+        if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
         $org = Organization::where('id', $orgId)->where('deleted', 0)->first();
-        if(!$org || Auth::user()->id != $org->user_id){
+        if (!$org || Auth::user()->id != $org->user_id) {
             return response()->json(["error" => "Data not found or match"], 404);
         }
-        $defaultPassword = 'team_'.$org->slug;
+        $defaultPassword = 'team_' . $org->slug;
         $token = JWT::encode([
             "email" => $req->email,
             "org_id" => $org->id,
@@ -225,7 +231,8 @@ class OrgCtrl extends Controller
     }
 
     // Receive / accept invitation
-    public function acceptInviteTeam($token){
+    public function acceptInviteTeam($token)
+    {
         $decoded = '';
         try {
             $decoded = JWT::decode($token, new Key(env('JWT_SECRET'), env('JWT_ALG')));
@@ -234,7 +241,7 @@ class OrgCtrl extends Controller
         }
         // check email is registered ? if isn't system will be automatic registered this with default password
         $user = User::where('email', $decoded->email)->first();
-        if(!$user){
+        if (!$user) {
             $mailSplit = explode("@", $decoded->email);
             $user = User::create([
                 'f_name' => $mailSplit[0],
@@ -261,9 +268,10 @@ class OrgCtrl extends Controller
     }
 
     // Get teams
-    public function getTeams($orgId){
+    public function getTeams($orgId)
+    {
         $org = Organization::where('id', $orgId)->where('deleted', 0)->first();
-        if(!$org || $org->user_id != Auth::user()->id){
+        if (!$org || $org->user_id != Auth::user()->id) {
             return response()->json(["error" => "Data not found or not match"], 404);
         }
         $teams = Team::where('org_id', $org->id)->get();
@@ -271,14 +279,15 @@ class OrgCtrl extends Controller
     }
 
     // Delete team (admin and user basic)
-    public function deleteTeam(Request $req){
+    public function deleteTeam(Request $req)
+    {
         $team = Team::where('id', $req->team_id);
         $user = Auth::user();
-        if(!$team->first()){
+        if (!$team->first()) {
             return response()->json(["error" => "Team not found"], 404);
         }
         $org = Organization::where('id', $team->first()->org_id)->where('deleted', 0)->first();
-        if($user->id != $org->user_id){
+        if ($user->id != $org->user_id) {
             return response()->json(["error" => "you are isn't an organizer, but only a team member of this organization"], 403);
         }
         $deleted = $team->delete();

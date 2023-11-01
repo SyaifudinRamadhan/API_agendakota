@@ -12,15 +12,17 @@ class SessionGuest extends Model
     use HasFactory, HasUuids;
 
     protected $fillable = [
-        'rundown_id',
+        'session_id',
         'guest_id'
     ];
 
-    public function rundown(): BelongsTo{
-        return $this->belongsTo(Rundown::class, 'rundown_id');
+    public function sesssion(): BelongsTo
+    {
+        return $this->belongsTo(EventSession::class, 'session_id');
     }
 
-    public function guest(): BelongsTo{
+    public function guest(): BelongsTo
+    {
         return $this->belongsTo(Guest::class, 'guest_id');
     }
 }

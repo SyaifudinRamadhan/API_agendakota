@@ -35,66 +35,99 @@ class Event extends Model
         'twitter',
         'website',
         'twn_url',
+        'custom_fields',
+        'seat_map',
+        'single_trx',
         'deleted',
     ];
 
-    public function org(): BelongsTo{
+    public function org(): BelongsTo
+    {
         return $this->belongsTo(Organization::class, 'org_id')->where('deleted', 0);
     }
 
-    public function rundowns(): HasMany{
-        return $this->hasMany(Rundown::class, 'event_id');
-    }
-
-    public function sessions(): HasMany{
+    public function sessions(): HasMany
+    {
         return $this->hasMany(EventSession::class, 'event_id')->where('deleted', 0);
     }
 
-    public function payment(): HasOne{
+    public function payment(): HasOne
+    {
         return $this->hasOne(PkgPayment::class, 'event_id');
     }
 
-    public function withdraw(): HasOne{
+    public function withdraw(): HasOne
+    {
         return $this->hasOne(Withdraw::class, 'event_id');
     }
 
-    public function breakdowns(): HasMany{
+    public function breakdowns(): HasMany
+    {
         return $this->hasMany(Breakdown::class, 'event_id');
     }
 
-    public function exhs(): HasMany{
+    public function exhs(): HasMany
+    {
         return $this->hasMany(Exhibitor::class, 'event_id');
     }
 
-    public function guests(): HasMany{
+    public function guests(): HasMany
+    {
         return $this->hasMany(Guest::class, 'event_id');
     }
 
-    public function handbooks(): HasMany{
+    public function handbooks(): HasMany
+    {
         return $this->hasMany(Handbook::class, 'event_id');
     }
 
-    public function receptionists(): HasMany{
+    public function receptionists(): HasMany
+    {
         return $this->hasMany(Receptionist::class, 'event_id');
     }
 
-    public function slugCustoms(): HasMany{
+    public function slugCustoms(): HasMany
+    {
         return $this->hasMany(SlugCustom::class, 'event_id');
     }
 
-    public function sponsors(): HasMany{
+    public function sponsors(): HasMany
+    {
         return $this->hasMany(Sponsor::class, 'event_id');
     }
 
-    public function vouchers(): HasMany{
+    public function vouchers(): HasMany
+    {
         return $this->hasMany(Voucher::class, 'event_id');
     }
 
-    public function checkins(): HasMany{
+    public function checkins(): HasMany
+    {
         return $this->hasMany(Checkin::class, 'event_id');
     }
 
-    public function tickets(): HasMany{
+    public function tickets(): HasMany
+    {
         return $this->hasMany(Ticket::class, 'event_id')->where('deleted', 0);
+    }
+
+    public function surveys(): HasMany
+    {
+        return $this->hasMany(CustomFieldSurvey::class, 'event_id');
+    }
+
+    public function availableDays(): HasMany
+    {
+        return $this->hasMany(AvailableDayTicketSell::class, "event_id");
+    }
+
+    public function mailAttandances(): HasMany
+    {
+        return $this->hasMany(MailAttandance::class, 'event_id');
+    }
+
+    public function availableReschedule(): HasOne
+    {
+        return $this->hasOne(LimitReschedule::class, 'event_id');
     }
 }

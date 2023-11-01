@@ -14,12 +14,13 @@ return new class extends Migration
         Schema::create('event_sessions', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('event_id')->references('id')->on('events')->onDelete('cascade')->onUpdate('cascade');
-            $table->foreignUuid('start_rundown_id')->references('id')->on('rundowns')->onDelete('cascade')->onUpdate('cascade');
-            $table->foreignUuid('end_rundown_id')->references('id')->on('rundowns')->onDelete('cascade')->onUpdate('cascade');
-            $table->string('title');
-            $table->text('link')->nullable();
-            $table->string('desc')->nullable();
-            $table->integer('deleted');
+            $table->string('name');
+            $table->date('start_date');
+            $table->date('end_date');
+            $table->time('start_time');
+            $table->time('end_time');
+            $table->text('desc');
+            $table->string('cover');
             $table->timestamps();
         });
     }

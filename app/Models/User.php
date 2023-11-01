@@ -14,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable, HasUuids;
-    
+
 
     /**
      * The attributes that are mass assignable.
@@ -57,39 +57,53 @@ class User extends Authenticatable
         'password' => 'hashed',
     ];
 
-    public function admin(): HasOne{
+    public function admin(): HasOne
+    {
         return $this->hasOne(Admin::class, 'user_id');
     }
 
-    public function organizations(): HasMany{
+    public function organizations(): HasMany
+    {
         return $this->hasMany(Organization::class, 'user_id');
     }
 
-    public function messages(): HasMany{
+    public function messages(): HasMany
+    {
         return $this->hasMany(Message::class, 'user_id');
     }
 
-    public function connections(): HasMany{
+    public function connections(): HasMany
+    {
         return $this->hasMany(Connection::class, 'user_id');
     }
 
-    public function payments(): HasMany{
+    public function payments(): HasMany
+    {
         return $this->hasMany(Payment::class, 'user_id');
     }
 
-    public function invitations(): HasMany{
+    public function invitations(): HasMany
+    {
         return $this->hasMany(Invitation::class, 'user_id');
     }
 
-    public function purchases(): HasMany{
+    public function purchases(): HasMany
+    {
         return $this->hasMany(Purchase::class, 'user_id');
     }
 
-    public function teams(): HasMany{
+    public function teams(): HasMany
+    {
         return $this->hasMany(Team::class, 'user_id');
     }
 
-    public function otp(): HasOne{
+    public function otp(): HasOne
+    {
         return $this->hasOne(Otp::class, 'user_id');
+    }
+
+    public function legality(): HasOne
+    {
+        return $this->hasOne(LegalityUser::class, 'user_id');
     }
 }

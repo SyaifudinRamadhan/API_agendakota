@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Organization extends Model
 {
@@ -30,23 +31,33 @@ class Organization extends Model
         'deleted'
     ];
 
-    public function user(): BelongsTo{
+    public function user(): BelongsTo
+    {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function events(): HasMany{
+    public function events(): HasMany
+    {
         return $this->hasMany(Event::class, 'org_id')->where('deleted', 0);
     }
 
-    public function withdrawals(): HasMany{
+    public function withdrawals(): HasMany
+    {
         return $this->hasMany(Withdraw::class, 'org_id');
     }
 
-    public function teams(): HasMany{
+    public function teams(): HasMany
+    {
         return $this->hasMany(Team::class, 'org_id');
     }
 
-    public function billAccs(): HasMany{
+    public function billAccs(): HasMany
+    {
         return $this->hasMany(BillAccount::class, 'org_id');
+    }
+
+    public function credibilityData(): HasOne
+    {
+        return $this->hasOne(CredibilityOrg::class, 'org_id');
     }
 }

@@ -17,13 +17,13 @@ class EventSessionData
     public function handle(Request $request, Closure $next): Response
     {
         $sessionId = $request->route()->parameter('sessionId');
-        if(!$sessionId){
+        if (!$sessionId) {
             $sessionId = $request->session_id;
         }
         $session = EventSession::where('id', $sessionId)
-                    ->where('event_id', $request->route()->parameter('eventId'))
-                    ->where('deleted', 0)->first();
-        if(!$session){
+            ->where('event_id', $request->route()->parameter('eventId'))
+            ->first();
+        if (!$session) {
             return response()->json(["error" => "Session data not found"], 404);
         }
         $request->evtSession = $session;

@@ -15,6 +15,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('org_id')->references('id')->on('organizations')->onUpdate('cascade')->onDelete('cascade');
             $table->string('bank_name');
+            $table->string('acc_name');
             $table->string('acc_number');
             $table->boolean('status')->default(false);
             $table->timestamps();

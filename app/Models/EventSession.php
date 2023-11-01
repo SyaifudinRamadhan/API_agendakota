@@ -13,23 +13,18 @@ class EventSession extends Model
     use HasFactory, HasUuids;
 
     protected $fillable = [
-        'event_id','start_rundown_id','end_rundown_id','title','desc',
-        'link','deleted'
+        'event_id',
+        'name',
+        'start_date',
+        'end_date',
+        'start_time',
+        'end_time',
+        'desc',
+        'cover',
     ];
 
-    public function event(): BelongsTo{
+    public function event(): BelongsTo
+    {
         return $this->belongsTo(Event::class, 'event_id')->where('deleted', 0);
-    }
-
-    public function startRundown(): BelongsTo{
-        return $this->belongsTo(Rundown::class, 'start_rundown_id');
-    }
-
-    public function endRundown(): BelongsTo{
-        return $this->belongsTo(Rundown::class, 'end_rundown_id');
-    }
-
-    public function tickets(): HasMany{
-        return $this->hasMany(Ticket::class, 'session_id')->where('deleted', 0);
     }
 }

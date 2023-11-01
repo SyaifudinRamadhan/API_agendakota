@@ -16,18 +16,22 @@ class Withdraw extends Model
         'org_id',
         'bill_acc_id',
         'nominal',
-        'status'
+        'basic_nominal',
+        'status',
     ];
 
-    public function event(): BelongsTo{
+    public function event(): BelongsTo
+    {
         return $this->belongsTo(Event::class, 'event_id');
     }
 
-    public function organization(): BelongsTo{
+    public function organization(): BelongsTo
+    {
         return $this->belongsTo(Organization::class, 'org_id');
     }
 
-    public function billAcc(): BelongsTo{
+    public function billAcc(): BelongsTo
+    {
         return $this->belongsTo(BillAccount::class, 'bill_acc_id');
     }
 }

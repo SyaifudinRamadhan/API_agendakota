@@ -15,15 +15,18 @@ class BillAccount extends Model
     protected $fillable = [
         'org_id',
         'bank_name',
+        'acc_name',
         'acc_number',
         'status'
     ];
 
-    public function org(): BelongsTo{
+    public function org(): BelongsTo
+    {
         return $this->belongsTo(Organization::class, 'org_id');
     }
 
-    public function withdraws(): HasMany{
+    public function withdraws(): HasMany
+    {
         return $this->hasMany(Withdraw::class, 'bill_acc_id');
     }
 }

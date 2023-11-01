@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('invitations', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('user_id')->references('id')->on('users')->onUpdate('cascade')->onDelete('cascade');
+            $table->foreignUuid('target_user_id')->references('id')->on('users')->onUpdate('cascade')->onDelete('cascade');
             $table->foreignUuid('pch_id')->references('id')->on('purchases')->onUpdate('cascade')->onDelete('cascade');
             $table->string('response')->nullable();
             $table->timestamps();

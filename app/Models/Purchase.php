@@ -18,26 +18,42 @@ class Purchase extends Model
         'pay_id',
         'ticket_id',
         'code',
-        'amount'
+        'amount',
+        'is_mine'
     ];
 
-    public function user(): BelongsTo{
+    public function user(): BelongsTo
+    {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function payment(): BelongsTo{
+    public function payment(): BelongsTo
+    {
         return $this->belongsTo(Payment::class, 'pay_id');
     }
 
-    public function ticket(): BelongsTo{
+    public function ticket(): BelongsTo
+    {
         return $this->belongsTo(Ticket::class, 'ticket_id');
     }
 
-    public function inivitations(): HasMany{
+    public function inivitations(): HasMany
+    {
         return $this->hasMany(Invitation::class, 'pch_id');
     }
 
-    public function checkin(): HasOne{
+    public function checkin(): HasOne
+    {
         return $this->hasOne(Checkin::class, 'pch_id');
+    }
+
+    public function visitDate(): HasOne
+    {
+        return $this->hasOne(DailyTicket::class, 'purchase_id');
+    }
+
+    public function seatNumber(): HasOne
+    {
+        return $this->hasOne(ReservedSeat::class, 'pch_id');
     }
 }

@@ -7,13 +7,13 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Ticket extends Model
 {
     use HasFactory, HasUuids;
 
     protected $fillable = [
-        'session_id',
         'event_id',
         'name',
         'desc',
@@ -22,18 +22,27 @@ class Ticket extends Model
         'quantity',
         'start_date',
         'end_date',
+        'seat_number',
+        'max_purchase',
         'deleted',
     ];
 
-    public function session(): BelongsTo{
-        return $this->belongsTo(EventSession::class, 'session_id')->where('deleted', 0);
-    }
-
-    public function purchases(): HasMany{
+    public function purchases(): HasMany
+    {
         return $this->hasMany(Purchase::class, 'ticket_id');
     }
-    
+
+    public function limitDaily(): HasOne
+    {
+        return $this->hasOne(DailyTicketLimit::class, 'ticket_id');
+    }
+
     // public function vouchers(): HasMany{
     //     return $this->hasMany(Voucher::class, 'ticket_id');
     // }
+
+    public function event(): BelongsTo
+    {
+        return $this->belongsTo(Event::class, 'event_id');
+    }
 }

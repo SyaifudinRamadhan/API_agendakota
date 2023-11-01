@@ -30,10 +30,13 @@ return new class extends Migration
             $table->time('start_time');
             $table->time('end_time');
             $table->integer('is_publish');
-            $table->string('instagram',212)->nullable();
-            $table->string('twitter',212)->nullable();
-            $table->string('website',212)->nullable();
+            $table->string('instagram', 212)->nullable();
+            $table->string('twitter', 212)->nullable();
+            $table->string('website', 212)->nullable();
             $table->string('twn_url')->nullable();
+            $table->string('custom_fields')->nullable();
+            $table->string('seat_map')->nullable();
+            $table->boolean('single_trx')->default(false);
             $table->integer('deleted');
             $table->timestamps();
         });

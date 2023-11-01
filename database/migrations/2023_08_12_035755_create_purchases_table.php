@@ -18,6 +18,7 @@ return new class extends Migration
             $table->foreignUuid('ticket_id')->references('id')->on('tickets')->onUpdate('cascade')->onDelete('cascade');
             $table->string('code');
             $table->integer('amount');
+            $table->boolean('is_mine')->default(false);
             $table->timestamps();
         });
     }

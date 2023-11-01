@@ -13,15 +13,23 @@ class Invitation extends Model
 
     protected $fillable = [
         'user_id',
+        'target_user_id',
         'pch_id',
         'response'
     ];
 
-    public function user(): BelongsTo{
+    public function user(): BelongsTo
+    {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function purchase(): BelongsTo{
+    public function userTarget(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'target_user_id');
+    }
+
+    public function purchase(): BelongsTo
+    {
         return $this->belongsTo(Purchase::class, 'pch_id');
     }
 }

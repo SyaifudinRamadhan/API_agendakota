@@ -13,7 +13,6 @@ return new class extends Migration
     {
         Schema::create('tickets', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('session_id')->references('id')->on('event_sessions')->onDelete('cascade')->onUpdate('cascade');
             $table->foreignUuid('event_id')->references('id')->on('events')->onDelete('cascade')->onUpdate('cascade');
             $table->string('name');
             $table->string('desc');
@@ -22,6 +21,8 @@ return new class extends Migration
             $table->integer('quantity');
             $table->date('start_date');
             $table->date('end_date');
+            $table->boolean('seat_number')->default(false);
+            $table->integer('max_purchase');
             $table->integer('deleted');
             $table->timestamps();
         });

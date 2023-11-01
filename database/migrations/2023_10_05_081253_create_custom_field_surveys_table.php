@@ -11,17 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('rundowns', function (Blueprint $table) {
+        Schema::create('custom_field_surveys', function (Blueprint $table) {
             $table->uuid('id')->primary();
+            $table->foreignUuid('user_id')->references('id')->on('users')->onUpdate('cascade')->onDelete('cascade');
             $table->foreignUuid('event_id')->references('id')->on('events')->onDelete('cascade')->onUpdate('cascade');
-            $table->date('start_date');
-            $table->date('end_date');
-            $table->time('start_time');
-            $table->time('end_time');
-            $table->bigInteger('duration');
-            $table->string('name');
-            $table->string('desc')->nullable();
-            $table->integer('deleted');
+            $table->string("question_str");
+            $table->string('survey_datas');
             $table->timestamps();
         });
     }
@@ -31,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('rundowns');
+        Schema::dropIfExists('custom_field_surveys');
     }
 };

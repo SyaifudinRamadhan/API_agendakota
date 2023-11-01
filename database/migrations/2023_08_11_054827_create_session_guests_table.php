@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('session_guests', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('rundown_id')->references('id')->on('rundowns')->onUpdate('cascade')->onDelete('cascade');
+            $table->foreignUuid('session_id')->references('id')->on('event_sessions')->onUpdate('cascade')->onDelete('cascade');
             $table->foreignUuid('guest_id')->references('id')->on('guests')->onUpdate('cascade')->onDelete('cascade');
             $table->timestamps();
         });
