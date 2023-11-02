@@ -685,7 +685,7 @@ class PchCtrl extends Controller
             $passVisitDate = true;
         }
         if ($passSeatNumber) {
-            ReservedSeat::where('purchase_id', $req->purchase_id)->update([
+            ReservedSeat::where('pch_id', $req->purchase_id)->update([
                 'seat_number' => $req->seat_number
             ]);
         }
@@ -713,7 +713,7 @@ class PchCtrl extends Controller
         if (!$req->account_number) {
             return response()->json(["error" => "Account number / VA number field is required for admin consideration"], 403);
         }
-        $user = Auth::user()->id;
+        $user = Auth::user();
         RefundData::create([
             "purchase_id" => $resValidate["purchase"]->id,
             "user_id" => $user->id,

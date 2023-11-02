@@ -252,6 +252,6 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/change-wd-status', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'updateWithdrawStatus']);
         Route::get('/refunds', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'getRefunds']);
         Route::get('/refund', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'getRefund']);
-        Route::post('/refund/chamge-state', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'considerationRefund']);
+        Route::post('/refund/change-state', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'considerationRefund']);
     });
 });

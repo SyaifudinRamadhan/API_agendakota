@@ -391,7 +391,7 @@ Thanks,<br>
                                             </tbody>
                                         </table>\
                                         </p>
-                                        <p style="margin-top: 0px;margin-bottom: 0px;">Admin Notification.
+                                        <p style="margin-top: 0px;margin-bottom: 0px;">
                                             User problem / message : "{{ $textMessage }}"
                                         </p>
                                     </td>
