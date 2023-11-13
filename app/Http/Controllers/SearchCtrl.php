@@ -56,7 +56,7 @@ class SearchCtrl extends Controller
         $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         $city = ViralCity::first()->city()->first();
         $events = Event::where('end_date', '>=', $now->format('Y-m-d'))->where('city', 'like', '%' . $city->name . '%')->where('is_publish', 2)->get();
-        return response()->json(["events" => $this->basePopEvents($events)], 200);
+        return response()->json(["city" => $city, "events" => $this->basePopEvents($events)], 200);
     }
 
     public function searchEvents(Request $req)
