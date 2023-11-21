@@ -275,6 +275,10 @@ class OrgCtrl extends Controller
             return response()->json(["error" => "Data not found or not match"], 404);
         }
         $teams = Team::where('org_id', $org->id)->get();
+        foreach ($teams as $team) {
+            $team->user = $team->user()->first();
+            $team->organization = $team->organization()->first();
+        }
         return response()->json(["teams" => $teams], count($teams) == 0 ? 404 : 200);
     }
 

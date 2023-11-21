@@ -201,7 +201,7 @@ class WithdrawCtrl extends Controller
         if (!$wdData) {
             return response()->json(["error" => "Withdraw data not found"], 404);
         }
-        if ($wdData->event()->first()->category == 'Attraction' || $wdData->event()->first()->category == 'Daily Activities' || $wdData->event()->first()->category == 'Tour Travel (recurring)') {
+        if (($wdData->event()->first()->category == 'Attraction' || $wdData->event()->first()->category == 'Daily Activities' || $wdData->event()->first()->category == 'Tour Travel (recurring)') && $wdData->status == 1) {
             return response()->json(["error" => "Your aren't remove withdraw data of event with category Attraction, Daily Activities, or Tour Travel (recurring)"], 403);
         }
         if ($wdData->status == 0) {
@@ -272,7 +272,7 @@ class WithdrawCtrl extends Controller
             }
             if ($event->category == 'Attraction' || $event->category == 'Daily Activities' || $event->category == 'Tour Travel (recurring)') {
                 $hasWithdrawn = 0;
-                foreach (Withdraw::where('event_id', $event->id)->get() as $wd) {
+                foreach (Withdraw::where('event_id', $event->id)->where('status', '!=', -1)->get() as $wd) {
                     $hasWithdrawn += intval($wd->basic_nominal);
                 }
                 $amount -= $hasWithdrawn;

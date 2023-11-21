@@ -202,9 +202,9 @@ class PchCtrl extends Controller
             if (!$ticket) {
                 return ["error" => "Ticket is not found", "code" => 404];
             }
-            if (intval($ticket->max_purchase) < $value) {
-                return ["error" => "Max purchases is " . $ticket->max_purchase . " / user", "code" => 403];
-            }
+            // if (intval($ticket->max_purchase) < $value) {
+            //     return ["error" => "Max purchases is " . $ticket->max_purchase . " / user", "code" => 403];
+            // }
             if ($ticket->type_price == 3 && !$req->custom_prices) {
                 return ["error" => "Custom prices field is required for custom price ticket", "code" => 403];
             }
@@ -217,10 +217,14 @@ class PchCtrl extends Controller
             if ($event->is_publish == 1 || $event->is_publish >= 3) {
                 return ["error" => "This has not been published yet or is still in draft form", "code" => 403];
             }
+            $purchases = $ticket->purchases()->where('user_id', Auth::user()->id)->get();
+            if ((intval($ticket->max_purchase) - count($purchases)) < $value) {
+                return ["error" => "Max purchases is " . $ticket->max_purchase . " / user", "code" => 403];
+            }
             if ($event->single_trx == 1) {
                 $hasPayments = false;
-                foreach ($ticket->purchases()->where('user_id', Auth::user()->id)->get() as $pch) {
-                    if ($pch->payment()->first()->pay_state != 'EXPIRED') {
+                foreach ($purchases as $pch) {
+                    if ($pch->payment()->first()->pay_state != 'EXPIRED' && $pch->payment()->first()->user_id == Auth::user()->id) {
                         $hasPayments = true;
                         break;
                     }
@@ -925,7 +929,7 @@ class PchCtrl extends Controller
         }
         $payments = [];
         foreach ($paysData as $payData) {
-            $purchases = $payData->purchases()->get();
+            $purchases = $payData->purchases()->where('user_id', Auth::user()->id)->where('is_mine', true)->get();
             foreach ($purchases as $purchase) {
                 $purchase->ticket = $purchase->ticket()->first();
                 $purchase->ticket->event = $purchase->ticket->event()->first();

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Validator;
 use App\Models\Ticket;
 use DateTime;
 use DateTimeZone;
+use Illuminate\Support\Facades\Storage;
 
 class TicketCtrl extends Controller
 {
@@ -17,7 +18,8 @@ class TicketCtrl extends Controller
             'name' => 'required|string',
             'desc' => 'required|string',
             'type_price' => 'required|string',
-            'max_purchase' => 'required|numeric'
+            'max_purchase' => 'required|numeric',
+            'seat_map' => 'image|max:2048'
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
@@ -59,6 +61,13 @@ class TicketCtrl extends Controller
             $start = new DateTime($req->event->start_date, new DateTimeZone('Asia/Jakarta'));
             $end = new DateTime($req->event->end_date, new DateTimeZone('Asia/Jakarta'));
         }
+        $seatMap = null;
+        if ($req->seat_number == true && $req->hasFile('seat_map')) {
+            $fileName = pathinfo($req->file('seat_map')->getClientOriginalName(), PATHINFO_FILENAME);
+            $fileName = $fileName . '_' . time() . $req->file('seat_map')->getClientOriginalExtension();
+            $req->file('seat_map')->storeAs('public/seat_map_details', $fileName);
+            $seatMap = '/storage/seat_map_details/' . $fileName;
+        }
         $ticket = Ticket::create([
             'event_id' => $req->event->id,
             'name' => $req->name,
@@ -70,6 +79,7 @@ class TicketCtrl extends Controller
             'end_date' => $end->format('Y-m-d'),
             'seat_number' => $req->enable_seat_number == true ? true : false,
             'max_purchase' => abs($req->max_purchase),
+            'seat_map' => $seatMap,
             'deleted' => 0,
         ]);
         if (($req->event->category == 'Attraction' || $req->event->category == 'Daily Activities' || $req->event->category == 'Tour Travel (recurring)')) {
@@ -88,7 +98,8 @@ class TicketCtrl extends Controller
             'name' => 'required|string',
             'desc' => 'required|string',
             'type_price' => 'required|string',
-            'max_purchase' => 'required|numeric'
+            'max_purchase' => 'required|numeric',
+            'seat_map' => 'image|max:2048'
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
@@ -130,7 +141,19 @@ class TicketCtrl extends Controller
             $start = new DateTime($req->event->start_date, new DateTimeZone('Asia/Jakarta'));
             $end = new DateTime($req->event->end_date, new DateTimeZone('Asia/Jakarta'));
         }
-        $updated = Ticket::where('id', $req->ticket_id)->where('event_id', $req->event->id)->where('deleted', 0)->update([
+        $ticketObj = Ticket::where('id', $req->ticket_id)->where('event_id', $req->event->id)->where('deleted', 0);
+        $ticket = $ticketObj->first();
+        $seatMap = $ticket->seat_map;
+        if ($req->seat_number == true && $req->hasFile('seat_map')) {
+            if ($seatMap != null || $seatMap != '') {
+                Storage::delete('public/seat_map_details/' . explode('/', $seatMap)[3]);
+            }
+            $fileName = pathinfo($req->file('seat_map')->getClientOriginalName(), PATHINFO_FILENAME);
+            $fileName = $fileName . '_' . time() . $req->file('seat_map')->getClientOriginalExtension();
+            $req->file('seat_map')->storeAs('public/seat_map_details', $fileName);
+            $seatMap = '/storage/seat_map_details/' . $fileName;
+        }
+        $updated = $ticketObj->update([
             'name' => $req->name,
             'desc' => $req->desc,
             'type_price' => $req->type_price,
@@ -139,7 +162,8 @@ class TicketCtrl extends Controller
             'start_date' => $start->format('Y-m-d'),
             'end_date' => $end->format('Y-m-d'),
             'seat_number' => $req->enable_seat_number == true ? true : false,
-            'max_purchase' => abs($req->max_purchase)
+            'max_purchase' => abs($req->max_purchase),
+            'seat_map' => $seatMap
         ]);
         DailyTicketLimit::where('ticket_id', $req->ticket_id)->delete();
         if (($req->event->category == 'Attraction' || $req->event->category == 'Daily Activities' || $req->event->category == 'Tour Travel (recurring)') && $updated > 0) {
@@ -167,7 +191,11 @@ class TicketCtrl extends Controller
             ) {
                 return response()->json(["error" => "You can't remove this ticket. Because your event are in progress and this ticket have linked with selled active tickets"], 403);
             }
+            $seatMap = $ticket->first()->seat_map;
             if ($ticket->first()->type_price == 1) {
+                if ($seatMap != null || $seatMap != '') {
+                    Storage::delete('public/seat_map_details/' . explode('/', $seatMap)[3]);
+                }
                 $deleted = $ticket->update(["deleted" => 1]);
             } else {
                 $fixPurchases = 0;
@@ -183,6 +211,9 @@ class TicketCtrl extends Controller
                     ($req->event->category != 'Attraction' && $req->event->category != 'Daily Activities' && $req->event->category != 'Tour Travel (recurring)')
                 ) {
                     return response()->json(["error" => "You can't remove this ticket. Because your event are in progress and this ticket have linked with selled active tickets"], 403);
+                }
+                if ($seatMap != null || $seatMap != '') {
+                    Storage::delete('public/seat_map_details/' . explode('/', $seatMap)[3]);
                 }
                 if ($fixPurchases > 0) {
                     $deleted = $ticket->update(["deleted" => 1]);
