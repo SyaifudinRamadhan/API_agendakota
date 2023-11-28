@@ -17,10 +17,12 @@ class InvitationCtrl extends Controller
 {
     public function create(Request $req)
     {
-        $validator = Validator::make($req->all(), [
+        $validator = Validator::make(
+            $req->all(), [
             'target_email' => "required|email",
             'purchase_id' => "required|string"
-        ]);
+            ]
+        );
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
@@ -28,6 +30,9 @@ class InvitationCtrl extends Controller
         $purchase = Purchase::where('id', $req->purchase_id)->where('user_id', $sender->id)->where('is_mine', true)->first();
         if (!$purchase) {
             return response()->json(["error" =>  "Purchase data not found"], 404);
+        }
+        if($purchase->checkin()->first()) {
+            return response()->json(["error" => "This ticket has checkined"], 403);
         }
         if ($sender->email == $req->target_email) {
             return response()->json(["error" => "You can't invite your self"], 403);
@@ -40,7 +45,8 @@ class InvitationCtrl extends Controller
             //     return response()->json(["error" => "Email is not valid"], 403);
             // }
             $name = explode('@', $req->target_email)[0];
-            $user = User::create([
+            $user = User::create(
+                [
                 'f_name' => $name,
                 'l_name' => $name,
                 'name' => $name,
@@ -54,40 +60,51 @@ class InvitationCtrl extends Controller
                 'instagram' => '-',
                 'twitter' => '-',
                 'whatsapp' => '-'
-            ]);
+                ]
+            );
             for ($i = 0; $i < 6; $i++) {
                 $otp .= rand(0, 9);
             }
-            Otp::create([
+            Otp::create(
+                [
                 'user_id' => $user->id,
                 'otp_code' => $otp
-            ]);
+                ]
+            );
             $newUser = true;
         }
-        Purchase::where('id', $purchase->id)->update([
+        Purchase::where('id', $purchase->id)->update(
+            [
             'is_mine' => false
-        ]);
-        Invitation::create([
+            ]
+        );
+        Invitation::create(
+            [
             'user_id' => $sender->id,
             'target_user_id' => $user->id,
             'pch_id' => $purchase->id,
             'response' => 'WAITING'
-        ]);
+            ]
+        );
         if (!$newUser) {
-            Mail::to($user->email)->send(new InviteEvent(
-                $user->name,
-                $sender->email,
-                $purchase->ticket()->first()->event()->first()->name,
-                $purchase->ticket()->first()->name
-            ));
+            Mail::to($user->email)->send(
+                new InviteEvent(
+                    $user->name,
+                    $sender->email,
+                    $purchase->ticket()->first()->event()->first()->name,
+                    $purchase->ticket()->first()->name
+                )
+            );
         } else {
-            Mail::to($user->email)->send(new InviteEvent(
-                $user->email,
-                $sender->email,
-                $purchase->ticket()->first()->event()->first()->name,
-                $purchase->ticket()->first()->name,
-                $otp
-            ));
+            Mail::to($user->email)->send(
+                new InviteEvent(
+                    $user->email,
+                    $sender->email,
+                    $purchase->ticket()->first()->event()->first()->name,
+                    $purchase->ticket()->first()->name,
+                    $otp
+                )
+            );
         }
         return response()->json(["message" => "invitation has created and sent to target email"], 201);
     }
@@ -99,13 +116,17 @@ class InvitationCtrl extends Controller
         if (!$invitation->first()) {
             return response()->json(["error" => "Invitation not found"], 404);
         }
-        $invitation->update([
+        $invitation->update(
+            [
             'response' => 'ACCEPTED'
-        ]);
-        Purchase::where('id', $invitation->first()->pch_id)->update([
+            ]
+        );
+        Purchase::where('id', $invitation->first()->pch_id)->update(
+            [
             'user_id' => $user->id,
             'is_mine' => true
-        ]);
+            ]
+        );
         return response()->json(["message" => "You have succeeded clain or accept your invitatio"], 202);
     }
 
@@ -122,9 +143,11 @@ class InvitationCtrl extends Controller
         if ($invitation->first()->response == 'ACCEPTED') {
             return response()->json(["error" => "You can't remove invitation where the status have been ACCEPTED"], 403);
         }
-        Purchase::where('id', $invitation->first()->pch_id)->update([
+        Purchase::where('id', $invitation->first()->pch_id)->update(
+            [
             'is_mine' => true
-        ]);
+            ]
+        );
         $deleted = $invitation->delete();
         return response()->json(["deleted" => $deleted], 202);
     }

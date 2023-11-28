@@ -24,7 +24,8 @@ class Authenticate extends Controller
     //Register account
     public function register(Request $req)
     {
-        $validator = Validator::make($req->all(), [
+        $validator = Validator::make(
+            $req->all(), [
             'f_name' => 'required|string',
             'l_name' => 'required|string',
             'name' => 'required|string',
@@ -36,7 +37,8 @@ class Authenticate extends Controller
             'instagram' => 'required|string',
             'twitter' => 'required|string',
             'whatsapp' => 'required|string'
-        ]);
+            ]
+        );
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
@@ -55,7 +57,8 @@ class Authenticate extends Controller
             $namePhoto = '/storage/avatars/' . $namePhoto;
         }
 
-        $user = User::create([
+        $user = User::create(
+            [
             'f_name' => $req->f_name,
             'l_name' => $req->l_name,
             'name' => $req->name,
@@ -69,16 +72,19 @@ class Authenticate extends Controller
             'instagram' => $req->instagram,
             'twitter' => $req->twitter,
             'whatsapp' => $req->whatsapp
-        ]);
+            ]
+        );
 
         $tokenVerify = JWT::encode(['sub' => $user->id], env('JWT_SECRET'), env('JWT_ALG'));
 
         // Mail handler to verify
         Mail::to($req->email)->send(new Verification($user->name, $tokenVerify));
 
-        return response()->json([
+        return response()->json(
+            [
             'data' => $user,
-        ], 201);
+            ], 201
+        );
     }
 
     //Login account v. standart
@@ -101,27 +107,32 @@ class Authenticate extends Controller
             $user->tokens()->where('name', 'auth_token_web')->delete();
             $token = $user->createToken('auth_token_web')->plainTextToken;
         }
-        return response()->json([
+        return response()->json(
+            [
             'data' => $user,
             'admin' => $user->admin()->first(),
             'access_token' => $token,
             'token_type' => 'Bearer'
-        ], 200);
+            ], 200
+        );
     }
 
     //login account v. g_id
-    private function registerWithGoogle($credential)
+    private function registerWithGoogle($credential, $isMobile = false)
     {
         // This credential is remaked from frontend by google one tap reponse. Not from google response credential
         $payloadAcc = '';
         try {
             $payloadAcc = JWT::decode($credential, new Key(env('JWT_SECRET'), env('JWT_ALG')));
         } catch (\Throwable $th) {
-            return response()->json([
+            return response()->json(
+                [
                 'error' => 'Invalid signature credential',
-            ], 403);
+                ], 403
+            );
         }
-        $user = User::create([
+        $user = User::create(
+            [
             'f_name' => $payloadAcc->given_name,
             'l_name' => $payloadAcc->family_name,
             'name' => $payloadAcc->name,
@@ -129,30 +140,50 @@ class Authenticate extends Controller
             'password' => Hash::make(env('SECRET_PASS_BACKDOOR_GOOGLE_LOGIN')),
             'g_id' => $payloadAcc->sub,
             'photo' => '/storage/avatars/default.png',
-            'is_active' => '0',
+            'is_active' => '1',
             'phone' => '-',
             'linkedin' => '-',
             'instagram' => '-',
             'twitter' => '-',
             'whatsapp' => '-'
-        ]);
+            ]
+        );
 
-        $tokenVerify = JWT::encode(['sub' => $user->id], env('JWT_SECRET'), env('JWT_ALG'));
+        // $tokenVerify = JWT::encode(['sub' => $user->id], env('JWT_SECRET'), env('JWT_ALG'));
 
-        // Mail handler to verify
-        Mail::to($payloadAcc->email)->send(new Verification($payloadAcc->name, $tokenVerify));
+        // // Mail handler to verify
+        // Mail::to($payloadAcc->email)->send(new Verification($payloadAcc->name, $tokenVerify));
 
-        return response()->json([
-            'data' => $user,
-        ], 201);
+        // return response()->json([
+        //     'data' => $user,
+        // ], 201);
+        
+        $token = null;
+        if ($isMobile ==  true) {
+            $user->tokens()->where('name', 'auth_token_mobile')->delete();
+            $token = $user->createToken('auth_token_mobile')->plainTextToken;
+        } else {
+            $user->tokens()->where('name', 'auth_token_web')->delete();
+            $token = $user->createToken('auth_token_web')->plainTextToken;
+        }
+        return response()->json(
+            [
+                'data' => $user,
+                'admin' => $user->admin()->first(),
+                'access_token' => $token,
+                'token_type' => 'Bearer'
+                ], 200
+        );
     }
 
     public function loginGoogle(Request $req)
     {
-        $validator = Validator::make($req->all(), [
+        $validator = Validator::make(
+            $req->all(), [
             'email' => 'required|string',
             'credential' => 'required|string'
-        ]);
+            ]
+        );
         // This credential is remaked from frontend by google one tap reponse. Not from google response credential
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
@@ -163,15 +194,17 @@ class Authenticate extends Controller
             if (!filter_var($req->email, FILTER_VALIDATE_EMAIL)) {
                 return response()->json(["error" => "Email is not valid"], 403);
             }
-            return $this->registerWithGoogle($req->credential);
+            return $this->registerWithGoogle($req->credential, $req->is_mobile);
         } else {
             $payloadAcc = '';
             try {
                 $payloadAcc = JWT::decode($req->credential, new Key(env('JWT_SECRET'), env('JWT_ALG')));
             } catch (\Throwable $th) {
-                return response()->json([
+                return response()->json(
+                    [
                     'error' => 'Invalid signature credential',
-                ], 403);
+                    ], 403
+                );
             }
 
             if ($user->g_id != $payloadAcc->sub || $user->is_active != '1') {
@@ -185,19 +218,22 @@ class Authenticate extends Controller
                 $user->tokens()->where('name', 'auth_token_web')->delete();
                 $token = $user->createToken('auth_token_web')->plainTextToken;
             }
-            return response()->json([
+            return response()->json(
+                [
                 'data' => $user,
                 'admin' => $user->admin()->first(),
                 'access_token' => $token,
                 'token_type' => 'Bearer'
-            ], 200);
+                ], 200
+            );
         }
     }
 
     private function registerWithOtp($email, $otp)
     {
         $name = explode('@', $email)[0];
-        $user = User::create([
+        $user = User::create(
+            [
             'f_name' => $name,
             'l_name' => '-',
             'name' => $name,
@@ -211,11 +247,14 @@ class Authenticate extends Controller
             'instagram' => '-',
             'twitter' => '-',
             'whatsapp' => '-'
-        ]);
-        Otp::create([
+            ]
+        );
+        Otp::create(
+            [
             'user_id' => $user->id,
             'otp_code' => $otp,
-        ]);
+            ]
+        );
         return $user;
     }
 
@@ -229,14 +268,18 @@ class Authenticate extends Controller
         if (!$user) {
             $user = $this->registerWithOtp($email, $otp);
         } else {
-            $updated = Otp::where('user_id', $user->id)->update([
+            $updated = Otp::where('user_id', $user->id)->update(
+                [
                 'otp_code' => $otp
-            ]);
+                ]
+            );
             if ($updated == 0) {
-                Otp::create([
+                Otp::create(
+                    [
                     'user_id' => $user->id,
                     'otp_code' => $otp,
-                ]);
+                    ]
+                );
             }
         }
         if ($forLogin) {
@@ -250,9 +293,11 @@ class Authenticate extends Controller
 
     public function loginWithOtp(Request $req)
     {
-        $validator = Validator::make($req->all(), [
+        $validator = Validator::make(
+            $req->all(), [
             "email" => 'required|string'
-        ]);
+            ]
+        );
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
@@ -265,10 +310,12 @@ class Authenticate extends Controller
 
     public function verifyOtp(Request $req)
     {
-        $validator = Validator::make($req->all(), [
+        $validator = Validator::make(
+            $req->all(), [
             "email" => "required|string",
             "otp_code" => "required|string"
-        ]);
+            ]
+        );
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
@@ -283,9 +330,11 @@ class Authenticate extends Controller
         if ($otp->otp_code != $req->otp_code) {
             return response()->json(["error" => "OTP code is not valid"]);
         }
-        $user->update([
+        $user->update(
+            [
             "is_active" => '1'
-        ]);
+            ]
+        );
         $user = $user->first();
         $token = null;
         if ($req->is_mobile ==  true) {
@@ -295,12 +344,14 @@ class Authenticate extends Controller
             $user->tokens()->where('name', 'auth_token_web')->delete();
             $token = $user->createToken('auth_token_web')->plainTextToken;
         }
-        return response()->json([
+        return response()->json(
+            [
             "data" => $user,
             'admin' => $user->admin()->first(),
             "access_token" => $token,
             "token_type" => "Bearer"
-        ]);
+            ]
+        );
     }
 
     //logout account
@@ -318,26 +369,34 @@ class Authenticate extends Controller
         try {
             $payload = JWT::decode($subId, new Key(env('JWT_SECRET'), env('JWT_ALG')));
         } catch (\Throwable $th) {
-            return response()->json([
+            return response()->json(
+                [
                 'error' => 'Invalid signature credential',
-            ], 403);
+                ], 403
+            );
         }
-        $user = User::where('id', $payload->sub)->update([
+        $user = User::where('id', $payload->sub)->update(
+            [
             'is_active' => '1'
-        ]);
+            ]
+        );
         // NOTE : Replace response with redirect to ReactApp
-        return response()->json([
+        return response()->json(
+            [
             'updated' => $user,
             'message' => $user == 0 ? 'User account not found' : 'User account has been updated'
-        ], $user == 0 ? 404 : 200);
+            ], $user == 0 ? 404 : 200
+        );
     }
 
     //forget password (send email)
     public function requestResetPass(Request $req)
     {
-        $validator = Validator::make($req->all(), [
+        $validator = Validator::make(
+            $req->all(), [
             'email' => 'required'
-        ]);
+            ]
+        );
 
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
@@ -352,19 +411,23 @@ class Authenticate extends Controller
         // Mail handler to send email reset confirm
         Mail::to($user->email)->send(new ResetPassword($user->name, $tokenReset));
 
-        return response()->json([
+        return response()->json(
+            [
             'message' => 'We have send confirmation email to reset your password'
-        ], 200);
+            ], 200
+        );
     }
 
     //reset password
     public function resetPassword(Request $req)
     {
-        $validator = Validator::make($req->all(), [
+        $validator = Validator::make(
+            $req->all(), [
             'token_reset' => 'required',
             'new_password' => 'required',
             'confirm_new_pass' => 'required'
-        ]);
+            ]
+        );
 
         if ($validator->fails()) {
             return response()->json($validator->fails(), 403);
@@ -380,12 +443,16 @@ class Authenticate extends Controller
             //throw $th;
             return response()->json(['error' => 'Invalid signature'], 403);
         }
-        $user = User::where('id', $payload->sub)->update([
+        $user = User::where('id', $payload->sub)->update(
+            [
             'password' => Hash::make($req->new_password)
-        ]);
+            ]
+        );
 
-        return response()->json([
+        return response()->json(
+            [
             'message' => $user == 0 ? 'Failed update password / user not found' : 'Your password has been updated'
-        ], $user == 0 ? 404 : 200);
+            ], $user == 0 ? 404 : 200
+        );
     }
 }
