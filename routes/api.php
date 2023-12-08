@@ -82,12 +82,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/team/invite/{orgId}', [\App\Http\Controllers\OrgCtrl::class, 'inviteTeam']);
         Route::delete('/team/delete', [\App\Http\Controllers\OrgCtrl::class, 'deleteTeam']);
         Route::get('/team/{orgId}', [\App\Http\Controllers\OrgCtrl::class, 'getTeams']);
-        Route::get('/personal-legality', [\App\Http\Controllers\LegalityDataCtrl::class, 'getFPersonal']);
-        Route::post('/personal-legality/create', [\App\Http\Controllers\LegalityDataCtrl::class, 'createFPersonal']);
-        Route::put('/personal-legality/update', [\App\Http\Controllers\LegalityDataCtrl::class, 'updateFPersonal']);
-        Route::get('/org-legality', [\App\Http\Controllers\LegalityDataCtrl::class, 'getFOrg']);
-        Route::post('/org-legality/create', [\App\Http\Controllers\LegalityDataCtrl::class, 'createFOrg']);
-        Route::put('/org-legality/update', [\App\Http\Controllers\LegalityDataCtrl::class, 'updateFOrg']);
+        Route::get('/org-legality', [\App\Http\Controllers\LegalityDataCtrl::class, 'getLegality']);
+        Route::post('/org-legality/create', [\App\Http\Controllers\LegalityDataCtrl::class, 'create']);
+        Route::put('/org-legality/update', [\App\Http\Controllers\LegalityDataCtrl::class, 'update']);
 
         Route::middleware('eventOrganizer')->prefix("{orgId}/event")->group(function () {
             Route::post('/create', [\App\Http\Controllers\EventCtrl::class, 'create']);
@@ -214,6 +211,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/organization/create', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'createOrganization']);
         Route::get('/organization/detail', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'organizationDetail']);
         Route::get('/organizations', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'organizations']);
+        Route::get('/legality-datas', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'getLegalities']);
+        Route::get('/legality-data', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'getLegality']);
+        Route::put('/legality-data/update', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'changeLegalityState']);
         Route::prefix('org/{orgId}')->group(function () {
             Route::put('/update-org-profile', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'updateProfileOrg']);
             Route::delete('/delete-organization', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'deleteOrganization']);

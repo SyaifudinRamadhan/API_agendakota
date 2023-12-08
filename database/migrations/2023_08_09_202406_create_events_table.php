@@ -37,6 +37,7 @@ return new class extends Migration
             $table->string('custom_fields')->nullable();
             $table->string('seat_map')->nullable();
             $table->boolean('single_trx')->default(false);
+            $table->boolean('visibility')->default(true);
             $table->integer('deleted');
             $table->timestamps();
         });

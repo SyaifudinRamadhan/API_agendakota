@@ -17,8 +17,9 @@ class CheckinCtrl extends Controller
     public function createByUser(Request $req)
     {
         $validator = Validator::make(
-            $req->all(), [
-            "event_id" => "required|string"
+            $req->all(),
+            [
+                "event_id" => "required|string"
             ]
         );
         if ($validator->fails()) {
@@ -41,8 +42,9 @@ class CheckinCtrl extends Controller
                     $skip = true;
                 }
             }
-            if (!$skip && (                ($event->category == 'Attraction' || $event->category == 'Daily Activities' || $event->category == 'Tour Travel (recurring)') 
-                || $now <= $eventEnd)
+            if (
+                !$skip && (($event->category == 'Attraction' || $event->category == 'Daily Activities' || $event->category == 'Tour Travel (recurring)')
+                    || $now <= $eventEnd)
             ) {
                 $checkin = Checkin::where('pch_id', $purchase->id)->first();
                 if ($checkin) {
@@ -50,19 +52,20 @@ class CheckinCtrl extends Controller
                 } else if ($purchase->ticket()->first()->event_id == $event->id && ($purchase->amount == 0 || $purchase->payment()->first()->pay_state == 'SUCCEEDED')) {
                     $checkin = Checkin::create(
                         [
-                        'pch_id' => $purchase->id,
-                        'event_id' => $event->id,
-                        'status' => 1
+                            'pch_id' => $purchase->id,
+                            'event_id' => $event->id,
+                            'status' => 1
                         ]
                     );
                     return response()->json(
                         [
-                        "checkin_on" => $checkin->created_at,
-                        "event" => $event->name,
-                        "user" => Auth::user(),
-                        "purchase" => $purchase,
-                        "ticket" => $purchase->ticket()->first()
-                        ], 201
+                            "checkin_on" => $checkin->created_at,
+                            "event" => $event->name,
+                            "user" => Auth::user(),
+                            "purchase" => $purchase,
+                            "ticket" => $purchase->ticket()->first()
+                        ],
+                        201
                     );
                 } else if ($purchase->ticket()->first()->event_id == $event->id) {
                     $unPaid += 1;
@@ -82,8 +85,9 @@ class CheckinCtrl extends Controller
     public function createByOrg(Request $req)
     {
         $validator = Validator::make(
-            $req->all(), [
-            "qr_str" => "required|string"
+            $req->all(),
+            [
+                "qr_str" => "required|string"
             ]
         );
         if ($validator->fails()) {
@@ -97,7 +101,7 @@ class CheckinCtrl extends Controller
         if ($purchase->amount > 0 && $purchase->payment()->first()->pay_state != 'SUCCEEDED') {
             return response()->json(["error" => "Successfull transaction not found in this purchase"], 404);
         }
-        if($purchase->ticket()->first()->event()->first()->id !== $req->event->id) {
+        if ($purchase->ticket()->first()->event()->first()->id !== $req->event->id) {
             return response()->json(["error" => "This purchased ticket event not match"], 404);
         }
         $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
@@ -108,7 +112,7 @@ class CheckinCtrl extends Controller
                 return response()->json(["error" => "Selected visit date is not match with now"], 403);
             }
         }
-        if (($req->event->category != 'Attraction' && $req->event->category != 'Daily Activities' && $req->event->category != 'Tour Travel (recurring)') 
+        if (($req->event->category != 'Attraction' && $req->event->category != 'Daily Activities' && $req->event->category != 'Tour Travel (recurring)')
             && $now > $endEvent
         ) {
             return response()->json(["error" => "The ticket has expired"], 403);
@@ -119,19 +123,20 @@ class CheckinCtrl extends Controller
         }
         $checkin = Checkin::create(
             [
-            'pch_id' => $purchase->id,
-            'event_id' => $req->event->id,
-            'status' => 1
+                'pch_id' => $purchase->id,
+                'event_id' => $req->event->id,
+                'status' => 1
             ]
         );
         return response()->json(
             [
-            "checkin" => $checkin,
-            "purchase" => $purchase,
-            "user" => $purchase->user()->first(),
-            "ticket" => $purchase->ticket()->first(),
-            "event" => $req->event
-            ], 201
+                "checkin" => $checkin,
+                "purchase" => $purchase,
+                "user" => $purchase->user()->first(),
+                "ticket" => $purchase->ticket()->first(),
+                "event" => $req->event
+            ],
+            201
         );
     }
 
@@ -195,10 +200,11 @@ class CheckinCtrl extends Controller
         }
         return response()->json(
             [
-            "checkined" => $checkined,
-            "not_checkin" => $notCheckin,
-            "all" => $purchases
-            ], 200
+                "checkined" => $checkined,
+                "not_checkin" => $notCheckin,
+                "all" => $purchases
+            ],
+            200
         );
     }
 }

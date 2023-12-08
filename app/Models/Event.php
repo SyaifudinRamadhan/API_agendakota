@@ -38,6 +38,7 @@ class Event extends Model
         'custom_fields',
         'seat_map',
         'single_trx',
+        'visibility',
         'deleted',
     ];
 

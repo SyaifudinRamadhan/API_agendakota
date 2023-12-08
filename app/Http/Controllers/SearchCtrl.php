@@ -47,7 +47,7 @@ class SearchCtrl extends Controller
     public function popularEvents()
     {
         $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-        $events = Event::where('end_date', '>=', $now->format('Y-m-d'))->where('is_publish', 2)->get();
+        $events = Event::where('end_date', '>=', $now->format('Y-m-d'))->where('is_publish', 2)->where('visibility', true)->get();
         return response()->json(["events" => $this->basePopEvents($events)], 200);
     }
 
@@ -55,7 +55,7 @@ class SearchCtrl extends Controller
     {
         $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         $city = ViralCity::first()->city()->first();
-        $events = Event::where('end_date', '>=', $now->format('Y-m-d'))->where('city', 'like', '%' . $city->name . '%')->where('is_publish', 2)->get();
+        $events = Event::where('end_date', '>=', $now->format('Y-m-d'))->where('city', 'like', '%' . $city->name . '%')->where('is_publish', 2)->where('visibility', true)->get();
         return response()->json(["city" => $city, "events" => $this->basePopEvents($events)], 200);
     }
 
@@ -102,6 +102,9 @@ class SearchCtrl extends Controller
                 'exe_type', '=', $req->exe_type
             ];
         }
+        $whereClauses[] = [
+            'visibility', '=', true
+        ];
         $events = [];
         foreach (Event::where($whereClauses)->get() as $event) {
             $state = true;

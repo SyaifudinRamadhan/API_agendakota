@@ -101,9 +101,4 @@ class User extends Authenticatable
     {
         return $this->hasOne(Otp::class, 'user_id');
     }
-
-    public function legality(): HasOne
-    {
-        return $this->hasOne(LegalityUser::class, 'user_id');
-    }
 }

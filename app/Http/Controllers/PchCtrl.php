@@ -70,10 +70,10 @@ class PchCtrl extends Controller
         $createEWalletCharge = \Xendit\EWallets::createEWalletCharge($params);
         Payment::where('id', $payId)->update(
             [
-            'token_trx' => $createEWalletCharge["id"],
-            'pay_state' => $createEWalletCharge["status"],
-            'order_id' => $orderId,
-            'price' => $amount
+                'token_trx' => $createEWalletCharge["id"],
+                'pay_state' => $createEWalletCharge["status"],
+                'order_id' => $orderId,
+                'price' => $amount
             ]
         );
         return ["payment" => $createEWalletCharge, "status" => 201];
@@ -88,30 +88,31 @@ class PchCtrl extends Controller
         $orderId = uniqid("trx_qris", true);
         $curl = curl_init();
         curl_setopt_array(
-            $curl, [
-            CURLOPT_URL => 'https://api.xendit.co/qr_codes',
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => "CURL_HTTP_VERSION_1_1",
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => json_encode(
-                [
-                "reference_id" => $orderId,
-                "type" => "DYNAMIC",
-                "currency" => "IDR",
-                "amount" => $amount,
-                "channel_code" => config('payconfigs.methods')["qris"][$code_method][0],
-                "expires_at" => str_replace(' ', 'T', $now24->add(new DateInterval('PT24H'))->format('Y-m-d H:i:s')) . 'Z',
-                ]
-            ),
-            CURLOPT_HTTPHEADER => array(
-                'Content-Type: application/json',
-                'api-version: 2022-07-31',
-                'Authorization: ' . 'Basic ' . base64_encode(env('XENDIT_API_WRITE') . ':')
-            ),
+            $curl,
+            [
+                CURLOPT_URL => 'https://api.xendit.co/qr_codes',
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 0,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION => "CURL_HTTP_VERSION_1_1",
+                CURLOPT_CUSTOMREQUEST => 'POST',
+                CURLOPT_POSTFIELDS => json_encode(
+                    [
+                        "reference_id" => $orderId,
+                        "type" => "DYNAMIC",
+                        "currency" => "IDR",
+                        "amount" => $amount,
+                        "channel_code" => config('payconfigs.methods')["qris"][$code_method][0],
+                        "expires_at" => str_replace(' ', 'T', $now24->add(new DateInterval('PT24H'))->format('Y-m-d H:i:s')) . 'Z',
+                    ]
+                ),
+                CURLOPT_HTTPHEADER => array(
+                    'Content-Type: application/json',
+                    'api-version: 2022-07-31',
+                    'Authorization: ' . 'Basic ' . base64_encode(env('XENDIT_API_WRITE') . ':')
+                ),
             ]
         );
         $response = curl_exec($curl);
@@ -119,10 +120,10 @@ class PchCtrl extends Controller
         $response = json_decode($response);
         Payment::where('id', $payId)->update(
             [
-            'token_trx' => $response->id,
-            'pay_state' => "PENDING",
-            'order_id' => $orderId,
-            'price' => $amount
+                'token_trx' => $response->id,
+                'pay_state' => "PENDING",
+                'order_id' => $orderId,
+                'price' => $amount
             ]
         );
         return ["payment" => $response, "status" => 201];
@@ -140,26 +141,26 @@ class PchCtrl extends Controller
         Xendit::setApiKey(env('XENDIT_API_WRITE'));
         $createVA = \Xendit\VirtualAccounts::create(
             [
-            "external_id" => $orderId,
-            "bank_code" => $methods["VA"][$code_method][0],
-            "name" => $payment->first()
-                ->purchases()->get()[0]
-                ->ticket()->first()
-                ->event()->first()
-                ->name,
-            "is_single_use" => true,
-            "is_closed" => true,
-            "expected_amount" => $amount,
-            "expiration_date" => str_replace(' ', 'T', $now24->add(new DateInterval('PT24H'))->format('Y-m-d H:i:s')) . 'Z',
+                "external_id" => $orderId,
+                "bank_code" => $methods["VA"][$code_method][0],
+                "name" => $payment->first()
+                    ->purchases()->get()[0]
+                    ->ticket()->first()
+                    ->event()->first()
+                    ->name,
+                "is_single_use" => true,
+                "is_closed" => true,
+                "expected_amount" => $amount,
+                "expiration_date" => str_replace(' ', 'T', $now24->add(new DateInterval('PT24H'))->format('Y-m-d H:i:s')) . 'Z',
             ]
         );
 
         $payment->update(
             [
-            'token_trx' => $createVA["id"],
-            'pay_state' => "PENDING",
-            'order_id' => $orderId,
-            'price' => $amount
+                'token_trx' => $createVA["id"],
+                'pay_state' => "PENDING",
+                'order_id' => $orderId,
+                'price' => $amount
             ]
         );
         return ["payment" => $createVA, "status" => 201];
@@ -177,7 +178,7 @@ class PchCtrl extends Controller
                 foreach ($purchases as $key => $value) {
                     Ticket::where('id', $key)->where('type_price', '!=', 1)->where('quantity', '!=', -1)->update(
                         [
-                        'quantity' => intval($value[0]->ticket()->first()->quantity) + count($value)
+                            'quantity' => intval($value[0]->ticket()->first()->quantity) + count($value)
                         ]
                     );
                     foreach ($value as $pch) {
@@ -190,7 +191,7 @@ class PchCtrl extends Controller
                 }
                 Payment::where($payment->id)->update(
                     [
-                    'pay_state' => "EXPIRED"
+                        'pay_state' => "EXPIRED"
                     ]
                 );
             }
@@ -203,7 +204,7 @@ class PchCtrl extends Controller
             $ticketObj = Ticket::where('id', $key);
             Ticket::where('id', $key)->where('quantity', '!=', -1)->update(
                 [
-                "quantity" => intval($ticketObj->first()->quantity) + $value
+                    "quantity" => intval($ticketObj->first()->quantity) + $value
                 ]
             );
         }
@@ -254,17 +255,17 @@ class PchCtrl extends Controller
             if ($now > new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta'))) {
                 return ["error" => "This event or event ticket has been expired", "code" => 403];
             }
-            if (($event->category != 'Attraction' && $event->category != 'Daily Activities' && $event->category != 'Tour Travel (recurring)') 
+            if (($event->category != 'Attraction' && $event->category != 'Daily Activities' && $event->category != 'Tour Travel (recurring)')
                 && ($startTicket > $now || $endTicket < $now)
             ) {
                 return ['error' => "Ticket " . $ticket->name . " is not yet available", "code" => 403];
             }
-            if (($event->category != 'Attraction' && $event->category != 'Daily Activities' && $event->category != 'Tour Travel (recurring)') 
+            if (($event->category != 'Attraction' && $event->category != 'Daily Activities' && $event->category != 'Tour Travel (recurring)')
                 && intval($ticket->quantity) < $value
             ) {
                 return ["error" => "Only " . $ticket->quantity . " tickets left for your selected id", "code" => 403];
             }
-            if (($event->category == 'Attraction' || $event->category == 'Daily Activities' || $event->category == 'Tour Travel (recurring)') 
+            if (($event->category == 'Attraction' || $event->category == 'Daily Activities' || $event->category == 'Tour Travel (recurring)')
                 && !$req->visit_dates
             ) {
                 return ["error" => "Visit dates form is required for event with type attraction, daily activities, or tour travel (recurring)", "code" => 403];
@@ -466,12 +467,12 @@ class PchCtrl extends Controller
                 $totalPay += $amount;
                 $pch = Purchase::create(
                     [
-                    'user_id' => Auth::user()->id,
-                    'pay_id' => $payment->id,
-                    'ticket_id' => $key,
-                    'amount' => $amount,
-                    'code' => $voucherCode,
-                    'is_mine' => true
+                        'user_id' => Auth::user()->id,
+                        'pay_id' => $payment->id,
+                        'ticket_id' => $key,
+                        'amount' => $amount,
+                        'code' => $voucherCode,
+                        'is_mine' => true
                     ]
                 );
                 $purchases[] = $pch;
@@ -482,8 +483,8 @@ class PchCtrl extends Controller
                     $visitDate = new DateTime($visitDates[$key][$indexVisitDates], new DateTimeZone('Asia/Jakarta'));
                     DailyTicket::create(
                         [
-                        "purchase_id" => $pch->id,
-                        "visit_date" => $visitDate->format('Y-m-d')
+                            "purchase_id" => $pch->id,
+                            "visit_date" => $visitDate->format('Y-m-d')
                         ]
                     );
                     $indexVisitDates++;
@@ -491,8 +492,8 @@ class PchCtrl extends Controller
                 if (array_key_exists($key, $seatNumbers)) {
                     ReservedSeat::create(
                         [
-                        "pch_id" => $pch->id,
-                        "seat_number" => $seatNumbers[$key][$i]
+                            "pch_id" => $pch->id,
+                            "seat_number" => $seatNumbers[$key][$i]
                         ]
                     );
                 }
@@ -500,7 +501,7 @@ class PchCtrl extends Controller
             // update quantity ticket
             Ticket::where('id', $key)->where('quantity', '!=', -1)->update(
                 [
-                "quantity" => intval($ticketObj->first()->quantity) - $value
+                    "quantity" => intval($ticketObj->first()->quantity) - $value
                 ]
             );
         }
@@ -514,8 +515,9 @@ class PchCtrl extends Controller
     {
         $this->loadTrxData();
         $validator = Validator::make(
-            $req->all(), [
-            'ticket_ids' => 'required',
+            $req->all(),
+            [
+                'ticket_ids' => 'required',
             ]
         );
         if ($validator->fails()) {
@@ -571,11 +573,11 @@ class PchCtrl extends Controller
         // create trx dummy and get the ID
         $payment = Payment::create(
             [
-            'user_id' => Auth::user()->id,
-            'token_trx' => '-',
-            'pay_state' => 'PENDING',
-            'order_id' => '-',
-            'price' => 0
+                'user_id' => Auth::user()->id,
+                'token_trx' => '-',
+                'pay_state' => 'PENDING',
+                'order_id' => '-',
+                'price' => 0
             ]
         );
         $mainCreateData = $this->basicCreateData($req, $ticket_ids, $visitDates, $customPrices, $seatNumbers, $voucher, $payment, $remainingVoucher);
@@ -591,10 +593,10 @@ class PchCtrl extends Controller
             $orderId = uniqid('trx_free', true);
             Payment::where('id', $payment->id)->update(
                 [
-                'token_trx' => '-',
-                'pay_state' => "SUCCEEDED",
-                'order_id' => $orderId,
-                'price' => 0
+                    'token_trx' => '-',
+                    'pay_state' => "SUCCEEDED",
+                    'order_id' => $orderId,
+                    'price' => 0
                 ]
             );
             $paymentXendit["payment"] = Payment::where('id', $payment->id)->first();
@@ -616,9 +618,10 @@ class PchCtrl extends Controller
         }
         return response()->json(
             [
-            "payment" => $paymentXendit["payment"],
-            "purchases" => $purchases
-            ], 201
+                "payment" => $paymentXendit["payment"],
+                "purchases" => $purchases
+            ],
+            201
         );
     }
 
@@ -705,7 +708,8 @@ class PchCtrl extends Controller
             }
             $passSeatNumber = true;
         }
-        if ($req->visit_date 
+        if (
+            $req->visit_date
             && ($resValidate["event"]->category == 'Attraction' || $resValidate["event"]->category == 'Daily Activities' || $resValidate["event"]->category == 'Tour Travel (recurring)')
         ) {
             $avlSelectedDay = $resValidate["event"]->availableDays()->where('day', $date->format('D'))->get();
@@ -724,14 +728,14 @@ class PchCtrl extends Controller
         if ($passSeatNumber) {
             ReservedSeat::where('pch_id', $req->purchase_id)->update(
                 [
-                'seat_number' => $req->seat_number
+                    'seat_number' => $req->seat_number
                 ]
             );
         }
         if ($passVisitDate) {
             DailyTicket::where('purchase_id', $req->purchase_id)->update(
                 [
-                'visit_date' => $date->format('Y-m-d')
+                    'visit_date' => $date->format('Y-m-d')
                 ]
             );
         }
@@ -757,14 +761,14 @@ class PchCtrl extends Controller
         $user = Auth::user();
         RefundData::create(
             [
-            "purchase_id" => $resValidate["purchase"]->id,
-            "user_id" => $user->id,
-            "message" => $req->message,
-            "phone_number" => $req->phone_number,
-            "account_number" => $req->account_number,
-            "nominal" => $resValidate["purchase"]->amount,
-            "ticket_name" => $resValidate["ticket"]->name,
-            "event_name" => $resValidate["event"]->name
+                "purchase_id" => $resValidate["purchase"]->id,
+                "user_id" => $user->id,
+                "message" => $req->message,
+                "phone_number" => $req->phone_number,
+                "account_number" => $req->account_number,
+                "nominal" => $resValidate["purchase"]->amount,
+                "ticket_name" => $resValidate["ticket"]->name,
+                "event_name" => $resValidate["event"]->name
             ]
         );
         Mail::to('syaifudinramadhan@gmail.com')->send(
@@ -864,7 +868,7 @@ class PchCtrl extends Controller
             foreach ($purchases as $key => $value) {
                 Ticket::where('id', $key)->where('type_price', '!=', 1)->where('quantity', '!=', -1)->update(
                     [
-                    'quantity' => intval($value[0]->ticket()->first()->quantity) + count($value)
+                        'quantity' => intval($value[0]->ticket()->first()->quantity) + count($value)
                     ]
                 );
                 foreach ($value as $pch) {
@@ -877,7 +881,7 @@ class PchCtrl extends Controller
             }
             $payment->update(
                 [
-                'pay_state' => "EXPIRED"
+                    'pay_state' => "EXPIRED"
                 ]
             );
         }
@@ -897,20 +901,21 @@ class PchCtrl extends Controller
     {
         $curl = curl_init();
         curl_setopt_array(
-            $curl, [
-            CURLOPT_URL => 'https://api.xendit.co/qr_codes/' . $payment->token_trx,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
-            CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => "CURL_HTTP_VERSION_1_1",
-            CURLOPT_CUSTOMREQUEST => 'GET',
-            CURLOPT_HTTPHEADER => array(
-                'Content-Type: application/json',
-                'api-version: 2022-07-31',
-                'Authorization: ' . 'Basic ' . base64_encode(env('XENDIT_API_READ') . ':')
-            ),
+            $curl,
+            [
+                CURLOPT_URL => 'https://api.xendit.co/qr_codes/' . $payment->token_trx,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_ENCODING => '',
+                CURLOPT_MAXREDIRS => 10,
+                CURLOPT_TIMEOUT => 0,
+                CURLOPT_FOLLOWLOCATION => true,
+                CURLOPT_HTTP_VERSION => "CURL_HTTP_VERSION_1_1",
+                CURLOPT_CUSTOMREQUEST => 'GET',
+                CURLOPT_HTTPHEADER => array(
+                    'Content-Type: application/json',
+                    'api-version: 2022-07-31',
+                    'Authorization: ' . 'Basic ' . base64_encode(env('XENDIT_API_READ') . ':')
+                ),
             ]
         );
         $response = curl_exec($curl);
@@ -968,20 +973,21 @@ class PchCtrl extends Controller
         }
         return response()->json(
             [
-            "purchase" => $purchase,
-            "payment" => $payData,
-            "qr_str" => $purchase->id . "~^|-|^~" . $user->id,
-            "ticket" => $purchase->ticket()->first(),
-            "event" => $purchase->ticket()->first()->event()->first(),
-            "visit_date" => $purchase->visitDate()->first(),
-            "seat_number" => $purchase->seatNumber()->first()
-            ], 200
+                "purchase" => $purchase,
+                "payment" => $payData,
+                "qr_str" => $purchase->id . "~^|-|^~" . $user->id,
+                "ticket" => $purchase->ticket()->first(),
+                "event" => $purchase->ticket()->first()->event()->first(),
+                "visit_date" => $purchase->visitDate()->first(),
+                "seat_number" => $purchase->seatNumber()->first()
+            ],
+            200
         );
     }
 
     // thid function to get purchases by trx id
     public function purchases(Request $req)
-    {   
+    {
         $user = Auth::user();
         $paysData = Payment::where('user_id', $user->id)->get();
         if (count($paysData) == 0) {
@@ -996,6 +1002,8 @@ class PchCtrl extends Controller
                 $purchase->visit_date = $purchase->visitDate()->first();
                 $purchase->seat_number = $purchase->seatNumber()->first();
                 $purchase->qr_str = $purchase->id . "~^|-|^~" . $user->id;
+                $purchase->event_id = $purchase->ticket->event->id;
+                $purchase->event_name = $purchase->ticket->event->name;
             }
             $trx = null;
             if ($payData->pay_state == 'PENDING') {
@@ -1011,8 +1019,9 @@ class PchCtrl extends Controller
         }
         return response()->json(
             [
-            "transactions" => $payments
-            ], 200
+                "transactions" => $payments
+            ],
+            200
         );
     }
 }

@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('credibility_orgs', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('org_id')->references('id')->on('organizations')->onUpdate('cascade')->onDelete('cascade');
+            $table->string("type_legality");
             $table->string('company_name');
             $table->string('business_entity');
             $table->string('pic_name');
@@ -23,6 +24,7 @@ return new class extends Migration
             $table->string('tax_id_number');
             $table->string('tax_image');
             $table->string('address');
+            $table->boolean('status')->default(false);
             $table->timestamps();
         });
     }

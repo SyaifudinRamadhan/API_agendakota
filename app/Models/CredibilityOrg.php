@@ -12,11 +12,18 @@ class CredibilityOrg extends Model
     use HasFactory, HasUuids;
 
     protected $fillable = [
-        "org_id", "tax_id_number", "tax_image", "company_name", "address", 'business_entity',
+        "org_id",
+        "type_legality",
+        "tax_id_number",
+        "tax_image",
+        "company_name",
+        "address",
+        'business_entity',
         'pic_name',
         'pic_nic',
         'pic_nic_image',
-        'company_phone'
+        'company_phone',
+        'status'
     ];
 
     public function organization(): BelongsTo

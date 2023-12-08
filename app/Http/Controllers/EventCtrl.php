@@ -52,7 +52,8 @@ class EventCtrl extends Controller
             'twn_url' => 'required|string',
             'seat_map' => 'image|max:2048',
             'available_days' => 'array',
-            'daily_limit_times' => 'array'
+            'daily_limit_times' => 'array',
+            'visibility' => 'required|boolean'
         ];
         // if($pkg->price != 0){
         //     $rule += [
@@ -159,6 +160,7 @@ class EventCtrl extends Controller
             'custom_fields' => $fields,
             'single_trx' => $req->single_trx == false ? false : true,
             'seat_map' => $seatMapImage,
+            'visibility' => $req->visibility,
             'deleted' => 0,
         ]);
         $breakdowns = [];
@@ -223,7 +225,8 @@ class EventCtrl extends Controller
             'twn_url' => 'required|string',
             'seat_map' => 'image|max:2048',
             'available_days' => 'array',
-            'daily_limit_times' => 'array'
+            'daily_limit_times' => 'array',
+            'visibility' => 'required|boolean'
         ]);
         if ($validator->fails()) {
             return response()->json($validator->erros(), 403);
@@ -322,7 +325,8 @@ class EventCtrl extends Controller
             'twn_url' => $req->twn_url,
             'custom_fields' => $fields,
             'single_trx' => $req->single_trx == false ? false : true,
-            'seat_map' => $seatMapImage
+            'seat_map' => $seatMapImage,
+            'visibility' => $req->visibility
         ]);
         Breakdown::where('event_id', $eventObj->first()->id)->delete();
         if ($req->breakdowns && ($req->exe_type == 'online' || $req->exe_type == 'hybrid')) {
@@ -657,9 +661,9 @@ class EventCtrl extends Controller
         if ($event->first()->is_publish == 0 || $event->first()->is_publish >= 3) {
             return response()->json(["error" => "Your event have not allowed to change the publish state"], 403);
         }
-        if (!Auth::user()->legality()->first()) {
-            return response()->json(["error" => "Please fill your legality data first"], 403);
-        }
+        // if (!Auth::user()->legality()->first()) {
+        //     return response()->json(["error" => "Please fill your legality data first"], 403);
+        // }
         if (!$req->org->credibilityData()->first()) {
             return response()->json(["error" => "Please fill your legality data first"], 403);
         }

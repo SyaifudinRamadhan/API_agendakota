@@ -141,4 +141,22 @@ class AdminPrimaryCtrl extends Controller
         $pchCtrl = new PchCtrl();
         return $pchCtrl->considerationRefund($req, $req->refund_id);
     }
+    // ==============================================================
+    public function getLegalities()
+    {
+        $legalityCtrl = new LegalityDataCtrl();
+        return $legalityCtrl->getLegalities();
+    }
+
+    public function getLegality(Request $req)
+    {
+        $legalityCtrl = new LegalityDataCtrl();
+        return $legalityCtrl->getLegality($req);
+    }
+
+    public function changeLegalityState(Request $req)
+    {
+        $legalityCtrl = new LegalityDataCtrl();
+        return $legalityCtrl->changeState($req);
+    }
 }
