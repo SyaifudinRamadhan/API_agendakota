@@ -201,7 +201,7 @@ class EventCtrl extends Controller
     }
     public function update(Request $req, $orgId)
     {
-        $eventObj = Event::where('id', $req->event_id)->where('org_id', $orgId)->where('deleted', 0);
+        $eventObj = Event::where('id', $req->event_id)->where('org_id', $orgId)->where('is_publish', '<', 3)->where('deleted', 0);
         if (!$eventObj->first()) {
             return response()->json(["error" => "Event data not found"], 404);
         }
@@ -464,7 +464,12 @@ class EventCtrl extends Controller
     {
         $pchCtrl = new PchCtrl();
         $pchCtrl->loadTrxData();
-        $event = Event::where('id', $eventId)->where('deleted', 0)->first();
+        $event = null;
+        if ($req->org) {
+            $event = Event::where('id', $eventId)->where('is_publish', '<', 3)->where('deleted', 0)->first();
+        } else {
+            $event = Event::where('id', $eventId)->where('is_publish', 2)->where('deleted', 0)->first();
+        }
         if (!$event) {
             return response()->json(["error" => "Event data not found"], 404);
         }
@@ -505,7 +510,12 @@ class EventCtrl extends Controller
     {
         $pchCtrl = new PchCtrl();
         $pchCtrl->loadTrxData();
-        $event = Event::where('id', $eventId)->where('deleted', 0)->first();
+        $event = null;
+        if ($req->org) {
+            $event = Event::where('id', $eventId)->where('is_publish', '<', 3)->where('deleted', 0)->first();
+        } else {
+            $event = Event::where('id', $eventId)->where('is_publish', 2)->where('deleted', 0)->first();
+        }
         if (!$event) {
             return response()->json(["error" => "Event data not found"], 404);
         }
@@ -538,7 +548,12 @@ class EventCtrl extends Controller
     {
         $pchCtrl = new PchCtrl();
         $pchCtrl->loadTrxData();
-        $event = Event::where('slug', $slug)->where('deleted', 0)->first();
+        $event = null;
+        if ($req->org) {
+            $event = Event::where('slug', $slug)->where('is_publish', '<', 3)->where('deleted', 0)->first();
+        } else {
+            $event = Event::where('slug', $slug)->where('is_publish', 2)->where('deleted', 0)->first();
+        }
         if (!$event) {
             return response()->json(["error" => "Event data not found"], 404);
         }
@@ -574,7 +589,12 @@ class EventCtrl extends Controller
         if (!Organization::where('id', $orgId)->first()) {
             return response()->json(["error" => "Organization data not found"], 404);
         }
-        $events = Event::where('org_id', $orgId)->where('deleted', 0)->get();
+        $events = null;
+        if ($req->org) {
+            $events = Event::where('org_id', $orgId)->where('is_publish', '<', 3)->where('deleted', 0)->get();
+        } else {
+            $events = Event::where('org_id', $orgId)->where('is_publish', 2)->where('deleted', 0)->get();
+        }
         if (count($events) == 0) {
             return response()->json(["error" => "Event data not found"], 404);
         }
@@ -645,8 +665,7 @@ class EventCtrl extends Controller
     public function setPublishState(Request $req, $orgId)
     {
         // Event statuses
-        // 0 => unpaid
-        // 1 => private
+        // 1 => un-publish
         // 2 => published
         // 3 => ended
         // 4 => pending withdraw (first status code 1)

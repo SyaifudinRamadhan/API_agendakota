@@ -122,13 +122,15 @@ class LegalityDataCtrl extends Controller
     {
         $data = null;
         if ($req->org) {
-            $data = $req->org->credibilityData()->first();
+            $data = $req->org;
+            $data->legality_data = $data->credibilityData()->first();
         } else {
             $org = Organization::where('id', $req->org_id)->first();
             if (!$org) {
                 return response()->json(["error" => "Organization data not found"], 404);
             }
-            $data = $org->credibilityData()->first();
+            $data = $org;
+            $data->legality_data = $data->credibilityData()->first();
         }
         return response()->json(["data" => $data], 200);
     }
@@ -141,13 +143,13 @@ class LegalityDataCtrl extends Controller
         $unverifiedLegalities = [];
         foreach ($orgs as $org) {
             $org->legality_data = $org->credibilityData()->first();
-            if ($org->legality_data && $org->legality_data->status === true) {
-                $verifiedLegalities[] = $org;
-            } else if ($org->legality_data && $org->legality_data->status === false) {
-                $unverifiedLegalities[] = $org;
+            if ($org->legality_data && $org->legality_data->status == true) {
+                array_push($verifiedLegalities, $org);
+            } else if ($org->legality_data && $org->legality_data->status == false) {
+                array_push($unverifiedLegalities, $org);
             }
         }
-        return response()->json(["verified" => $verifiedLegalities, "unveried" => $unverifiedLegalities], 200);
+        return response()->json(["verified" => $verifiedLegalities, "unverified" => $unverifiedLegalities], 200);
     }
 
     public function changeState(Request $req)
@@ -160,5 +162,15 @@ class LegalityDataCtrl extends Controller
             "status" => $req->status == true ? true : false
         ]);
         return response()->json(["data" => $data->first()], 202);
+    }
+
+    public function delete(Request $req)
+    {
+        $data = CredibilityOrg::where('id', $req->id);
+        if (!$data->first()) {
+            return response()->json(["error" => "Data not found"], 404);
+        }
+        $deleted = $data->delete();
+        return response()->json(["deleted" => $deleted], 202);
     }
 }

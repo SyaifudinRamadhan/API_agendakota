@@ -70,11 +70,11 @@ class OrgCtrl extends Controller
             'banner' => 'image|max:3072',
             'interest' => 'required|string',
             'email' => 'required|string',
-            'linkedin' => 'required|string',
+            'linkedin' => 'string',
             'instagram' => 'required|string',
-            'twitter' => 'required|string',
+            'twitter' => 'string',
             'whatsapp' => 'required|string',
-            'website' => 'required|string',
+            'website' => 'string',
             'desc' => 'required|string'
         ]);
         if ($validator->fails()) {
@@ -141,12 +141,12 @@ class OrgCtrl extends Controller
         }
         $orgObj = Organization::where('id', $req->org_id);
         if (!$orgObj->first()) {
-            return response()->json(["error" => "Data not found or match"], 404);
+            return response()->json(["error" => "Data not found or match " . $req->org_id], 404);
         }
         if ($isAdmin == null) {
             $user = Auth::user();
             if ($orgObj->first()->user_id != $user->id) {
-                return response()->json(["error" => "Data not found or match"], 404);
+                return response()->json(["error" => "Data not found or match " . $req->org_id], 404);
             }
         }
         $fixPurchaseActiveEvent = 0;
@@ -190,7 +190,7 @@ class OrgCtrl extends Controller
     // Read organization (can access admin and user basic)
     public function getOrg($orgId)
     {
-        $org = Organization::where('id', $orgId)->where('deleted', 0)->first();
+        $org = Organization::where('id', $orgId)->where('deleted', 0)->with('user')->first();
         if (!$org) {
             return response()->json(["error" => "Data not found or match"], 404);
         }
@@ -256,7 +256,8 @@ class OrgCtrl extends Controller
                 'linkedin' => '-',
                 'instagram' => '-',
                 'twitter' => '-',
-                'whatsapp' => '-'
+                'whatsapp' => '-',
+                "deleted" => 0
             ]);
         }
         $team = Team::create([

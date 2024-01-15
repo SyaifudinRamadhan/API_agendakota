@@ -51,7 +51,7 @@ class UserRefundNotification extends Mailable
             markdown: 'emails.userRefundNotification',
             with: [
                 "statuses" => $this->statuses,
-                "stateMessage" => $this->statuses == 'ACCEPT' ? "We will contact you immediately to confirm and process your refund" : "Sorry, we can't accept your refund request",
+                "stateMessage" => $this->statuses == 'Approved / Accepted' ? "We will contact you immediately to confirm and process your refund" : "Sorry, we can't accept your refund request",
                 "eventName" => $this->eventName,
                 "purchaseId" => $this->purchaseId,
                 "ticketName" => $this->ticketName,

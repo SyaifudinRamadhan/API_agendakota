@@ -3,13 +3,17 @@
 namespace App\Http\Controllers;
 
 use App\Models\DailyTicket;
+use App\Models\DisburstmentRefund;
+use App\Models\DisburstmentWd;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\Request;
 use App\Models\PkgPayment;
 use App\Models\Payment;
 use App\Models\Purchase;
+use App\Models\RefundData;
 use App\Models\ReservedSeat;
 use App\Models\Ticket;
+use App\Models\Withdraw;
 use DateTime;
 use DateTimeZone;
 
@@ -85,5 +89,39 @@ class WebhookCtrl extends Controller
         //     ]);
         // }
         return response()->json(["message" => "success"], 200);
+    }
+
+    function receiveValidationRefund(Request $req)
+    {
+        $disburstment = DisburstmentRefund::where('disburstment_id', $req->id)->first();
+        if ($disburstment) {
+            $refundIds = explode('~^&**&^~', $disburstment->str_refund_ids);
+            if ($req->status === "FAILED") {
+                foreach ($refundIds as $refundId) {
+                    if ($refundId !== "") {
+                        RefundData::where('id', intval($refundId))->update([
+                            "approve_admin" => false
+                        ]);
+                    }
+                }
+            } else if ($req->status === "COMPLETED") { {
+                    foreach ($refundIds as $refundId) {
+                        if ($refundId !== "") {
+                            $refund = RefundData::where('id', intval($refundId))->first();
+                            Purchase::where('id', $refund->purchase_id)->delete();
+                            RefundData::where('id', $refund->id)->update([
+                                "finish" => true
+                            ]);
+                        }
+                    }
+                }
+            }
+        } else {
+            $disburstment = DisburstmentWd::where('disburstment_id', $req->id)->first();
+            if ($req->status === "COMPLETED") {
+                Withdraw::where('id', $disburstment->withdraw_id)->update(['finish' => true]);
+            }
+        }
+        return response()->json(["data" => $disburstment], 200);
     }
 }

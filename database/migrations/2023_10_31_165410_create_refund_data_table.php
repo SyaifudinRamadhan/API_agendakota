@@ -15,12 +15,18 @@ return new class extends Migration
             $table->id();
             $table->foreignUuid('purchase_id')->nullable()->references('id')->on('purchases')->onDelete('set null')->onUpdate('cascade');
             $table->foreignUuid('user_id')->references('id')->on('users')->onDelete('cascade')->onUpdate('cascade');
+            $table->foreignUuid('ticket_id')->references('id')->on('tickets')->onDelete('cascade')->onUpdate('cascade');
+            $table->foreignUuid('event_id')->references('id')->on('events')->onDelete('cascade')->onUpdate('cascade');
+            $table->string('bank_code');
+            $table->string('account_name');
             $table->string('account_number');
             $table->string('phone_number');
             $table->text('message');
+            $table->float('percentage')->default(100.0);
             $table->integer('nominal');
-            $table->string('ticket_name');
-            $table->string('event_name');
+            $table->boolean('approve_org')->default(false);
+            $table->boolean('approve_admin')->default(false);
+            $table->boolean('finish')->default(false);
             $table->timestamps();
         });
     }

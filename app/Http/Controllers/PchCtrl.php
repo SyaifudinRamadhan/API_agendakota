@@ -15,6 +15,7 @@ use App\Models\RefundData;
 use App\Models\Ticket;
 use App\Models\ReservedSeat;
 use App\Models\Voucher;
+use App\Models\DisburstmentRefund;
 use Xendit\Xendit;
 use DateTime;
 use DateTimeZone;
@@ -745,9 +746,8 @@ class PchCtrl extends Controller
 
     public function submitRefund(Request $req)
     {
-        $resValidate = $this->validationPurchase($req, true);
-        if (array_key_exists("error", $resValidate)) {
-            return response()->json(["error" => $resValidate["error"]], $resValidate["code"]);
+        if (!is_array($req->purchase_ids)) {
+            return response()->json(["error" => "Purchase id field is an array type"], 403);
         }
         if (!$req->message) {
             return response()->json(["error" => "Message field is required for admin consideration"], 403);
@@ -758,106 +758,249 @@ class PchCtrl extends Controller
         if (!$req->account_number) {
             return response()->json(["error" => "Account number / VA number field is required for admin consideration"], 403);
         }
+        if (!$req->bank_code) {
+            return response()->json(["error" => "Bank code field is required for admin consideration"], 403);
+        }
+        if (!$req->account_name) {
+            return response()->json(["error" => "Account name field is required for admin consideration"], 403);
+        }
+        if (!array_key_exists($req->bank_code, config('banks'))) {
+            return response()->json(["error" => "Bank code not available"], 404);
+        }
+        $pchs = [];
+        foreach ($req->purchase_ids as $purchaseId) {
+            $req->purchase_id = $purchaseId;
+            if(RefundData::where('purchase_id', $purchaseId)->first()){
+                return response()->json(["error" => "Purchase data can't duplicated on refund"], 403);
+            }
+            $resValidate = $this->validationPurchase($req, true);
+            if (array_key_exists("error", $resValidate)) {
+                return response()->json(["error" => $resValidate["error"]], $resValidate["code"]);
+            }
+            array_push($pchs, $resValidate);
+        }
         $user = Auth::user();
-        RefundData::create(
-            [
-                "purchase_id" => $resValidate["purchase"]->id,
-                "user_id" => $user->id,
-                "message" => $req->message,
-                "phone_number" => $req->phone_number,
-                "account_number" => $req->account_number,
-                "nominal" => $resValidate["purchase"]->amount,
-                "ticket_name" => $resValidate["ticket"]->name,
-                "event_name" => $resValidate["event"]->name
-            ]
-        );
+        foreach ($pchs as $pch) {
+            RefundData::create(
+                [
+                    "purchase_id" => $pch["purchase"]->id,
+                    "user_id" => $user->id,
+                    "ticket_id" => $pch["ticket"]->id,
+                    "event_id" => $pch["event"]->id,
+                    "message" => $req->message,
+                    "phone_number" => $req->phone_number,
+                    "bank_code" => $req->bank_code,
+                    "account_name" => $req->account_name,
+                    "account_number" => $req->account_number,
+                    "nominal" => $pch["purchase"]->amount,
+                ]
+            );
+        }
         Mail::to('syaifudinramadhan@gmail.com')->send(
             new AdminRefundNotification(
                 $user->name,
                 $user->email,
-                $resValidate["event"]->name,
-                $resValidate["purchase"]->id,
-                $resValidate["ticket"]->name,
-                $resValidate["ticket"]->id,
+                $pchs[0]["event"]->name,
+                $pchs[0]["purchase"]->id,
+                $pchs[0]["ticket"]->name,
+                $pchs[0]["ticket"]->id,
                 $req->message
             )
         );
+        // add notify emeil to organizer
         return response()->json(["message" => "Your refund requets have sent. Check you email, for view your refund status"], 201);
     }
 
-    public function getRefunds()
+    public function getRefunds($admin = false)
     {
-        $refundDatas = RefundData::all();
+        $refundDatas = $admin ? RefundData::all() : RefundData::where('event_id', $req->event->id)->get();
         foreach ($refundDatas as $refundData) {
             $refundData->user = $refundData->user()->first();
             $refundData->purchase = $refundData->purchase()->first();
-            if ($refundData->purchase) {
-                $refundData->ticket = $refundData->purchase->ticket()->first();
-                $refundData->event = $refundData->ticket->event()->first();
-            }
-            $refundData->status = $refundData->purchase ? 'Un Approved' : 'Approved';
+            $refundData->ticket = $refundData->ticket()->first();
+            $refundData->event = $refundData->event()->first();
+            // $refundData->status = $refundData->purchase ? 'Un Approved' : 'Approved';
         }
-        return response()->json(["refund_datas" => $refundDatas->groupBy('user_id')], 200);
+        return response()->json(["refund_datas" => $refundDatas], 200);
     }
 
-    public function getRefund($refundId)
+    public function getRefund($refundId, $admin = false)
     {
-        $refundData = RefundData::where('id', $refundId)->first();
+        $refundData = $admin ? RefundData::where('id', $refundId)->first() : RefundData::where('id', $refundId)->where('event_id', $req->event->id)->first();
         if (!$refundData) {
             return response()->json(["error" => "Refund data not found"], 404);
         }
         $refundData->user = $refundData->user()->first();
         $refundData->purchase = $refundData->purchase()->first();
-        if ($refundData->purchase) {
-            $refundData->ticket = $refundData->purchase->ticket()->first();
-            $refundData->event = $refundData->ticket->event()->first();
-        }
-        $refundData->status = $refundData->purchase ? 'Un Approved' : 'Approved';
+        $refundData->ticket = $refundData->ticket()->first();
+        $refundData->event = $refundData->event()->first();
+        // $refundData->status = $refundData->purchase ? 'Un Approved' : 'Approved';
         return response()->json(["refund_data" => $refundData], 200);
     }
 
-    public function considerationRefund(Request $req, $refundId)
+    private function createDisburstment($disburstment)
     {
-        $refundData = RefundData::where('id', $refundId)->first();
-        if (!$refundData) {
-            return response()->json(["error" => "Refund data not found"], 404);
+        $curl = curl_init();
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://api.xendit.co/disbursements',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => json_encode($disburstment),
+            CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/json',
+                'X-IDEMPOTENCY-KEY: ' . time(),
+                'Authorization: Basic ' . base64_encode(env('XENDIT_API_WRITE') . ':')
+            ),
+        ));
+
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+        return json_decode($response);
+    }
+
+    public function considerationRefundMain(Request $req, $refundIds, $refundPercentage, $ticketId, $admin = false)
+    {
+        if (!is_array($refundIds)) {
+            return response()->json(["error" => "refund ids is an array"], 403);
         }
-        $purchase = $refundData->purchase()->first();
-        if (!$purchase) {
-            return response()->json(["error" => "Purchase data has removed or this request has approved"], 403);
+        $refundDatas = [];
+        $resOut = [];
+        foreach ($refundIds as $refundId) {
+            $refundData = $admin ? RefundData::where('id', $refundId)->where('ticket_id', $ticketId)->first() : RefundData::where('id', $refundId)->where('event_id', $req->event->id)->where('ticket_id', $ticketId)->first();
+            if (!$refundData) {
+                return response()->json(["error" => "Refund data not found"], 404);
+            }
+            if (($admin && $refundData->approve_admin == true) || (!$admin && $refundData->approve_org == true)) {
+                return response()->json(["error" => "This request has approved"], 403);
+            }
+            if ($admin && $refundData->approve_org == false) {
+                return response()->json(["error" => "Admin can't canhge refund state berfore organizer chnage it first"], 403);
+            }
+            if (array_key_exists($refundData->user_id, $refundDatas)) {
+                array_push($refundDatas[$refundData->user_id], $refundData);
+            } else {
+                $refundDatas[$refundData->user_id] = [$refundData];
+            }
         }
-        $req->purchase_id = $purchase->id;
-        $user = $refundData->user()->first();
-        $resValidate = $this->validationPurchase($req, true, $user);
-        if (array_key_exists("error", $resValidate)) {
-            return response()->json(["error" => $resValidate["error"]], $resValidate["code"]);
+        foreach ($refundDatas as $refundDataByUser) {
+            $resValidate = null;
+            $user = null;
+            $purchaseIds = [];
+            $nominal = 0;
+            $strRefundId = '';
+            foreach ($refundDataByUser as $refundData) {
+                $user = $refundData->user()->first();
+                $req->purchase_id = $refundData->purchase_id;
+                array_push($purchaseIds, $req->purchase_id);
+                $resValidate = $this->validationPurchase($req, true, $user);
+                if (array_key_exists("error", $resValidate)) {
+                    return response()->json(["error" => $resValidate["error"]], $resValidate["code"]);
+                }
+                if (!$req->approved) {
+                    RefundData::where('id', $refundData->id)->delete();
+                } else {
+                    // if ($admin) {
+                    //     Purchase::where('id', $req->purchase_id)->delete();
+                    // }
+                    RefundData::where('id', $refundData->id)->update($admin ? [
+                        "approve_admin" => true
+                    ] : [
+                        "approve_org" => true,
+                        "percentage" => $refundPercentage ? $refundPercentage : 100.0
+                    ]);
+                    $strRefundId .= $refundData->id . '~^&**&^~';
+                    $nominal += $refundData->nominal;
+                }
+            }
+
+            if (!$req->approved && $admin) {
+                Mail::to($user->email)->send(
+                    new UserRefundNotification(
+                        'Un Approved / Rejected',
+                        $resValidate["event"]->name,
+                        $purchaseIds[0],
+                        $resValidate["ticket"]->name,
+                        $resValidate["ticket"]->id,
+                        $refundDataByUser[0]->message
+                    )
+                );
+            } else if ($req->approved && $admin) {
+                $res = $this->createDisburstment([
+                    "external_id" => $resValidate["ticket"]->id,
+                    "amount" => ($nominal * ($refundDataByUser[0]->percentage / 100)),
+                    "bank_code" =>  $refundDataByUser[0]->bank_code,
+                    "account_holder_name" =>  $refundDataByUser[0]->account_name,
+                    "account_number" => $refundDataByUser[0]->account_number,
+                    "description" => "Refund payment from event (" . $resValidate["event"]->name . ") and ticket (" . $resValidate["ticket"]->name . ")",
+                ]);
+                array_push($resOut, $res);
+                // info($res);
+                // return response()->json(["error" => $res], 404);
+                if (isset($res->error_code)) {
+                    foreach ($refundDataByUser as $refundData) {
+                        RefundData::where('id', $refundData->id)->update([
+                            "approve_admin" => false
+                        ]);
+                    }
+                    return response()->json([
+                        "error" => "Failed process in xendit API",
+                        "message" => $res->message
+                    ], $res->error_code);
+                }
+                DisburstmentRefund::create([
+                    'disburstment_id' => $res->id,
+                    'str_refund_ids' => $strRefundId
+                ]);
+                Mail::to($user->email)->send(
+                    new UserRefundNotification(
+                        'Approved / Accepted',
+                        $resValidate["event"]->name,
+                        $purchaseIds[0],
+                        $resValidate["ticket"]->name,
+                        $resValidate["ticket"]->id,
+                        $refundDataByUser[0]->message
+                    )
+                );
+            }
         }
-        if (!$req->approved) {
-            Mail::to($user->email)->send(
-                new UserRefundNotification(
-                    'Un Approved / Rejected',
-                    $resValidate["event"]->name,
-                    $purchase->id,
-                    $resValidate["ticket"]->name,
-                    $resValidate["ticket"]->id,
-                    $refundData->message
-                )
-            );
-            RefundData::where('id', $refundData->id)->delete();
-            return response()->json(["message" => "Refund data has removed"], 202);
+
+        return response()->json(["message" => "Status of refund data has updated", "data" => $resOut], 202);
+    }
+
+    public function considerationRefund(Request $req)
+    {
+        return $this->considerationRefundMain($req, $req->refund_ids, $req->refund_percentage, $req->ticket_id, false);
+    }
+
+    public function setFinishRefund($refundIds)
+    {
+        if (!is_array($refundIds)) {
+            return response()->json(["error" => "refund ids is an array"], 403);
         }
-        Purchase::where('id', $purchase->id)->delete();
-        Mail::to($user->email)->send(
-            new UserRefundNotification(
-                'Approved / Accepted',
-                $resValidate["event"]->name,
-                $purchase->id,
-                $resValidate["ticket"]->name,
-                $resValidate["ticket"]->id,
-                $refundData->message
-            )
-        );
-        return response()->json(["message" => "Refund data has apporoved"], 202);
+        $refundDatas = [];
+        foreach ($refundIds as $refundId) {
+            $refundData = RefundData::where('id', $refundId)->first();
+            if (!$refundData) {
+                return response()->json(["error" => "Refund data not found"], 404);
+            }
+            if ($refundData->purchase()->first() || $refundData->approve_admin == false) {
+                return response()->json(["error" => "This data not yet approved. Please approve first, to set finish state"], 403);
+            }
+            array_push($refundDatas, $refundData);
+        }
+        foreach ($refundDatas as $refundData) {
+            RefundData::where('id', $refundData->id)->update([
+                'finish' => true
+            ]);
+        }
+        return response()->json(["message" => "Refund data has set to fisnish transfer"], 202);
     }
 
     private function removePayment($orderId)

@@ -7,6 +7,7 @@ use App\Http\Middleware\EventOrganizer;
 use App\Http\Middleware\EventData;
 use App\Http\Middleware\EventSessionData;
 use App\Http\Middleware\AdminPriv;
+use App\Http\Middleware\ApiToken;
 
 class Kernel extends HttpKernel
 {
@@ -44,7 +45,7 @@ class Kernel extends HttpKernel
 
         'api' => [
             // \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
-            \Illuminate\Routing\Middleware\ThrottleRequests::class.':api',
+            \Illuminate\Routing\Middleware\ThrottleRequests::class . ':api',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
     ];
@@ -72,5 +73,6 @@ class Kernel extends HttpKernel
         'eventData' => EventData::class,
         'eventSessionData' => EventSessionData::class,
         'admin' => AdminPriv::class,
+        'apiToken' => ApiToken::class,
     ];
 }

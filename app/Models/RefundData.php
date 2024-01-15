@@ -12,13 +12,19 @@ class RefundData extends Model
 
     protected $fillable = [
         'purchase_id',
+        'ticket_id',
         'user_id',
+        'event_id',
         'message',
+        'bank_code',
+        'account_name',
         'account_number',
         'phone_number',
+        'percentage',
         'nominal',
-        'ticket_name',
-        'event_name'
+        'finish',
+        'approve_org',
+        'approve_admin'
     ];
 
     public function purchase(): BelongsTo
@@ -29,5 +35,15 @@ class RefundData extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class, 'user_id');
+    }
+
+    public function ticket(): BelongsTo
+    {
+        return $this->belongsTo(Ticket::class, 'ticket_id');
+    }
+
+    public function event(): BelongsTo
+    {
+        return $this->belongsTo(Event::class, 'event_id');
     }
 }

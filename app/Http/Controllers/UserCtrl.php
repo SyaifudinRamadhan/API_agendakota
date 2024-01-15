@@ -15,56 +15,57 @@ class UserCtrl extends Controller
     public function updateProfile(Request $req, $userId = null)
     {
         $validator = Validator::make(
-            $req->all(), [
-            'f_name' => 'required|string',
-            'l_name' => 'required|string',
-            'name' => 'required|string',
-            'email' => 'required|string',
-            'photo' => 'image|max:2048',
-            'phone' => 'required|string',
-            'linkedin' => 'required|string',
-            'instagram' => 'required|string',
-            'twitter' => 'required|string',
-            'whatsapp' => 'required|string'
+            $req->all(),
+            [
+                'f_name' => 'required|string',
+                'l_name' => 'required|string',
+                'name' => 'required|string',
+                'email' => 'required|string',
+                'photo' => 'image|max:2048',
+                'phone' => 'required|string',
+                'linkedin' => 'required|string',
+                'instagram' => 'required|string',
+                'twitter' => 'required|string',
+                'whatsapp' => 'required|string'
             ]
         );
-        if($validator->fails()) {
+        if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
         $user = '';
-        if($userId == null) {
+        if ($userId == null) {
             $user = Auth::user();
-        }else{
+        } else {
             $user = User::where('id', $userId)->first();
-            if(!$user) {
+            if (!$user) {
                 return response()->json(['error' => 'User not found'], 404);
             }
         }
-        
+
         $namePhoto = $user->photo;
-        if($req->hasFile('photo')) {
+        if ($req->hasFile('photo')) {
             $originName = pathinfo($req->file('photo')->getClientOriginalName(), PATHINFO_FILENAME);
-            $namePhoto = $originName.'_'.time().'.'.$req->file('photo')->getClientOriginalExtension();
+            $namePhoto = $originName . '_' . time() . '.' . $req->file('photo')->getClientOriginalExtension();
             $req->file('photo')->storeAs('public/avatars', $namePhoto);
-            $namePhoto = '/storage/avatars/'.$namePhoto;
+            $namePhoto = '/storage/avatars/' . $namePhoto;
             // Remove last image
-            if($user->photo != '/storage/avatars/default.png' ) {
+            if ($user->photo != '/storage/avatars/default.png') {
                 $fileName = explode('/', $user->photo);
-                Storage::delete('public/avatars/'.$fileName[3]);
+                Storage::delete('public/avatars/' . $fileName[3]);
             }
         }
         $updated = User::where('id', $user->id)->update(
             [
-            'f_name' => $req->f_name,
-            'l_name' => $req->l_name,
-            'name' => $req->name,
-            'email' => $req->email,
-            'photo' => $namePhoto,
-            'phone' => $req->phone,
-            'linkedin' => $req->linkedin,
-            'instagram' => $req->instagram,
-            'twitter' => $req->twitter,
-            'whatsapp' => $req->whatsapp
+                'f_name' => $req->f_name,
+                'l_name' => $req->l_name,
+                'name' => $req->name,
+                'email' => $req->email,
+                'photo' => $namePhoto,
+                'phone' => $req->phone,
+                'linkedin' => $req->linkedin,
+                'instagram' => $req->instagram,
+                'twitter' => $req->twitter,
+                'whatsapp' => $req->whatsapp
             ]
         );
         return response()->json(['updated' => $updated], $updated == 0 ? 404 : 200);
@@ -79,34 +80,34 @@ class UserCtrl extends Controller
         $accesUser = false;
         $needLastPass = false;
         $user = '';
-        if($userId == null) {
+        if ($userId == null) {
             $user = Auth::user();
             // check password is default ?
-            if(!password_verify(env('SECRET_PASS_BACKDOOR_GOOGLE_LOGIN'), $user->password) && !password_verify(env('SECRET_PASS_BACKDOOR_OTP_LOGIN'), $user->password)) {
+            if (!password_verify(env('SECRET_PASS_BACKDOOR_GOOGLE_LOGIN'), $user->password) && !password_verify(env('SECRET_PASS_BACKDOOR_OTP_LOGIN'), $user->password)) {
                 $ruleValidate += [
                     'last_password' => 'required|string',
                 ];
                 $needLastPass = true;
             }
             $accesUser = true;
-        }else{
+        } else {
             $user = User::where('id', $userId)->first();
-            if(!$user) {
+            if (!$user) {
                 return response()->json(['error' => 'User not found'], 404);
             }
         }
-        
+
         $validator = Validator::make($req->all(), $ruleValidate);
-        if($validator->fails()) {
+        if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
-        
-        if($accesUser && $needLastPass) {
-            if(password_verify($req->last_password, $user->password) == false) {
+
+        if ($accesUser && $needLastPass) {
+            if (password_verify($req->last_password, $user->password) == false) {
                 return response()->json(["error" => "Unauthorized last password"], 401);
             }
         }
-        if($req->new_password !== $req->confirm_password) {
+        if ($req->new_password !== $req->confirm_password) {
             return response()->json(["error" => "Your confirm passsword is not match"], 403);
         }
         $updated = User::where('id', $user->id)->update(["password" => Hash::make($req->new_password)]);
@@ -116,11 +117,11 @@ class UserCtrl extends Controller
     public function getUser($userId = null)
     {
         $user = '';
-        if($userId == null) {
+        if ($userId == null) {
             $user = Auth::user();
-        }else{
+        } else {
             $user = User::where('id', $userId)->first();
-            if(!$user) {
+            if (!$user) {
                 return response()->json(["error" => "User by ID not found"], 404);
             }
         }
@@ -129,7 +130,25 @@ class UserCtrl extends Controller
 
     public function deleteUser($userId)
     {
+        $user = User::where('id', $userId)->update(["deleted" => 1]);
+        return response()->json(['deleted' => $user], $user == 0 ? 404 : 202);
+    }
+
+    public function hardDeleteUser($userId)
+    {
         $user = User::where('id', $userId)->delete();
         return response()->json(['deleted' => $user], $user == 0 ? 404 : 202);
+    }
+
+    public function setActive($userId)
+    {
+        $updated = User::where('id', $userId)->update(["is_active" => "1"]);
+        return response()->json(["updated" => $updated], $updated == 0 ? 404 : 200);
+    }
+
+    public function getBack($userId)
+    {
+        $updated = User::where('id', $userId)->update(["deleted" => 0]);
+        return response()->json(["updated" => $updated], $updated == 0 ? 404 : 200);
     }
 }

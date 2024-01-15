@@ -19,6 +19,7 @@ return new class extends Migration
             $table->integer('nominal');
             $table->integer('basic_nominal');
             $table->integer('status')->default(0);
+            $table->boolean('finish')->default(false);
             $table->timestamps();
         });
     }

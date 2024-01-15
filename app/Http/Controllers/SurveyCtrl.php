@@ -20,7 +20,7 @@ class SurveyCtrl extends Controller
         if ($validator->fails()) {
             return response()->json($validator->errors());
         }
-        $event = Event::where('id', $req->event_id)->first();
+        $event = Event::where('id', $req->event_id)->where('is_publish', 2)->where('deleted', 0)->first();
         if (!$event) {
             return response()->json(["error" => "Event data not found"], 404);
         }

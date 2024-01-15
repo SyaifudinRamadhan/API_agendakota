@@ -6,23 +6,18 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
-class SpecialDayEvents extends Model
+class SelectedActivityDatas extends Model
 {
     use HasFactory;
-
     protected $fillable = [
-        'special_day_id',
-        'event_id',
-        'priority'
+        "event_id", "selected_activity_id", "priority"
     ];
-
-    public  function specialDay(): BelongsTo
+    public function selectedActivity(): BelongsTo
     {
-        return $this->belongsTo(SpecialDay::class, 'special_day_id');
+        return $this->belongsTo(SelectedActivity::class, 'selected_activity_id');
     }
-
     public function event(): BelongsTo
     {
-        return $this->belongsTo(Event::class, 'event_id');
+        return $this->belongsTo(Event::class, "event_id");
     }
 }

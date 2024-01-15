@@ -18,9 +18,10 @@ class InvitationCtrl extends Controller
     public function create(Request $req)
     {
         $validator = Validator::make(
-            $req->all(), [
-            'target_email' => "required|email",
-            'purchase_id' => "required|string"
+            $req->all(),
+            [
+                'target_email' => "required|email",
+                'purchase_id' => "required|string"
             ]
         );
         if ($validator->fails()) {
@@ -31,7 +32,7 @@ class InvitationCtrl extends Controller
         if (!$purchase) {
             return response()->json(["error" =>  "Purchase data not found"], 404);
         }
-        if($purchase->checkin()->first()) {
+        if ($purchase->checkin()->first()) {
             return response()->json(["error" => "This ticket has checkined"], 403);
         }
         if ($sender->email == $req->target_email) {
@@ -47,19 +48,20 @@ class InvitationCtrl extends Controller
             $name = explode('@', $req->target_email)[0];
             $user = User::create(
                 [
-                'f_name' => $name,
-                'l_name' => $name,
-                'name' => $name,
-                'email' => $req->target_email,
-                'password' => Hash::make(env('SECRET_PASS_BACKDOOR_OTP_LOGIN')),
-                'g_id' => '-',
-                'photo' => '/storage/avatars/default.png',
-                'is_active' => '0',
-                'phone' => '-',
-                'linkedin' => '-',
-                'instagram' => '-',
-                'twitter' => '-',
-                'whatsapp' => '-'
+                    'f_name' => $name,
+                    'l_name' => $name,
+                    'name' => $name,
+                    'email' => $req->target_email,
+                    'password' => Hash::make(env('SECRET_PASS_BACKDOOR_OTP_LOGIN')),
+                    'g_id' => '-',
+                    'photo' => '/storage/avatars/default.png',
+                    'is_active' => '0',
+                    'phone' => '-',
+                    'linkedin' => '-',
+                    'instagram' => '-',
+                    'twitter' => '-',
+                    'whatsapp' => '-',
+                    "deleted" => 0
                 ]
             );
             for ($i = 0; $i < 6; $i++) {
@@ -67,23 +69,23 @@ class InvitationCtrl extends Controller
             }
             Otp::create(
                 [
-                'user_id' => $user->id,
-                'otp_code' => $otp
+                    'user_id' => $user->id,
+                    'otp_code' => $otp
                 ]
             );
             $newUser = true;
         }
         Purchase::where('id', $purchase->id)->update(
             [
-            'is_mine' => false
+                'is_mine' => false
             ]
         );
         Invitation::create(
             [
-            'user_id' => $sender->id,
-            'target_user_id' => $user->id,
-            'pch_id' => $purchase->id,
-            'response' => 'WAITING'
+                'user_id' => $sender->id,
+                'target_user_id' => $user->id,
+                'pch_id' => $purchase->id,
+                'response' => 'WAITING'
             ]
         );
         if (!$newUser) {
@@ -118,13 +120,13 @@ class InvitationCtrl extends Controller
         }
         $invitation->update(
             [
-            'response' => 'ACCEPTED'
+                'response' => 'ACCEPTED'
             ]
         );
         Purchase::where('id', $invitation->first()->pch_id)->update(
             [
-            'user_id' => $user->id,
-            'is_mine' => true
+                'user_id' => $user->id,
+                'is_mine' => true
             ]
         );
         return response()->json(["message" => "You have succeeded clain or accept your invitatio"], 202);
@@ -145,7 +147,7 @@ class InvitationCtrl extends Controller
         }
         Purchase::where('id', $invitation->first()->pch_id)->update(
             [
-            'is_mine' => true
+                'is_mine' => true
             ]
         );
         $deleted = $invitation->delete();

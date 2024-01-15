@@ -34,7 +34,8 @@ class User extends Authenticatable
         'linkedin',
         'instagram',
         'twitter',
-        'whatsapp'
+        'whatsapp',
+        "deleted"
     ];
 
     /**

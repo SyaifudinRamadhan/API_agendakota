@@ -25,18 +25,19 @@ class Authenticate extends Controller
     public function register(Request $req)
     {
         $validator = Validator::make(
-            $req->all(), [
-            'f_name' => 'required|string',
-            'l_name' => 'required|string',
-            'name' => 'required|string',
-            'email' => 'required|string|unique:users',
-            'password' => 'required|string',
-            'photo' => 'image|max:2048',
-            'phone' => 'required|string',
-            'linkedin' => 'required|string',
-            'instagram' => 'required|string',
-            'twitter' => 'required|string',
-            'whatsapp' => 'required|string'
+            $req->all(),
+            [
+                'f_name' => 'required|string',
+                'l_name' => 'required|string',
+                'name' => 'required|string',
+                'email' => 'required|string|unique:users',
+                'password' => 'required|string|min:8',
+                'photo' => 'image|max:2048',
+                'phone' => 'required|string',
+                'linkedin' => 'required|string',
+                'instagram' => 'required|string',
+                'twitter' => 'required|string',
+                'whatsapp' => 'required|string'
             ]
         );
 
@@ -59,31 +60,35 @@ class Authenticate extends Controller
 
         $user = User::create(
             [
-            'f_name' => $req->f_name,
-            'l_name' => $req->l_name,
-            'name' => $req->name,
-            'email' => $req->email,
-            'password' => Hash::make($req->password),
-            'g_id' => '-',
-            'photo' => $namePhoto,
-            'is_active' => '0',
-            'phone' => $req->phone,
-            'linkedin' => $req->linkedin,
-            'instagram' => $req->instagram,
-            'twitter' => $req->twitter,
-            'whatsapp' => $req->whatsapp
+                'f_name' => $req->f_name,
+                'l_name' => $req->l_name,
+                'name' => $req->name,
+                'email' => $req->email,
+                'password' => Hash::make($req->password),
+                'g_id' => '-',
+                'photo' => $namePhoto,
+                'is_active' => '0',
+                'phone' => $req->phone,
+                'linkedin' => $req->linkedin,
+                'instagram' => $req->instagram,
+                'twitter' => $req->twitter,
+                'whatsapp' => $req->whatsapp,
+                "deleted" => 0
             ]
         );
 
-        $tokenVerify = JWT::encode(['sub' => $user->id], env('JWT_SECRET'), env('JWT_ALG'));
+        if (!$req->for_admin || $req->for_admin == false) {
+            $tokenVerify = JWT::encode(['sub' => $user->id], env('JWT_SECRET'), env('JWT_ALG'));
 
-        // Mail handler to verify
-        Mail::to($req->email)->send(new Verification($user->name, $tokenVerify));
+            // Mail handler to verify
+            Mail::to($req->email)->send(new Verification($user->name, $tokenVerify));
+        }
 
         return response()->json(
             [
-            'data' => $user,
-            ], 201
+                'data' => $user,
+            ],
+            201
         );
     }
 
@@ -99,6 +104,9 @@ class Authenticate extends Controller
         if (!$user || $user->is_active != '1') {
             return response()->json(['error' => 'Unauthorized, your account is not active. Please confirm your account first'], 401);
         }
+        if ($user->deleted === 1) {
+            return response()->json(["error" => "This account has removed"], 404);
+        }
         $token = null;
         if ($req->is_mobile ==  true) {
             $user->tokens()->where('name', 'auth_token_mobile')->delete();
@@ -109,11 +117,12 @@ class Authenticate extends Controller
         }
         return response()->json(
             [
-            'data' => $user,
-            'admin' => $user->admin()->first(),
-            'access_token' => $token,
-            'token_type' => 'Bearer'
-            ], 200
+                'data' => $user,
+                'admin' => $user->admin()->first(),
+                'access_token' => $token,
+                'token_type' => 'Bearer'
+            ],
+            200
         );
     }
 
@@ -127,25 +136,27 @@ class Authenticate extends Controller
         } catch (\Throwable $th) {
             return response()->json(
                 [
-                'error' => 'Invalid signature credential',
-                ], 403
+                    'error' => 'Invalid signature credential',
+                ],
+                403
             );
         }
         $user = User::create(
             [
-            'f_name' => $payloadAcc->given_name,
-            'l_name' => $payloadAcc->family_name,
-            'name' => $payloadAcc->name,
-            'email' => $payloadAcc->email,
-            'password' => Hash::make(env('SECRET_PASS_BACKDOOR_GOOGLE_LOGIN')),
-            'g_id' => $payloadAcc->sub,
-            'photo' => '/storage/avatars/default.png',
-            'is_active' => '1',
-            'phone' => '-',
-            'linkedin' => '-',
-            'instagram' => '-',
-            'twitter' => '-',
-            'whatsapp' => '-'
+                'f_name' => $payloadAcc->given_name,
+                'l_name' => $payloadAcc->family_name,
+                'name' => $payloadAcc->name,
+                'email' => $payloadAcc->email,
+                'password' => Hash::make(env('SECRET_PASS_BACKDOOR_GOOGLE_LOGIN')),
+                'g_id' => $payloadAcc->sub,
+                'photo' => '/storage/avatars/default.png',
+                'is_active' => '1',
+                'phone' => '-',
+                'linkedin' => '-',
+                'instagram' => '-',
+                'twitter' => '-',
+                'whatsapp' => '-',
+                "deleted" => 0
             ]
         );
 
@@ -157,7 +168,7 @@ class Authenticate extends Controller
         // return response()->json([
         //     'data' => $user,
         // ], 201);
-        
+
         $token = null;
         if ($isMobile ==  true) {
             $user->tokens()->where('name', 'auth_token_mobile')->delete();
@@ -172,16 +183,18 @@ class Authenticate extends Controller
                 'admin' => $user->admin()->first(),
                 'access_token' => $token,
                 'token_type' => 'Bearer'
-                ], 200
+            ],
+            200
         );
     }
 
     public function loginGoogle(Request $req)
     {
         $validator = Validator::make(
-            $req->all(), [
-            'email' => 'required|string',
-            'credential' => 'required|string'
+            $req->all(),
+            [
+                'email' => 'required|string',
+                'credential' => 'required|string'
             ]
         );
         // This credential is remaked from frontend by google one tap reponse. Not from google response credential
@@ -202,13 +215,17 @@ class Authenticate extends Controller
             } catch (\Throwable $th) {
                 return response()->json(
                     [
-                    'error' => 'Invalid signature credential',
-                    ], 403
+                        'error' => 'Invalid signature credential',
+                    ],
+                    403
                 );
             }
 
             if ($user->g_id != $payloadAcc->sub || $user->is_active != '1') {
                 return response()->json(['error' => 'Unauthorized, your account is not active. Or not registered'], 401);
+            }
+            if ($user->deleted === 1) {
+                return response()->json(["error" => "This account has removed"], 404);
             }
             $token = null;
             if ($req->is_mobile ==  true) {
@@ -220,11 +237,12 @@ class Authenticate extends Controller
             }
             return response()->json(
                 [
-                'data' => $user,
-                'admin' => $user->admin()->first(),
-                'access_token' => $token,
-                'token_type' => 'Bearer'
-                ], 200
+                    'data' => $user,
+                    'admin' => $user->admin()->first(),
+                    'access_token' => $token,
+                    'token_type' => 'Bearer'
+                ],
+                200
             );
         }
     }
@@ -234,25 +252,26 @@ class Authenticate extends Controller
         $name = explode('@', $email)[0];
         $user = User::create(
             [
-            'f_name' => $name,
-            'l_name' => '-',
-            'name' => $name,
-            'email' => $email,
-            'password' => Hash::make(env('SECRET_PASS_BACKDOOR_OTP_LOGIN')),
-            'g_id' => '-',
-            'photo' => '/storage/avatars/default.png',
-            'is_active' => '0',
-            'phone' => '-',
-            'linkedin' => '-',
-            'instagram' => '-',
-            'twitter' => '-',
-            'whatsapp' => '-'
+                'f_name' => $name,
+                'l_name' => '-',
+                'name' => $name,
+                'email' => $email,
+                'password' => Hash::make(env('SECRET_PASS_BACKDOOR_OTP_LOGIN')),
+                'g_id' => '-',
+                'photo' => '/storage/avatars/default.png',
+                'is_active' => '0',
+                'phone' => '-',
+                'linkedin' => '-',
+                'instagram' => '-',
+                'twitter' => '-',
+                'whatsapp' => '-',
+                "deleted" => 0
             ]
         );
         Otp::create(
             [
-            'user_id' => $user->id,
-            'otp_code' => $otp,
+                'user_id' => $user->id,
+                'otp_code' => $otp,
             ]
         );
         return $user;
@@ -270,14 +289,14 @@ class Authenticate extends Controller
         } else {
             $updated = Otp::where('user_id', $user->id)->update(
                 [
-                'otp_code' => $otp
+                    'otp_code' => $otp
                 ]
             );
             if ($updated == 0) {
                 Otp::create(
                     [
-                    'user_id' => $user->id,
-                    'otp_code' => $otp,
+                        'user_id' => $user->id,
+                        'otp_code' => $otp,
                     ]
                 );
             }
@@ -294,8 +313,9 @@ class Authenticate extends Controller
     public function loginWithOtp(Request $req)
     {
         $validator = Validator::make(
-            $req->all(), [
-            "email" => 'required|string'
+            $req->all(),
+            [
+                "email" => 'required|string'
             ]
         );
         if ($validator->fails()) {
@@ -311,9 +331,10 @@ class Authenticate extends Controller
     public function verifyOtp(Request $req)
     {
         $validator = Validator::make(
-            $req->all(), [
-            "email" => "required|string",
-            "otp_code" => "required|string"
+            $req->all(),
+            [
+                "email" => "required|string",
+                "otp_code" => "required|string"
             ]
         );
         if ($validator->fails()) {
@@ -322,6 +343,9 @@ class Authenticate extends Controller
         $user = User::where('email', $req->email);
         if (!$user->first()) {
             return response()->json(["error" => "User data not found"], 404);
+        }
+        if ($user->deleted === 1) {
+            return response()->json(["error" => "This account has removed"], 404);
         }
         $otp = $user->first()->otp()->first();
         if (!$otp) {
@@ -332,7 +356,7 @@ class Authenticate extends Controller
         }
         $user->update(
             [
-            "is_active" => '1'
+                "is_active" => '1'
             ]
         );
         $user = $user->first();
@@ -346,10 +370,10 @@ class Authenticate extends Controller
         }
         return response()->json(
             [
-            "data" => $user,
-            'admin' => $user->admin()->first(),
-            "access_token" => $token,
-            "token_type" => "Bearer"
+                "data" => $user,
+                'admin' => $user->admin()->first(),
+                "access_token" => $token,
+                "token_type" => "Bearer"
             ]
         );
     }
@@ -371,21 +395,26 @@ class Authenticate extends Controller
         } catch (\Throwable $th) {
             return response()->json(
                 [
-                'error' => 'Invalid signature credential',
-                ], 403
+                    'error' => 'Invalid signature credential',
+                ],
+                403
             );
         }
         $user = User::where('id', $payload->sub)->update(
             [
-            'is_active' => '1'
+                'is_active' => '1'
             ]
         );
+        if ($user->deleted === 1) {
+            return response()->json(["error" => "This account has removed"], 404);
+        }
         // NOTE : Replace response with redirect to ReactApp
         return response()->json(
             [
-            'updated' => $user,
-            'message' => $user == 0 ? 'User account not found' : 'User account has been updated'
-            ], $user == 0 ? 404 : 200
+                'updated' => $user,
+                'message' => $user == 0 ? 'User account not found' : 'User account has been updated'
+            ],
+            $user == 0 ? 404 : 200
         );
     }
 
@@ -393,8 +422,9 @@ class Authenticate extends Controller
     public function requestResetPass(Request $req)
     {
         $validator = Validator::make(
-            $req->all(), [
-            'email' => 'required'
+            $req->all(),
+            [
+                'email' => 'required'
             ]
         );
 
@@ -413,8 +443,9 @@ class Authenticate extends Controller
 
         return response()->json(
             [
-            'message' => 'We have send confirmation email to reset your password'
-            ], 200
+                'message' => 'We have send confirmation email to reset your password'
+            ],
+            200
         );
     }
 
@@ -422,10 +453,11 @@ class Authenticate extends Controller
     public function resetPassword(Request $req)
     {
         $validator = Validator::make(
-            $req->all(), [
-            'token_reset' => 'required',
-            'new_password' => 'required',
-            'confirm_new_pass' => 'required'
+            $req->all(),
+            [
+                'token_reset' => 'required',
+                'new_password' => 'required',
+                'confirm_new_pass' => 'required'
             ]
         );
 
@@ -445,14 +477,15 @@ class Authenticate extends Controller
         }
         $user = User::where('id', $payload->sub)->update(
             [
-            'password' => Hash::make($req->new_password)
+                'password' => Hash::make($req->new_password)
             ]
         );
 
         return response()->json(
             [
-            'message' => $user == 0 ? 'Failed update password / user not found' : 'Your password has been updated'
-            ], $user == 0 ? 404 : 200
+                'message' => $user == 0 ? 'Failed update password / user not found' : 'Your password has been updated'
+            ],
+            $user == 0 ? 404 : 200
         );
     }
 }

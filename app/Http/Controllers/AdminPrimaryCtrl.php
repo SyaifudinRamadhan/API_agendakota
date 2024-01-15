@@ -38,6 +38,38 @@ class AdminPrimaryCtrl extends Controller
         return $userCtrl->getUser($req->user_id);
     }
 
+    public function userDelete(Request $req)
+    {
+        if (!$req->user_id) {
+            return response()->json(["error" => "user id field can't blank"], 403);
+        }
+        if ($req->is_hard) {
+            $userCtrl = new UserCtrl();
+            return $userCtrl->hardDeleteUser($req->user_id);
+        } else {
+            $userCtrl = new UserCtrl();
+            return $userCtrl->deleteUser($req->user_id);
+        }
+    }
+
+    public function getBack(Request $req)
+    {
+        if (!$req->user_id) {
+            return response()->json(["error" => "user id field can't blank"], 403);
+        }
+        $userCtrl = new UserCtrl();
+        return $userCtrl->getBack($req->user_id);
+    }
+
+    public function setActive(Request $req)
+    {
+        if (!$req->user_id) {
+            return response()->json(["error" => "user id field can't blank"], 403);
+        }
+        $userCtrl = new UserCtrl();
+        return $userCtrl->setActive($req->user_id);
+    }
+
     public function users(Request $req)
     {
         return response()->json(["users" => User::all()], 200);
@@ -64,6 +96,16 @@ class AdminPrimaryCtrl extends Controller
         return $orgCtrl->delete($req, true);
     }
 
+    public function getBackOrg(Request $req)
+    {
+        $objOrg = Organization::where('id', $req->org_id);
+        if (!$objOrg->first()) {
+            return response()->json(["error" => "Organization data not found"], 404);
+        }
+        $objOrg->update(["deleted" => 0]);
+        return response()->json(["updated" => "Organization data has updated"], 202);
+    }
+
     public function organizationDetail(Request $req)
     {
         $orgCtrl = new OrgCtrl();
@@ -72,7 +114,7 @@ class AdminPrimaryCtrl extends Controller
 
     public function organizations(Request $req)
     {
-        return response()->json(["organizations" => Organization::all()], 200);
+        return response()->json(["organizations" => Organization::with('user')->get()], 200);
     }
     // ==================================================================
     public function listBank(Request $req)
@@ -127,19 +169,25 @@ class AdminPrimaryCtrl extends Controller
     public function getRefunds()
     {
         $pchCtrl = new PchCtrl();
-        return $pchCtrl->getRefunds();
+        return $pchCtrl->getRefunds(true);
     }
 
     public function getRefund(Request $req)
     {
         $pchCtrl = new PchCtrl();
-        return $pchCtrl->getRefund($req->refund_id);
+        return $pchCtrl->getRefund($req->refund_id, true);
     }
 
     public function considerationRefund(Request $req)
     {
         $pchCtrl = new PchCtrl();
-        return $pchCtrl->considerationRefund($req, $req->refund_id);
+        return $pchCtrl->considerationRefundMain($req, $req->refund_ids, 0, $req->ticket_id, true);
+    }
+
+    public function setFinishRefund(Request $req)
+    {
+        $pchCtrl = new PchCtrl();
+        return $pchCtrl->setFinishRefund($req->refund_id);
     }
     // ==============================================================
     public function getLegalities()
@@ -158,5 +206,11 @@ class AdminPrimaryCtrl extends Controller
     {
         $legalityCtrl = new LegalityDataCtrl();
         return $legalityCtrl->changeState($req);
+    }
+
+    public function legalityDelete(Request $req)
+    {
+        $legalityCtrl = new LegalityDataCtrl();
+        return $legalityCtrl->delete($req);
     }
 }

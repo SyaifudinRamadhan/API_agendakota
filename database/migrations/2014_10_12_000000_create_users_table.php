@@ -27,6 +27,7 @@ return new class extends Migration
             $table->string('instagram')->nullbale();
             $table->string('twitter')->nullable();
             $table->string('whatsapp');
+            $table->integer("deleted")->default(0);
             $table->rememberToken();
             $table->timestamps();
         });

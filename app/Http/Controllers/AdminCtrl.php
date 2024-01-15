@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Storage;
 use App\Models\User;
 use App\Models\Category;
 use App\Models\Topic;
+use App\Models\TopicActivity;
 use App\Models\OrgType;
 use App\Models\City;
 use App\Models\FrontBanner;
@@ -23,6 +24,8 @@ use App\Models\SpecialDayEvents;
 use App\Models\Spotlight;
 use App\Models\SpotlightEvents;
 use App\Models\ViralCity;
+use App\Models\SelectedActivity;
+use App\Models\SelectedActivityDatas;
 use Illuminate\Support\Facades\DB;
 
 class AdminCtrl extends Controller
@@ -31,7 +34,7 @@ class AdminCtrl extends Controller
     public function createCategory(Request $req)
     {
         $validator = Validator::make($req->all(), [
-            "name" => "required|string",
+            "name" => "required|unique:categories|string",
             "photo" => "required|image|max:2048"
         ]);
         if ($validator->fails()) {
@@ -126,15 +129,18 @@ class AdminCtrl extends Controller
     public function createTopic(Request $req)
     {
         $validator = Validator::make($req->all(), [
-            "name" => "required|string"
+            "name" => "required|unique:topics|array"
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
-        $topic = Topic::create([
-            "name" => $req->name
-        ]);
-        return response()->json(["data" => $topic], 201);
+        $topics = [];
+        foreach ($req->name as $name) {
+            $topics[] = Topic::create([
+                "name" => $name
+            ]);
+        }
+        return response()->json(["data" => $topics], 201);
     }
 
     public function deleteTopic(Request $req)
@@ -146,6 +152,36 @@ class AdminCtrl extends Controller
     public function topics(Request $req)
     {
         return response()->json(["topics" => Topic::all()], 200);
+    }
+    // ==============================================================
+    public function createTopicAct(Request $req)
+    {
+        $validator = Validator::make($req->all(), [
+            "name" => "required|unique:topic_activities|array",
+            "category" => "required|string"
+        ]);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 403);
+        }
+        $topics = [];
+        foreach ($req->name as $name) {
+            $topics[] = TopicActivity::create([
+                "name" => $name,
+                "category" => $req->category
+            ]);
+        }
+        return response()->json(["data" => $topics], 201);
+    }
+
+    public function deleteTopicAct(Request $req)
+    {
+        $deleted = TopicActivity::where('id', $req->topic_id)->delete();
+        return response()->json(["deleted" => $deleted], $deleted == 0 ? 404 : 202);
+    }
+
+    public function topicsAct(Request $req)
+    {
+        return response()->json(["topics" => TopicActivity::all()->groupBy('category')], 200);
     }
     // ==============================================================
     public function createOrgType(Request $req)
@@ -176,9 +212,12 @@ class AdminCtrl extends Controller
     public function createCity(Request $req)
     {
         $validator = Validator::make($req->all(), [
-            "name" => "required|string",
+            "name" => "required|string|unique:cities",
             "photo" => "required|image|max:2048"
         ]);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 403);
+        }
         $fileName = pathinfo($req->file('photo')->getClientOriginalName(), PATHINFO_FILENAME);
         $fileName = $fileName . '_' . time() . '.' . $req->file('photo')->getClientOriginalExtension();
         $req->file('photo')->storeAs('public/city_images', $fileName);
@@ -447,7 +486,7 @@ class AdminCtrl extends Controller
         // add event in seleccted spotlight
         $validator = Validator::make($req->all(), [
             'spotlight_id' => 'required|string',
-            'event_id' => 'required|string'
+            'event_id' => 'required|array'
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
@@ -456,16 +495,23 @@ class AdminCtrl extends Controller
         if (!$spotlight->first()) {
             return response()->json(["error" => "Spotlight data not found"], 404);
         }
-        $event = Event::where('id', $req->event_id);
-        if (!$event->first()) {
-            return response()->json(["error" => "Event data not found"], 404);
+        $data = [];
+        foreach ($req->event_id as $eventId) {
+            $event = Event::where('id', $eventId)->where('is_publish', 2)->where('visibility', true)->where('deleted', 0);
+            if (!$event->first()) {
+                return response()->json(["error" => "Event data not found"], 404);
+            }
+            if (SpotlightEvents::where('spotlight_id', $req->spotlight_id)->where('event_id', $eventId)->first()) {
+                return response()->json(["error" => "Event data in one spotlight can't duplicated"], 403);
+            }
+            $countEventSpotlight = count(SpotlightEvents::where('spotlight_id', $req->spotlight_id)->get());
+            $data[] = SpotlightEvents::create([
+                'spotlight_id' => $req->spotlight_id,
+                'event_id' => $eventId,
+                'priority' => $countEventSpotlight + 1
+            ]);
         }
-        $countEventSpotlight = count(SpotlightEvents::where('spotlight_id', $req->spotlight_id)->get());
-        $data = SpotlightEvents::create([
-            'spotlight_id' => $req->spotlight_id,
-            'event_id' => $req->event_id,
-            'priority' => $countEventSpotlight + 1
-        ]);
+
         return response()->json(["data" => $data], 201);
     }
 
@@ -481,7 +527,7 @@ class AdminCtrl extends Controller
         }
         $spotlightId = $target->first()->spotlight_id;
         $target->delete();
-        return response()->json(["event_spotlights" => SpotlightEvents::where('spotlight_id', $spotlightId)->orderBy('priority', 'DESC')->get()], 202);
+        return response()->json(["event_spotlights" => SpotlightEvents::where('spotlight_id', $spotlightId)->orderBy('priority', 'DESC')->with(['event.org', 'event.tickets'])->get()], 202);
     }
 
     public function addPrioEventSpotlight(Request $req)
@@ -517,32 +563,46 @@ class AdminCtrl extends Controller
         return response()->json(["event_spotlights" => SpotlightEvents::where('spotlight_id', $target->first()->spotlight_id)->orderBy('priority', 'DESC')->get()], 202);
     }
 
-    public function getSpotlight(Request $req)
+    private function spotlightData($spotlightId = null)
     {
         $spotlight = null;
-        if ($req->spotlight_id) {
-            $spotlight = Spotlight::where('id', $req->spotlight_id)->first();
+        if ($spotlightId !== null) {
+            $spotlight = Spotlight::where('id', $spotlightId)->first();
         } else {
             $spotlight = Spotlight::where('view', true)->first();
         }
         if (!$spotlight) {
-            return response()->json(["error" => 'Event data not found'], 404);
+            return ["error" => 'Event data not found', "status" => 404];
         }
         $eventsTargets = $spotlight->events()->get();
         $events = [];
         foreach ($eventsTargets as $key => $evtTraget) {
             $events[] = $evtTraget->event()->first();
+            $events[$key]->id_data = $evtTraget->id;
             $events[$key]->available_days = $events[$key]->availableDays()->get();
             $events[$key]->org = $events[$key]->org()->first();
             $events[$key]->tickets = $events[$key]->tickets()->orderBy('price', 'ASC')->get();
         }
-        return response()->json(["spotlight" => $spotlight, "events" => $events], 200);
+        return ["data" => $spotlight, "events" => $events, "status" => 200];
+    }
+
+    public function getSpotlight(Request $req)
+    {
+        $data = $this->spotlightData($req->spotlight_id);
+        if ($data["status"] !== 200) {
+            return response()->json(["error" => $data["error"]], $data["status"]);
+        }
+        return response()->json(["spotlight" => ["data" => $data["data"], "events" => $data["events"]]], $data["status"]);
     }
 
     public function listSpotlights()
     {
         $spotlights = Spotlight::all();
-        return response()->json(["spotlights" => $spotlights], count($spotlights) == 0 ? 404 : 200);
+        $data = [];
+        foreach ($spotlights as $spotlight) {
+            $data[] = $this->spotlightData($spotlight->id);
+        }
+        return response()->json(["spotlights" => $data], 200);
     }
     // ==============================================================
     public function createSpcDay(Request $req)
@@ -599,23 +659,33 @@ class AdminCtrl extends Controller
     public function addEventSpcDay(Request $req)
     {
         // add event in seleccted special day
-        if (!$req->event_id) {
-            return response()->json(["error" => "Event id field is required"], 403);
+        $validator = Validator::make($req->all(), [
+            'event_id' => 'required|array',
+            'special_day_id' => "required|string"
+        ]);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 403);
         }
         $specialDay = SpecialDay::where('id', $req->special_day_id)->first();
         if (!$specialDay) {
             return response()->json(["error" => "Data not found"], 404);
         }
-        $event = Event::where('id', $req->event_id)->first();
-        if (!$event) {
-            return response()->json(["error" => "Event data not found"], 404);
+        $data = [];
+        foreach ($req->event_id as $eventId) {
+            $event = Event::where('id', $eventId)->where('is_publish', 2)->where('visibility', true)->where('deleted', 0)->first();
+            if (!$event) {
+                return response()->json(["error" => "Event data not found"], 404);
+            }
+            if (SpecialDayEvents::where('special_day_id', $req->special_day_id)->where('event_id', $eventId)->first()) {
+                return response()->json(["error" => "Event data in one special day group can't duplicated"], 403);
+            }
+            $countEventSpc = count(SpecialDayEvents::where('special_day_id', $req->special_day_id)->get());
+            $data = SpecialDayEvents::create([
+                'special_day_id' => $req->special_day_id,
+                'event_id' => $eventId,
+                'priority' => $countEventSpc + 1
+            ]);
         }
-        $countEventSpc = count(SpecialDayEvents::where('special_day_id', $req->special_day_id)->get());
-        $data = SpecialDayEvents::create([
-            'special_day_id' => $req->special_day_id,
-            'event_id' => $req->event_id,
-            'priority' => $countEventSpc + 1
-        ]);
         return response()->json(["data" => $data], 201);
     }
 
@@ -631,7 +701,7 @@ class AdminCtrl extends Controller
         }
         $spcDayId = $spcDayEvent->first()->special_day_id;
         $spcDayEvent->delete();
-        return response()->json(["special_day_events" => SpecialDayEvents::where('special_day_id', $spcDayId)->orderBy('priority', 'DESC')->get()], 202);
+        return response()->json(["special_day_events" => SpecialDayEvents::where('special_day_id', $spcDayId)->orderBy('priority', 'DESC')->with(['event.org', 'event.tickets'])->get()], 202);
     }
 
     public function addPrioEventSpcDay(Request $req)
@@ -665,32 +735,46 @@ class AdminCtrl extends Controller
         return response()->json(["special_day_events" => SpecialDayEvents::where('special_day_id', $spcDayEvent->first()->special_day_id)->orderBy('priority', 'DESC')->get()], 202);
     }
 
-    public function getSpcDay(Request $req)
+    private function detailSpcDay($specialDayId)
     {
-        // is only return 1 special day data base from view attribute is true
         $spcDayEvent = null;
-        if ($req->special_day_id) {
-            $spcDayEvent = SpecialDay::where('id', $req->special_day_id)->first();
+        if ($specialDayId) {
+            $spcDayEvent = SpecialDay::where('id', $specialDayId)->first();
         } else {
             $spcDayEvent = SpecialDay::where('view', true)->first();
         }
         if (!$spcDayEvent) {
-            return response()->json(["error" => "Data not found"], 404);
+            return ["error" => "Data not found", "status" => 404];
         }
         $events = [];
         foreach ($spcDayEvent->events()->get() as $key => $spcDayEvt) {
             $events[] = $spcDayEvt->event()->first();
+            $events[$key]->id_data = $spcDayEvt->id;
             $events[$key]->available_days = $events[$key]->availableDays()->get();
             $events[$key]->org = $events[$key]->org()->first();
             $events[$key]->tickets = $events[$key]->tickets()->orderBy('price', 'ASC')->get();
         }
-        return response()->json(["special_day" => $spcDayEvent, "events" => $events], 200);
+        return ["data" => $spcDayEvent, "events" => $events, "status" => 200];
+    }
+
+    public function getSpcDay(Request $req)
+    {
+        // is only return 1 special day data base from view attribute is true
+        $data = $this->detailSpcDay($req->special_day_id);
+        if ($data["status"] !== 200) {
+            return response()->json(["error" => $data["error"]], $data["status"]);
+        }
+        return response()->json(["special_day" => ["data" => $data["data"], "events" => $data["events"]]], 200);
     }
 
     public function listSpcDays()
     {
         $spcDays = SpecialDay::all();
-        return response()->json(["special_days" => $spcDays], count($spcDays) == 0 ? 404 : 200);
+        $data = [];
+        foreach ($spcDays as $spcDay) {
+            $data[] = $this->detailSpcDay($spcDay->id);
+        }
+        return response()->json(["special_days" => $data], 200);
     }
     // ==============================================================
     public function createSlctEvent(Request $req)
@@ -747,23 +831,36 @@ class AdminCtrl extends Controller
     public function addEventSlctEvent(Request $req)
     {
         // add event in seleccted event
-        if (!$req->event_id) {
-            return response()->json(["error" => "Event id field is required"], 403);
+        $validator = Validator::make($req->all(), [
+            "event_id" => "required|array",
+            "selected_event_id" => "required|string"
+        ]);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 403);
         }
         $selctedEvent = SelectedEvent::where('id', $req->selected_event_id)->first();
         if (!$selctedEvent) {
             return response()->json(["error" => "Data not found"], 404);
         }
-        $event = Event::where('id', $req->event_id)->first();
-        if (!$event) {
-            return response()->json(["error" => "Event data not found"], 404);
+        $data = [];
+        foreach ($req->event_id as $eventId) {
+            $event = Event::where('id', $eventId)->where('is_publish', 2)->where('visibility', true)->where('deleted', 0)->first();
+            if (!$event) {
+                return response()->json(["error" => "Event data not found"], 404);
+            }
+            if ($event->category === "Attraction" || $event->category === "Tour Travel (recurring)" || $event->category === "Daily Activities") {
+                return response()->json(["error" => "This menu only for events data type"], 403);
+            }
+            if (SelectedEventDatas::where("event_id", $eventId)->where("selected_event_id", $req->selected_event_id)->first()) {
+                return response()->json(["error" => "Can't duplicated event data on selceted event group"], 403);
+            }
+            $countEventSlc = count(SelectedEventDatas::where('selected_event_id', $req->selected_event_id)->get());
+            $data[] = SelectedEventDatas::create([
+                'selected_event_id' => $req->selected_event_id,
+                'event_id' => $eventId,
+                'priority' => $countEventSlc + 1
+            ]);
         }
-        $countEventSlc = count(SelectedEventDatas::where('selected_event_id', $req->selected_event_id)->get());
-        $data = SelectedEventDatas::create([
-            'special_day_id' => $req->selected_event_id,
-            'event_id' => $req->event_id,
-            'priority' => $countEventSlc + 1
-        ]);
         return response()->json(["data" => $data], 201);
     }
 
@@ -779,7 +876,7 @@ class AdminCtrl extends Controller
         }
         $slcEventId = $slcEventData->first()->selected_event_id;
         $slcEventData->delete();
-        return response()->json(["selected_event_datas" => SelectedEventDatas::where('selected_event_id', $slcEventId)->orderBy('priority', 'DESC')->get()], 202);
+        return response()->json(["selected_event_datas" => SelectedEventDatas::where('selected_event_id', $slcEventId)->orderBy('priority', 'DESC')->with(['event.org', 'event.tickets'])->get()], 202);
     }
 
     public function addPrioEventSlctEvent(Request $req)
@@ -813,32 +910,223 @@ class AdminCtrl extends Controller
         return response()->json(["selected_event_datas" => SelectedEventDatas::where('selected_event_id', $slcEventData->first()->selected_event_id)->orderBy('priority', 'DESC')->get()], 202);
     }
 
-    public function getSlctEvent(Request $req)
+    private function detailSelectedEvent($selectedEventId)
     {
         // is only return 1 selected event data base from view attribute is true
         $slcEvent = null;
-        if ($req->selected_event_id) {
-            $slcEvent = SelectedEvent::where('id', $req->selected_event_id)->first();
+        if ($selectedEventId) {
+            $slcEvent = SelectedEvent::where('id', $selectedEventId)->first();
         } else {
             $slcEvent = SelectedEvent::where('view', true)->first();
         }
         if (!$slcEvent) {
-            return response()->json(["error" => "Data not found"], 404);
+            return ["error" => "Data not found", "status" => 403];
         }
         $events = [];
         foreach ($slcEvent->events()->get() as $key => $slcDayEvtData) {
             $events[] = $slcDayEvtData->event()->first();
+            $events[$key]->id_data = $slcDayEvtData->id;
             $events[$key]->available_days = $events[$key]->availableDays()->get();
             $events[$key]->org = $events[$key]->org()->first();
             $events[$key]->tickets = $events[$key]->tickets()->orderBy('price', 'ASC')->get();
         }
-        return response()->json(["selected_event" => $slcEvent, "events" => $events], 200);
+        return ["data" => $slcEvent, "events" => $events, "status" => 200];
+    }
+
+    public function getSlctEvent(Request $req)
+    {
+        // is only return 1 selected event data base from view attribute is true
+        $data = $this->detailSelectedEvent($req->selected_event_id);
+        if ($data["status"] !== 200) {
+            return response()->json(["error" => $data["error"], $data["status"]]);
+        }
+        return response()->json(["selected_event" => ["data" => $data["data"], "events" => $data["events"]]], 200);
     }
 
     public function listSlctEvents()
     {
         $slcEvents = SelectedEvent::all();
-        return response()->json(["selected_events" => $slcEvents], count($slcEvents) == 0 ? 404 : 200);
+        $data = [];
+        foreach ($slcEvents as $slcEvent) {
+            $data[] = $this->detailSelectedEvent($slcEvent->id);
+        }
+        return response()->json(["selected_events" => $data], 200);
+    }
+    // ==============================================================
+    public function createSlctActivity(Request $req)
+    {
+        if (!$req->title) {
+            return response()->json(["error" => 'Title field is required'], 403);
+        }
+        if ($req->view) {
+            DB::table('selected_activities')->update(["view" => false]);
+        }
+        $selectedActivity = SelectedActivity::create([
+            "title" => $req->title,
+            "view" => $req->view ? true : false
+        ]);
+        return response()->json(["selected_activity" => $selectedActivity], 201);
+    }
+
+    public function updateSlctActivity(Request $req)
+    {
+        if (!$req->title) {
+            return response()->json(["error" => "Title field iis required"], 403);
+        }
+        $selectedActivty = SelectedActivity::where('id', $req->selected_activity_id);
+        if (!$selectedActivty->first()) {
+            return response()->json(["error" => "Data not found"], 404);
+        }
+        $updated = $selectedActivty->update([
+            "title" => $req->title
+        ]);
+        return response()->json(["updated" => $updated], 202);
+    }
+
+    public function setViewSlctActivity(Request $req)
+    {
+        $selectedActivity = SelectedActivity::where('id', $req->selected_activity_id);
+        if (!$selectedActivity->first()) {
+            return response()->json(["error" => "Data not found"], 404);
+        }
+        DB::table('selected_activities')->update(['view' => false]);
+        $updated = $selectedActivity->update(['view' => true]);
+        return response()->json(["updated" => $updated], 202);
+    }
+
+    public function deleteSlctActivity(Request $req)
+    {
+        $selectedActivity = SelectedActivity::where('id', $req->selected_activity_id);
+        if (!$selectedActivity->first()) {
+            return response()->json(["error" => "Data not found"], 404);
+        }
+        $deleted = $selectedActivity->delete();
+        return response()->json(["deleted" => $deleted], 202);
+    }
+
+    public function addEventSlctActivity(Request $req)
+    {
+        // add event in seleccted event
+        $validator = Validator::make($req->all(), [
+            "event_id" => "required|array",
+            "selected_activity_id" => "required|string"
+        ]);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 403);
+        }
+        $selctedActivity = SelectedActivity::where('id', $req->selected_activity_id)->first();
+        if (!$selctedActivity) {
+            return response()->json(["error" => "Data not found"], 404);
+        }
+        $data = [];
+        foreach ($req->event_id as $eventId) {
+            $event = Event::where('id', $eventId)->where('is_publish', 2)->where('visibility', true)->where('deleted', 0)->first();
+            if (!$event) {
+                return response()->json(["error" => "Event data not found"], 404);
+            }
+            if ($event->category !== "Attraction" && $event->category !== "Tour Travel (recurring)" && $event->category !== "Daily Activities") {
+                return response()->json(["error" => "This menu only for activities data type"], 403);
+            }
+            if (SelectedActivityDatas::where("event_id", $eventId)->where("selected_activity_id", $req->selected_activity_id)->first()) {
+                return response()->json(["error" => "Can't duplicated event data on selceted event group"], 403);
+            }
+            $countEventSlc = count(SelectedActivityDatas::where('selected_activity_id', $req->selected_activity_id)->get());
+            $data[] = SelectedActivityDatas::create([
+                'selected_activity_id' => $req->selected_activity_id,
+                'event_id' => $eventId,
+                'priority' => $countEventSlc + 1
+            ]);
+        }
+        return response()->json(["data" => $data], 201);
+    }
+
+    public function deleteEventSlctActivity(Request $req)
+    {
+        // delete event in selected event
+        $slcActivityData = SelectedActivityDatas::where('id', $req->selected_activity_data_id);
+        if (!$slcActivityData->first()) {
+            return response()->json(["error" => "Event data not found"], 404);
+        }
+        foreach (SelectedActivityDatas::where('selected_activity_id', $slcActivityData->first()->selected_activity_id)->where('priority', '>', intval($slcActivityData->first()->priority)) as $slcActData) {
+            SelectedActivityDatas::where('id', $slcActData->id)->update(['priority' => intval($slcActData->priority) - 1]);
+        }
+        $slcActDataId = $slcActivityData->first()->selected_activity_id;
+        $slcActivityData->delete();
+        return response()->json(["selected_activity_datas" => SelectedActivityDatas::where('selected_activity_id', $slcActDataId)->orderBy('priority', 'DESC')->with(['event.org', 'event.tickets'])->get()], 202);
+    }
+
+    public function addPrioEventSlctActivity(Request $req)
+    {
+        $slcActivityData = SelectedActivityDatas::where('id', $req->selected_activity_data_id);
+        if (!$slcActivityData->first()) {
+            return response()->json(["error" => "Event data not found"], 404);
+        }
+        $countSlcActivity = count(SelectedActivityDatas::where('selected_activity_id', $slcActivityData->first()->selected_activity_id)->get());
+        if (intval($slcActivityData->first()->priority) < $countSlcActivity) {
+            SelectedActivityDatas::where('selected_activity_id', $slcActivityData->first()->selected_activity_id)->where('priority', intval($slcActivityData->first()->priority) + 1)->update([
+                "priority" => $slcActivityData->first()->priority
+            ]);
+            $slcActivityData->update(["priority" => intval($slcActivityData->first()->priority) + 1]);
+        }
+        return response()->json(["selected_activity_datas" => SelectedActivityDatas::where('selected_activity_id', $slcActivityData->first()->selected_activity_id)->orderBy('priority', 'DESC')->get()], 202);
+    }
+
+    public function minPrioEventSlctActivity(Request $req)
+    {
+        $slcActivityData = SelectedActivityDatas::where('id', $req->selected_activity_data_id);
+        if (!$slcActivityData->first()) {
+            return response()->json(["error" => "Event data not found"], 404);
+        }
+        if (intval($slcActivityData->first()->priority) > 1) {
+            SelectedActivityDatas::where('selected_activity_id', $slcActivityData->first()->selected_activity_id)->where('priority', intval($slcActivityData->first()->priority) - 1)->update([
+                "priority" => $slcActivityData->first()->priority
+            ]);
+            $slcActivityData->update(["priority" => intval($slcActivityData->first()->priority) - 1]);
+        }
+        return response()->json(["selected_activity_datas" => SelectedActivityDatas::where('selected_activity_id', $slcActivityData->first()->selected_activity_id)->orderBy('priority', 'DESC')->get()], 202);
+    }
+
+    private function detailSelectedActivity($selectedActivityId)
+    {
+        // is only return 1 selected event data base from view attribute is true
+        $slcActivity = null;
+        if ($selectedActivityId) {
+            $slcActivity = SelectedActivity::where('id', $selectedActivityId)->first();
+        } else {
+            $slcActivity = SelectedActivity::where('view', true)->first();
+        }
+        if (!$slcActivity) {
+            return ["error" => "Data not found", "status" => 403];
+        }
+        $events = [];
+        foreach ($slcActivity->events()->get() as $key => $slcActivityEventData) {
+            $events[] = $slcActivityEventData->event()->first();
+            $events[$key]->id_data = $slcActivityEventData->id;
+            $events[$key]->available_days = $events[$key]->availableDays()->get();
+            $events[$key]->org = $events[$key]->org()->first();
+            $events[$key]->tickets = $events[$key]->tickets()->orderBy('price', 'ASC')->get();
+        }
+        return ["data" => $slcActivity, "events" => $events, "status" => 200];
+    }
+
+    public function getSlctActivity(Request $req)
+    {
+        // is only return 1 selected event data base from view attribute is true
+        $data = $this->detailSelectedActivity($req->selected_activity_id);
+        if ($data["status"] !== 200) {
+            return response()->json(["error" => $data["error"], $data["status"]]);
+        }
+        return response()->json(["selected_activity" => ["data" => $data["data"], "events" => $data["events"]]], 200);
+    }
+
+    public function listSlctActivities()
+    {
+        $slcActivites = SelectedActivity::all();
+        $data = [];
+        foreach ($slcActivites as $slcActivity) {
+            $data[] = $this->detailSelectedActivity($slcActivity->id);
+        }
+        return response()->json(["selected_activities" => $data], 200);
     }
     // ==============================================================
     public function setViralCity(Request $req)
@@ -873,6 +1161,7 @@ class AdminCtrl extends Controller
         $admin = Admin::create([
             "user_id" => $req->user_id
         ]);
+        User::where('id', $req->user_id)->update(["is_active" => "1"]);
         $admin->user = $user;
         return response()->json(["data" => $admin], 201);
     }

@@ -11,6 +11,7 @@ use App\Models\Withdraw;
 use App\Models\Event;
 use App\Models\Purchase;
 use App\Models\BillAccount;
+use App\Models\DisburstmentWd;
 use App\Models\Otp;
 use App\Models\Ticket;
 use DateTime;
@@ -30,14 +31,14 @@ class WithdrawCtrl extends Controller
     {
         $validator = Validator::make($req->all(), [
             'bank_name' => 'required|string',
-            'acc_number' => 'required|string',
+            'acc_number' => 'required|numeric',
             'acc_name' => 'required|string'
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
         if (!array_key_exists($req->bank_name, config('banks'))) {
-            $req->bank_name = '---';
+            return response()->json(["error" => "Bak not available"], 404);
         };
         $data = BillAccount::create([
             'org_id' => $req->org->id,
@@ -130,6 +131,9 @@ class WithdrawCtrl extends Controller
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
+        }
+        if (!$req->org->credibilityData()->first()) {
+            return response()->json(["error" => "You are not allowed to create withdraw before create legality data first"], 403);
         }
         $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         $event = Event::where('id', $req->event_id)->where('org_id', $req->org->id)->where('is_publish', "<", 3)->where('end_date', "<", $now->format('Y-m-d'))->orWhere('category', 'Attraction')->orWhere('category', 'Daily Activities')->orWhere('category', 'Tour Travel (recurring)');
@@ -233,7 +237,8 @@ class WithdrawCtrl extends Controller
         $wd->event = $wd->event()->first();
         $wd->organization = $wd->organization()->first();
         $wd->bank = $wd->billAcc()->first();
-        return response()->json(["data" => $wd], 200);
+        $wd->legality_data = $wd->organization->credibilityData()->first();
+        return response()->json(["withdraw" => $wd], 200);
     }
 
     public function wds(Request $req, $isAdmin = false)
@@ -251,8 +256,9 @@ class WithdrawCtrl extends Controller
             $wd->event = $wd->event()->first();
             $wd->organization = $wd->organization()->first();
             $wd->bank = $wd->billAcc()->first();
+            $wd->legality_data = $wd->organization->credibilityData()->first();
         }
-        return response()->json(["data" => $wds], 200);
+        return response()->json(["withdraws" => $wds], 200);
     }
 
     public function availableForWd(Request $req)
@@ -292,12 +298,39 @@ class WithdrawCtrl extends Controller
         return response()->json(["data" => $events, "total_amount" => $totalAmount], 200);
     }
 
+    private function createDisburstment($disburstment)
+    {
+        $curl = curl_init();
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://api.xendit.co/disbursements',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => json_encode($disburstment),
+            CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/json',
+                'X-IDEMPOTENCY-KEY: ' . time(),
+                'Authorization: Basic ' . base64_encode(env('XENDIT_API_WRITE') . ':')
+            ),
+        ));
+
+        $response = curl_exec($curl);
+
+        curl_close($curl);
+        return json_decode($response);
+    }
+
     public function changeStateWd(Request $req)
     {
         // For Admin privillege
         $validator = Validator::make($req->all(), [
             "wd_id" => "required|string",
-            "state" => "required|number"
+            "state" => "required|numeric"
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
@@ -306,12 +339,42 @@ class WithdrawCtrl extends Controller
         // 1 => Accept
         // 0 => Pending
         // -1 => Reject
+        // NB : State withdraw can't rollback
         if ($req->state != 1 && $req->state != 0 && $req->state != -1) {
             return response()->json(["error" => "State code is not recognized"], 403);
         }
-        $wdObj = Withdraw::where('id', $req->wd_id);
+        $wdObj = Withdraw::where('id', $req->wd_id)->where('status', 0);
         if (!$wdObj->first()) {
             return response()->json(["error" => "Data withdraw not found", 404]);
+        }
+        if ($req->state == 1) {
+            $wd = $wdObj->first();
+            $bank = $wd->billAcc()->first();
+            $org = $wd->organization()->first();
+            $legality = $org->credibilityData()->first();
+            if (!$legality) {
+                return response()->json(["error" => "This organization haven't legality data. Please prompt this organization to completed it first"], 403);
+            } else if ($legality->status == false) {
+                return response()->json(["error" => "Please check and approve / accept legality data of this organization"], 403);
+            }
+            $res = $this->createDisburstment([
+                "external_id" => $wd->id,
+                "amount" => $wd->nominal,
+                "bank_code" =>  $bank->bank_name,
+                "account_holder_name" =>  $bank->acc_name,
+                "account_number" => $bank->acc_number,
+                "description" => "Withdraw payment from event (" . $wd->event()->first()->name . " - " . $wd->event()->first()->id . ") and organizer (" . $org->name . " - " . $org->id . ")",
+            ]);
+            if (isset($res->error_code)) {
+                return response()->json([
+                    "error" => "Failed process in xendit API",
+                    "message" => $res->message
+                ], 403);
+            }
+            DisburstmentWd::create([
+                'disburstment_id' => $res->id,
+                'withdraw_id' => $wd->id
+            ]);
         }
         $eventObj = $wdObj->first()->event();
         if (

@@ -18,6 +18,7 @@ class Withdraw extends Model
         'nominal',
         'basic_nominal',
         'status',
+        'finish'
     ];
 
     public function event(): BelongsTo
