@@ -8,6 +8,7 @@ use App\Http\Middleware\EventData;
 use App\Http\Middleware\EventSessionData;
 use App\Http\Middleware\AdminPriv;
 use App\Http\Middleware\ApiToken;
+use App\Http\Middleware\AuthOrganizer;
 
 class Kernel extends HttpKernel
 {
@@ -69,6 +70,7 @@ class Kernel extends HttpKernel
         'signed' => \App\Http\Middleware\ValidateSignature::class,
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
+        'authOrganizer' => AuthOrganizer::class,
         'eventOrganizer' => EventOrganizer::class,
         'eventData' => EventData::class,
         'eventSessionData' => EventSessionData::class,

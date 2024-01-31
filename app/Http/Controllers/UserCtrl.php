@@ -136,7 +136,10 @@ class UserCtrl extends Controller
 
     public function hardDeleteUser($userId)
     {
-        $user = User::where('id', $userId)->delete();
+        $user = User::where('id', $userId);
+        if(explode('/', $user->first()->photo)[3] !== 'default.png'){
+            Storage::delete('public/avatars/'.explode('/', $user->first()->photo)[3]);
+        }
         return response()->json(['deleted' => $user], $user == 0 ? 404 : 202);
     }
 

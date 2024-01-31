@@ -21,6 +21,7 @@ class Organization extends Model
         'photo',
         'banner',
         'interest',
+        'phone',
         'email',
         'linkedin',
         'instagram',

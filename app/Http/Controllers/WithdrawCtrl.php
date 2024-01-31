@@ -38,8 +38,11 @@ class WithdrawCtrl extends Controller
             return response()->json($validator->errors(), 403);
         }
         if (!array_key_exists($req->bank_name, config('banks'))) {
-            return response()->json(["error" => "Bak not available"], 404);
+            return response()->json(["error" => "Bank not available"], 404);
         };
+        if (count(BillAccount::where('org_id', $req->org->id)->where('status', 0)->get()) > 0) {
+            return response()->json(["error" => "Tou have un-verified account. Please verify it first !!!"], 406);
+        }
         $data = BillAccount::create([
             'org_id' => $req->org->id,
             'bank_name' => $req->bank_name,
@@ -73,15 +76,12 @@ class WithdrawCtrl extends Controller
         if (!$bankAcc->first()) {
             return response()->json(["error" => "Bank account data not found"], 404);
         }
-        // $deleted = $bankAcc->update(['deleted' => 1]);
-        foreach ($bankAcc->first()->withdraws()->get() as $wd) {
-            if ($wd->status != 1) {
-                $wd->event()->update([
-                    "is_publish" => intval($wd->event()->first()->is_publish) - 3
-                ]);
-            }
+        $deleted = 0;
+        if (count($bankAcc->first()->withdraws()->get()) > 0) {
+            $deleted = $bankAcc->update(['deleted' => 0]);
+        } else {
+            $deleted = $bankAcc->delete();
         }
-        $deleted = $bankAcc->delete();
         return response()->json(["deleted" => $deleted], 202);
     }
 
@@ -112,7 +112,7 @@ class WithdrawCtrl extends Controller
 
     public function banks(Request $req)
     {
-        $bankAccs = $req->org->billAccs()->get();
+        $bankAccs = $req->org->billAccs()->where('deleted', 0)->get();
         if (count($bankAccs) == 0) {
             return response()->json(["error" => "Bank Account data not found"], 404);
         }

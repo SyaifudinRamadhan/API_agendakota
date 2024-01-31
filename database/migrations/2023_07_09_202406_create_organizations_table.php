@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('photo');
             $table->string('banner');
             $table->string('interest');
+            $table->string('phone');
             $table->string('email');
             $table->string('linkedin')->nullable();
             $table->string('instagram')->nullbale();

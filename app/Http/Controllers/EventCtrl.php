@@ -582,7 +582,7 @@ class EventCtrl extends Controller
         ], 200);
     }
 
-    public function getByOrg($orgId)
+    public function getByOrg(Request $req, $orgId)
     {
         $pchCtrl = new PchCtrl();
         $pchCtrl->loadTrxData();

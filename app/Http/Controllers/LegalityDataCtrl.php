@@ -85,21 +85,21 @@ class LegalityDataCtrl extends Controller
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
-        $namePhoto = $data->nic_images;
+        $namePhoto = $dataLegality->first()->pic_nic_image;
         if ($req->hasFile('nic_image')) {
             $namePhoto = pathinfo($req->file('nic_image')->getClientOriginalName(),  PATHINFO_FILENAME);
             $namePhoto .= '_' . time() . '.' . $req->file('nic_image')->getClientOriginalExtension();
             $req->file('nic_image')->storeAs('public/legality_datas', $namePhoto);
             $namePhoto = '/storage/legality_datas/' . $namePhoto;
-            Storage::delete('public/legality_datas/' . explode('/', $data->nic_images)[3]);
+            Storage::delete('public/legality_datas/' . explode('/', $dataLegality->first()->pic_nic_image)[3]);
         }
-        $namePhotoTax = $data->tax_image;
+        $namePhotoTax = $dataLegality->first()->tax_image;
         if ($req->hasFile('tax_image')) {
             $namePhotoTax = pathinfo($req->file('tax_image')->getClientOriginalName(),  PATHINFO_FILENAME);
             $namePhotoTax .= '_' . time() . '.' . $req->file('tax_image')->getClientOriginalExtension();
             $req->file('tax_image')->storeAs('public/legality_datas', $namePhotoTax);
             $namePhotoTax = '/storage/legality_datas/' . $namePhotoTax;
-            Storage::delete('public/legality_datas/' . explode('/', $data->tax_image)[3]);
+            Storage::delete('public/legality_datas/' . explode('/', $dataLegality->first()->tax_image)[3]);
         }
         $dataLegality->update([
             "org_id" => $req->org->id,

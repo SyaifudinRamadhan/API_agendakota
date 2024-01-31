@@ -54,6 +54,7 @@ class OrgCtrl extends Controller
             'twitter' => '-',
             'whatsapp' => '-',
             'website' => '-',
+            'phone' => '-',
             'deleted' => 0,
         ]);
         return response()->json(["data" => $org], 201);
@@ -75,7 +76,8 @@ class OrgCtrl extends Controller
             'twitter' => 'string',
             'whatsapp' => 'required|string',
             'website' => 'string',
-            'desc' => 'required|string'
+            'desc' => 'required|string',
+            'phone' => 'required|string'
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
@@ -127,9 +129,10 @@ class OrgCtrl extends Controller
             'twitter' => $req->twitter,
             'whatsapp' => $req->whatsapp,
             'website' => $req->website,
+            'phone' => $req->phone,
             'deleted' => 0,
         ]);
-        return response()->json(["updated" => $updated], $updated == 0 ? 404 : 200);
+        return response()->json(["updated" => $updated], $updated == 0 ? 404 : 202);
     }
 
     // Delete organiztion (can access admin only)
@@ -180,8 +183,13 @@ class OrgCtrl extends Controller
             foreach ($orgObj->first()->events()->get() as $event) {
                 Storage::delete('public/event_banners/' . explode('/', $event->logo)[3]);
             }
-            Storage::delete('public/org_avatars/' . explode('/', $orgObj->first()->photo)[3]);
-            Storage::delete('public/org_banners/' . explode('/', $orgObj->first()->banner)[3]);
+            if (explode('/', $orgObj->first()->photo)[3] !== "default.png") {
+                Storage::delete('public/org_avatars/' . explode('/', $orgObj->first()->photo)[3]);
+            }
+            if (explode('/', $orgObj->first()->banner)[3] !== "default.png") {
+                Storage::delete('public/org_banners/' . explode('/', $orgObj->first()->banner)[3]);
+            }
+
             $deleted = $orgObj->delete();
         }
         return response()->json(['deleted' => $deleted], 202);
@@ -203,11 +211,17 @@ class OrgCtrl extends Controller
             $userId = Auth::user()->id;
         }
         $orgs = Organization::where('user_id', $userId)->where('deleted', 0)->get();
+        $teams = Team::where('user_id', $userId)->get();
+        foreach ($teams as $team) {
+            $org = $team->organization()->first();
+            $org->is_team = true;
+            $orgs[] = $org;
+        }
         return response()->json(["organizations" => $orgs], count($orgs) == 0 ? 404 : 200);
     }
 
     // Create teams (admin and user basic)
-    public function inviteTeam(Request $req, $orgId)
+    public function inviteTeam(Request $req)
     {
         $validator = Validator::make($req->all(), [
             "email" => 'required'
@@ -215,9 +229,19 @@ class OrgCtrl extends Controller
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
-        $org = Organization::where('id', $orgId)->where('deleted', 0)->first();
-        if (!$org || Auth::user()->id != $org->user_id) {
+        $user = Auth::user();
+        if ($req->email === $user->email) {
+            return response()->json(["error" => "Please input different event of your account"], 403);
+        }
+        $org = Organization::where('id', $req->org_id)->where('deleted', 0)->first();
+        if (!$org || $user->id != $org->user_id) {
             return response()->json(["error" => "Data not found or match"], 404);
+        }
+        $targetUser = User::where('email', $req->email)->first();
+        if ($targetUser) {
+            if (Team::where('org_id', $org->id)->where('user_id', $targetUser->id)->first()) {
+                return response()->json(["error" => "Please input different event of your registered member"], 403);
+            }
         }
         $defaultPassword = 'team_' . $org->slug;
         $token = JWT::encode([
@@ -227,7 +251,7 @@ class OrgCtrl extends Controller
         ], env('JWT_SECRET'), env('JWT_ALG'));
         // send email to target
         Mail::to($req->email)->send(new InviteTeam($req->email, $token, $org->name, $defaultPassword));
-        return response()->json(["message" => "Invitation has been sent"], 200);
+        return response()->json(["message" => "Invitation has been sent"], 202);
     }
 
     // Receive / accept invitation
@@ -265,13 +289,13 @@ class OrgCtrl extends Controller
             'user_id' => $user->id
         ]);
         // NOTE : replace with return redirect to react App
-        return response()->json(["team" => $team, "user" => $user], 200);
+        return response()->json(["team" => $team, "user" => $user], 202);
     }
 
     // Get teams
-    public function getTeams($orgId)
+    public function getTeams(Request $req)
     {
-        $org = Organization::where('id', $orgId)->where('deleted', 0)->first();
+        $org = Organization::where('id', $req->org_id)->where('deleted', 0)->first();
         if (!$org || $org->user_id != Auth::user()->id) {
             return response()->json(["error" => "Data not found or not match"], 404);
         }

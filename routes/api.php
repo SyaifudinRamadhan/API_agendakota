@@ -84,18 +84,36 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
         // Route organization
         Route::group(["prefix" => "org"], function () {
             Route::post('/register-org', [\App\Http\Controllers\OrgCtrl::class, 'create']);
-            Route::put('/update-org', [\App\Http\Controllers\OrgCtrl::class, 'update']);
-            Route::delete('/delete-org', [\App\Http\Controllers\OrgCtrl::class, 'delete']);
             Route::get('/user-orgs', [\App\Http\Controllers\OrgCtrl::class, 'getOrgsByUser']);
-            Route::post('/team/invite/{orgId}', [\App\Http\Controllers\OrgCtrl::class, 'inviteTeam']);
-            Route::delete('/team/delete', [\App\Http\Controllers\OrgCtrl::class, 'deleteTeam']);
-            Route::get('/team/{orgId}', [\App\Http\Controllers\OrgCtrl::class, 'getTeams']);
-            Route::get('/org-legality', [\App\Http\Controllers\LegalityDataCtrl::class, 'getLegality']);
-            Route::post('/org-legality/create', [\App\Http\Controllers\LegalityDataCtrl::class, 'create']);
-            Route::put('/org-legality/update', [\App\Http\Controllers\LegalityDataCtrl::class, 'update']);
+
+            Route::middleware('authOrganizer')->group(function () {
+                Route::put('/update-org', [\App\Http\Controllers\OrgCtrl::class, 'update']);
+                Route::delete('/delete-org', [\App\Http\Controllers\OrgCtrl::class, 'delete']);
+                Route::post('/team/invite', [\App\Http\Controllers\OrgCtrl::class, 'inviteTeam']);
+                Route::delete('/team/delete', [\App\Http\Controllers\OrgCtrl::class, 'deleteTeam']);
+                Route::get('/teams', [\App\Http\Controllers\OrgCtrl::class, 'getTeams']);
+
+                Route::prefix("{orgId}")->group(function () {
+                    Route::get('/org-legality', [\App\Http\Controllers\LegalityDataCtrl::class, 'getLegality']);
+                    Route::post('/org-legality/create', [\App\Http\Controllers\LegalityDataCtrl::class, 'create']);
+                    Route::put('/org-legality/update', [\App\Http\Controllers\LegalityDataCtrl::class, 'update']);
+
+                    Route::get('/get-banks-code', [\App\Http\Controllers\WithdrawCtrl::class, 'getBanksCode']);
+                    Route::post('/bank/add', [\App\Http\Controllers\WithdrawCtrl::class, 'createAccount']);
+                    Route::delete('/bank/delete', [\App\Http\Controllers\WithdrawCtrl::class, 'deleteAccount']);
+                    Route::post('/bank/verify', [\App\Http\Controllers\WithdrawCtrl::class, 'verifyAccount']);
+                    Route::get('/bank/list', [\App\Http\Controllers\WithdrawCtrl::class, 'banks']);
+                    Route::post('/withdraw/create', [\App\Http\Controllers\WithdrawCtrl::class, 'createWd']);
+                    Route::delete('/withdraw/delete', [\App\Http\Controllers\WithdrawCtrl::class, 'deleteWd']);
+                    Route::get('/withdraw/detail', [\App\Http\Controllers\WithdrawCtrl::class, 'getWd']);
+                    Route::get('/withdraw/list', [\App\Http\Controllers\WithdrawCtrl::class, 'wds']);
+                    Route::get('/withdraw/available', [\App\Http\Controllers\WithdrawCtrl::class, 'availableForWd']);
+
+                    Route::post('/event/create', [\App\Http\Controllers\EventCtrl::class, 'create']);
+                });
+            });
 
             Route::middleware('eventOrganizer')->prefix("{orgId}/event")->group(function () {
-                Route::post('/create', [\App\Http\Controllers\EventCtrl::class, 'create']);
                 Route::middleware('eventData')->group(function () {
                     Route::put('/update', [\App\Http\Controllers\EventCtrl::class, 'update']);
                     Route::delete('/delete', [\App\Http\Controllers\EventCtrl::class, 'delete']);
@@ -135,18 +153,6 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
                         Route::get('/mail/gets', [\App\Http\Controllers\MailBroadcastCtrl::class, 'gets']);
                     });
                 });
-            });
-            Route::middleware('eventOrganizer')->prefix("{orgId}")->group(function () {
-                Route::get('/get-banks-code', [\App\Http\Controllers\WithdrawCtrl::class, 'getBanksCode']);
-                Route::post('/bank/add', [\App\Http\Controllers\WithdrawCtrl::class, 'createAccount']);
-                Route::delete('/bank/delete', [\App\Http\Controllers\WithdrawCtrl::class, 'deleteAccount']);
-                Route::post('/bank/verify', [\App\Http\Controllers\WithdrawCtrl::class, 'verifyAccount']);
-                Route::get('/bank/list', [\App\Http\Controllers\WithdrawCtrl::class, 'banks']);
-                Route::post('/withdraw/create', [\App\Http\Controllers\WithdrawCtrl::class, 'createWd']);
-                Route::delete('/withdraw/delete', [\App\Http\Controllers\WithdrawCtrl::class, 'deleteWd']);
-                Route::get('/withdraw/detail', [\App\Http\Controllers\WithdrawCtrl::class, 'getWd']);
-                Route::get('/withdraw/list', [\App\Http\Controllers\WithdrawCtrl::class, 'wds']);
-                Route::get('/withdraw/available', [\App\Http\Controllers\WithdrawCtrl::class, 'availableForWd']);
             });
         });
 

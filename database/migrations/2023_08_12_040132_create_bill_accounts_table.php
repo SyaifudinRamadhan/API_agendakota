@@ -18,6 +18,7 @@ return new class extends Migration
             $table->string('acc_name');
             $table->string('acc_number');
             $table->boolean('status')->default(false);
+            $table->integer('deleted')->default(0);
             $table->timestamps();
         });
     }

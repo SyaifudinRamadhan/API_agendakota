@@ -17,7 +17,8 @@ class BillAccount extends Model
         'bank_name',
         'acc_name',
         'acc_number',
-        'status'
+        'status',
+        'deleted'
     ];
 
     public function org(): BelongsTo
