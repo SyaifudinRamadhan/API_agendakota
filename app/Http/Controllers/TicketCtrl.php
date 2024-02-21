@@ -19,7 +19,8 @@ class TicketCtrl extends Controller
             'desc' => 'required|string',
             'type_price' => 'required|string',
             'max_purchase' => 'required|numeric',
-            'seat_map' => 'image|max:2048'
+            'seat_map' => 'image|max:2048',
+            'cover' => 'image|max:2048'
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
@@ -36,6 +37,9 @@ class TicketCtrl extends Controller
         }
         if ($req->type_price == '2' && intval($req->price) < 10000) {
             return response()->json(["error" => "Sorry. Minimal transaction is IDR Rp. 10.000,-"], 403);
+        }
+        if ($req->event->is_publish == 0 || $req->event->is_publish >= 3) {
+            return response()->json(["error" => "You can't add ticket in in-active event"], 403);
         }
         $start = null;
         $end = null;
@@ -62,15 +66,23 @@ class TicketCtrl extends Controller
             $end = new DateTime($req->event->end_date, new DateTimeZone('Asia/Jakarta'));
         }
         $seatMap = null;
-        if ($req->seat_number == true && $req->hasFile('seat_map')) {
+        if ($req->enable_seat_number == true && $req->hasFile('seat_map')) {
             $fileName = pathinfo($req->file('seat_map')->getClientOriginalName(), PATHINFO_FILENAME);
             $fileName = $fileName . '_' . time() . $req->file('seat_map')->getClientOriginalExtension();
             $req->file('seat_map')->storeAs('public/seat_map_details', $fileName);
             $seatMap = '/storage/seat_map_details/' . $fileName;
         }
+        $cover = '/storage/ticket_covers/default.png';
+        if ($req->hasFile('cover')) {
+            $filename = pathinfo($req->file('cover')->getClientOriginalName(), PATHINFO_FILENAME);
+            $filename = $filename . '_' . time() . $req->file('cover')->getClientOriginalExtension();
+            $req->file('cover')->storeAs('public/ticket_covers', $filename);
+            $cover = '/storage/ticket_covers/' . $filename;
+        }
         $ticket = Ticket::create([
             'event_id' => $req->event->id,
             'name' => $req->name,
+            'cover' => $cover,
             'desc' => $req->desc,
             'type_price' => $req->type_price,
             'price' => $req->type_price == 2 ? abs($req->price) : 0,
@@ -91,6 +103,103 @@ class TicketCtrl extends Controller
         return response()->json(["ticket" => $ticket], 201);
     }
 
+    public function bulkCreate(Request $req)
+    {
+        $validatorBasic = Validator::make($req->all(), [
+            'ticket_datas' => 'required|array'
+        ]);
+        if ($validatorBasic->fails()) {
+            return response()->json($validator->errors(), 403);
+        }
+        $starts = [];
+        $ends = [];
+
+        foreach ($req->ticket_datas as $key => $ticket_data) {
+            $validator = Validator::make($ticket_data, [
+                'name' => 'required|string',
+                'desc' => 'required|string',
+                'type_price' => 'required|string',
+                'max_purchase' => 'required|numeric',
+                'seat_map' => 'image|max:2048',
+                'cover' => 'image|max:2048',
+            ]);
+            $ticket_data = (object)$ticket_data;
+            if ($validator->fails()) {
+                return response()->json($validator->errors(), 403);
+            }
+            if ($ticket_data->type_price != '1' && $ticket_data->type_price != '2' && $ticket_data->type_price != '3') {
+                return response()->json(["error" => "Input type price code had not registered"], 404);
+            }
+            $start = null;
+            $end = null;
+            if ($req->event->category != 'Attraction' && $req->event->category != 'Daily Activities' && $req->event->category != 'Tour Travel (recurring)') {
+                if (!isset($ticket_data->quantity) || !isset($ticket_data->start_date) || !isset($ticket_data->end_date)) {
+                    return response()->json(["error" => "Filed quantity, start_date, and end_date is required for this category"], 403);
+                }
+                try {
+                    $start = new DateTime($ticket_data->start_date, new DateTimeZone('Asia/Jakarta'));
+                    $end = new DateTime($ticket_data->end_date, new DateTimeZone('Asia/Jakarta'));
+                } catch (\Throwable $th) {
+                    return response()->json(["error" => "Invalid format input date or time"], 400);
+                }
+                $endEvent = new DateTime($req->event->end_date . ' ' . $req->event->end_time, new DateTimeZone('Asia/Jakarta'));
+                if ($start > $end || $start >= $endEvent || $end >= $endEvent) {
+                    return response()->json(["error" => "Start date must be lower than end date or end date of the event"], 403);
+                }
+            } else {
+                if (!isset($ticket_data->daily_limit_qty)) {
+                    return response()->json(["error" => "Ticket for daily event, must be have a limit ticket quantity per days"], 403);
+                }
+                $ticket_data->quantity = -1;
+                $start = new DateTime($req->event->start_date, new DateTimeZone('Asia/Jakarta'));
+                $end = new DateTime($req->event->end_date, new DateTimeZone('Asia/Jakarta'));
+            }
+            $starts[$key] = $start;
+            $ends[$key] = $end;
+        }
+
+        foreach ($req->ticket_datas as $key => $ticket_data) {
+            $ticket_data = (object)$ticket_data;
+            $seatMap = null;
+            // return response()->json(["data" => $ticket_data->enable_seat_number == "false" ? false : true], 500);
+            if ($ticket_data->enable_seat_number == true && isset($ticket_data->seat_map)) {
+                $fileName = pathinfo($ticket_data->seat_map->getClientOriginalName(), PATHINFO_FILENAME);
+                $fileName = $fileName . '_' . time() . $ticket_data->seat_map->getClientOriginalExtension();
+                $ticket_data->seat_map->storeAs('public/seat_map_details', $fileName);
+                $seatMap = '/storage/seat_map_details/' . $fileName;
+            }
+            $cover = '/storage/ticket_covers/default.png';
+            if (isset($ticket_data->cover)) {
+                $filename = pathinfo($ticket_data->cover->getClientOriginalName(), PATHINFO_FILENAME);
+                $filename = $filename . '_' . time() . $ticket_data->cover->getClientOriginalExtension();
+                $ticket_data->cover->storeAs('public/ticket_covers', $filename);
+                $cover = '/storage/ticket_covers/' . $filename;
+            }
+            $ticket = Ticket::create([
+                'event_id' => $req->event->id,
+                'name' => $ticket_data->name,
+                'cover' => $cover,
+                'desc' => $ticket_data->desc,
+                'type_price' => $ticket_data->type_price,
+                'price' => $ticket_data->type_price == 2 ? abs($ticket_data->price) : 0,
+                'quantity' => $ticket_data->quantity,
+                'start_date' => $starts[$key]->format('Y-m-d'),
+                'end_date' => $ends[$key]->format('Y-m-d'),
+                'seat_number' => $ticket_data->enable_seat_number == "true" ? true : false,
+                'max_purchase' => abs($ticket_data->max_purchase),
+                'seat_map' => $seatMap,
+                'deleted' => 0,
+            ]);
+            if (($req->event->category == 'Attraction' || $req->event->category == 'Daily Activities' || $req->event->category == 'Tour Travel (recurring)')) {
+                DailyTicketLimit::create([
+                    'ticket_id' => $ticket->id,
+                    'limit_quantity' => abs($ticket_data->daily_limit_qty)
+                ]);
+            }
+        }
+        return response()->json(["message" => "Tickets has been created"], 201);
+    }
+
     public function update(Request $req)
     {
         $validator = Validator::make($req->all(), [
@@ -99,7 +208,8 @@ class TicketCtrl extends Controller
             'desc' => 'required|string',
             'type_price' => 'required|string',
             'max_purchase' => 'required|numeric',
-            'seat_map' => 'image|max:2048'
+            'seat_map' => 'image|max:2048',
+            'cover' => 'image|max:2048'
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
@@ -144,7 +254,7 @@ class TicketCtrl extends Controller
         $ticketObj = Ticket::where('id', $req->ticket_id)->where('event_id', $req->event->id)->where('deleted', 0);
         $ticket = $ticketObj->first();
         $seatMap = $ticket->seat_map;
-        if ($req->seat_number == true && $req->hasFile('seat_map')) {
+        if ($req->enable_seat_number == true && $req->hasFile('seat_map')) {
             if ($seatMap != null || $seatMap != '') {
                 Storage::delete('public/seat_map_details/' . explode('/', $seatMap)[3]);
             }
@@ -152,9 +262,23 @@ class TicketCtrl extends Controller
             $fileName = $fileName . '_' . time() . $req->file('seat_map')->getClientOriginalExtension();
             $req->file('seat_map')->storeAs('public/seat_map_details', $fileName);
             $seatMap = '/storage/seat_map_details/' . $fileName;
+        } else if ($req->enable_seat_map == false && ($seatMap != null || $seatMap != '')) {
+            Storage::delete('public/seat_map_details/' . explode('/', $seatMap)[3]);
+            $seatMap = null;
+        }
+        $cover = $ticket->cover;
+        if ($req->hasFile('cover')) {
+            $filename = pathinfo($req->file('cover')->getClientOriginalName(), PATHINFO_FILENAME);
+            $filename = $filename . '_' . time() . $req->file('cover')->getClientOriginalExtension();
+            $req->file('cover')->storeAs('public/ticket_covers', $filename);
+            $cover = '/storage/ticket_covers/' . $filename;
+            if ($cover !== '/storage/ticket_covers/default.png') {
+                Storage::delete('public/ticket_covers/' . explode('/', $ticket->cover)[3]);
+            }
         }
         $updated = $ticketObj->update([
             'name' => $req->name,
+            'cover' => $cover,
             'desc' => $req->desc,
             'type_price' => $req->type_price,
             'price' => $req->price ? abs($req->price) : 0,
@@ -172,7 +296,7 @@ class TicketCtrl extends Controller
                 'limit_quantity' => abs($req->daily_limit_qty)
             ]);
         }
-        return response()->json(["updated" => $updated], $updated == 0 ? 404 : 202);
+        return response()->json(["updated" => $updated, "ticket" => $ticketObj->first()], $updated == 0 ? 404 : 202);
     }
 
     public function delete(Request $req)
@@ -248,9 +372,14 @@ class TicketCtrl extends Controller
         return response()->json(["ticket" => $ticket], 200);
     }
 
-    public function getTickets(Request $req)
+    public function getTicketsCore(Request $req, $forOrganizer = false, $eventId)
     {
-        $tickets = Ticket::where('event_id', $req->event->id)->where('deleted', 0)->get();
+        $tickets = null;
+        if ($forOrganizer) {
+            $tickets = Ticket::where('event_id', $req->event->id)->where('deleted', 0)->get();
+        } else {
+            $tickets = Ticket::where('event_id', $eventId)->where('deleted', 0)->get();
+        }
         if (count($tickets) == 0) {
             return response()->json(["error" => "Tickets data not found for this event"], 404);
         }
@@ -281,5 +410,15 @@ class TicketCtrl extends Controller
             }
         }
         return response()->json(["tickets" => $tickets], 200);
+    }
+
+    public function getTickets(Request $req)
+    {
+        return $this->getTicketsCore($req, true, null);
+    }
+
+    public function getTicketsPublic(Request $req, $eventId)
+    {
+        return $this->getTicketsCore($req, false, $eventId);
     }
 }

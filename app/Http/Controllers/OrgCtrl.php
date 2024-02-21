@@ -283,6 +283,10 @@ class OrgCtrl extends Controller
                 'whatsapp' => '-',
                 "deleted" => 0
             ]);
+        } else if (
+            Team::where('org_id', $decoded->org_id)->where('user_id', $user->id)->first()
+        ) {
+            return response()->json(["error" => "This email or user account has registered as member"], 403);
         }
         $team = Team::create([
             'org_id' => $decoded->org_id,

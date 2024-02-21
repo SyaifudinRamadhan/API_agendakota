@@ -15,6 +15,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('event_id')->references('id')->on('events')->onDelete('cascade')->onUpdate('cascade');
             $table->string('name');
+            $table->string('cover')->default('/storage/ticket_covers/default.png');
             $table->string('desc');
             $table->integer('type_price');
             $table->integer('price');
@@ -22,6 +23,7 @@ return new class extends Migration
             $table->date('start_date');
             $table->date('end_date');
             $table->boolean('seat_number')->default(false);
+            $table->string('seat_map')->nullable();
             $table->integer('max_purchase');
             $table->integer('deleted');
             $table->timestamps();

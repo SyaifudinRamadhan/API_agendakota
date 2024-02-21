@@ -15,6 +15,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('event_id')->references('id')->on('events')->onUpdate('cascade')->onDelete('cascade');
             $table->string('day');
+            $table->time('start_time')->default('07:00:00');
             $table->time('max_limit_time')->default('23:59:00');
             $table->timestamps();
         });

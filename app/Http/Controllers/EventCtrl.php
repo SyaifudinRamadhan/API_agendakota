@@ -53,7 +53,11 @@ class EventCtrl extends Controller
             'seat_map' => 'image|max:2048',
             'available_days' => 'array',
             'daily_limit_times' => 'array',
-            'visibility' => 'required|boolean'
+            'daily_start_times' => 'array',
+            'custom_fields' => 'array',
+            'visibility' => 'required|boolean',
+            'single_trx' => 'boolean',
+            'is_publish' => 'boolean'
         ];
         // if($pkg->price != 0){
         //     $rule += [
@@ -79,6 +83,7 @@ class EventCtrl extends Controller
             return response()->json(['error' => 'Event with category ' . $req->category . ' only available for offline type'], 403);
         }
         $limitTime = [];
+        $startTime = [];
         if (($req->category != 'Attraction' && $req->category != 'Daily Activities' && $req->category != 'Tour Travel (recurring)')) {
             if (!$req->start_date || !$req->end_date || !$req->start_time || !$req->end_time) {
                 return response()->json(['error' => 'Date time or field start_date, start_time, end_date, and end_time is required for this event category'], 403);
@@ -93,20 +98,21 @@ class EventCtrl extends Controller
                 return response()->json(["error" => "Start time can't les then current time or greater than end time of event"], 400);
             }
         } else {
-            if (!$req->daily_limit_times) {
+            if (!$req->daily_limit_times || !$req->daily_start_times) {
                 return response()->json(["error" => "Ticket for daily event, must be have a max limit time available per days"], 403);
             }
-            if (count($req->available_days) != count($req->daily_limit_times)) {
+            if (count($req->available_days) != count($req->daily_limit_times) || count($req->available_days) != count($req->daily_start_times)) {
                 return response()->json(["error" => "Count of available days is not match with daily limit time"], 403);
             }
             foreach ($req->daily_limit_times as $key => $daily_limit_time) {
                 try {
                     $limitTime[$key] = new DateTime($daily_limit_time, new DateTimeZone('Asia/Jakarta'));
+                    $startTime[$key] = new DateTime($req->daily_start_times[$key], new DateTimeZone('Asia/Jakarta'));
                 } catch (\Throwable $th) {
                     return response()->json(["error" => "Format daily limit time is H:i (hour:minute)"], 403);
                 }
-                if ($limitTime[$key]->format("H:i") != $daily_limit_time) {
-                    return response()->json(["error" => "Format daily limit time is H:i (hour:minute)"], 403);
+                if ($limitTime[$key]->format("H:i") != $daily_limit_time || $startTime[$key]->format("H:i") != $req->daily_start_times[$key]) {
+                    return response()->json(["error" => "Format daily limit time is H:i (hour:minute) format"], 403);
                 }
             }
             $start = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
@@ -152,7 +158,7 @@ class EventCtrl extends Controller
             'end_date' => $end->format("Y-m-d"),
             'start_time' => $start->format("H:i:s"),
             'end_time' => $end->format("H:i:s"),
-            'is_publish' => 1,
+            'is_publish' => !$req->is_publish || $req->is_publish == false ? 1 : 2,
             'instagram' => $req->instagram,
             'twitter' => $req->twitter,
             'website' => $req->website,
@@ -174,16 +180,27 @@ class EventCtrl extends Controller
         }
         $availableDays = [];
         if (($req->category == 'Attraction' || $req->category == 'Daily Activities' || $req->category == 'Tour Travel (recurring)') && $req->available_days) {
+            $indexDup = [];
+            $index = 0;
+            foreach (array_count_values($req->available_days) as $value => $numDuplicated) {
+                if ($numDuplicated > 1) {
+                    $indexDup[] = $index;
+                }
+                $index++;
+            }
             foreach ($req->available_days as $key => $avd) {
-                $availableDays[] = AvailableDayTicketSell::create([
-                    "event_id" => $event->id,
-                    "day" => $avd,
-                    "max_limit_time" => $limitTime[$key]->format('H:i')
-                ]);
+                if (!array_search($key, $indexDup)) {
+                    $availableDays[] = AvailableDayTicketSell::create([
+                        "event_id" => $event->id,
+                        "day" => $avd,
+                        "start_time" => $startTime[$key]->format('H:i'),
+                        "max_limit_time" => $limitTime[$key]->format('H:i')
+                    ]);
+                }
             }
         }
         $limitReschedule = null;
-        if ($req->limit_reschedule) {
+        if ($req->limit_reschedule && $req->limit_reschedule != -1) {
             $limitReschedule = LimitReschedule::create([
                 'event_id' => $event->id,
                 'limit_time' => $req->limit_reschedule
@@ -210,6 +227,7 @@ class EventCtrl extends Controller
         }
         // $pkg = $eventObj->first()->payment()->first()->package()->first();
         $validator = Validator::make($req->all(), [
+            'name' => 'required|string',
             'category' => 'required|string',
             'topics' => 'required|string',
             'logo' => 'image|max:2048',
@@ -226,7 +244,10 @@ class EventCtrl extends Controller
             'seat_map' => 'image|max:2048',
             'available_days' => 'array',
             'daily_limit_times' => 'array',
-            'visibility' => 'required|boolean'
+            'daily_start_times' => 'array',
+            'custom_fields' => 'array',
+            'visibility' => 'required|boolean',
+            'single_trx' => 'boolean'
         ]);
         if ($validator->fails()) {
             return response()->json($validator->erros(), 403);
@@ -240,6 +261,7 @@ class EventCtrl extends Controller
         $start = null;
         $end = null;
         $limitTime = [];
+        $startTime = [];
         if ($req->category != 'Attraction' && $req->category != 'Daily Activities' && $req->category != 'Tour Travel (recurring)') {
             if (!$req->start_date || !$req->start_time || !$req->end_date || !$req->end_time) {
                 return response()->json(["error" => "Date time or field start_date, start_time, end_date, and end_time is required for this event category"], 403);
@@ -250,25 +272,26 @@ class EventCtrl extends Controller
             } catch (\Throwable $th) {
                 return response()->json(["error" => "Invalid format input date or time"], 400);
             }
-            if ($start < new DateTime('now', new DateTimeZone('Asia/Jakarta')) || $start >= $end) {
+            if ($start >= $end) {
                 return response()->json(["error" => "Start time can't les then current time or greater than end time of event"], 400);
             }
         } else {
-            if (!$req->daily_limit_times) {
+            if (!$req->daily_limit_times || !$req->daily_start_times) {
                 return response()->json(["error" => "Ticket for daily event, must be have a max limit time available per days"], 403);
             }
-            if (count($req->available_days) != count($req->daily_limit_times)) {
+            if (count($req->available_days) != count($req->daily_limit_times) || count($req->available_days) != count($req->daily_start_times)) {
                 return response()->json(["error" => "Count of available days is not match with daily limit time"], 403);
             }
             foreach ($req->daily_limit_times as $key => $daily_limit_time) {
                 try {
                     $limitTime[$key] = new DateTime($daily_limit_time, new DateTimeZone('Asia/Jakarta'));
+                    $startTime[$key] = new DateTime($req->daily_start_times[$key], new DateTimeZone('Asia/Jakarta'));
                 } catch (\Throwable $th) {
                     return response()->json(["error" => "Format daily limit time is H:i (hour:minute)"], 403);
                 }
-                if ($limitTime[$key]->format("H:i") != $daily_limit_time) {
-                    return response()->json(["error" => "Format daily limit time is H:i (hour:minute)"], 403);
-                }
+                // if ($limitTime[$key]->format("H:i") != $daily_limit_time || $startTime[$key]->format("H:i") != $req->daily_start_times[$key]) {
+                //     return response()->json(["error" => "Format daily limit time is H:i (hour:minute)"], 403);
+                // }
             }
             $start = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
             $end = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
@@ -286,8 +309,9 @@ class EventCtrl extends Controller
             $nameFile = '/storage/event_banners/' . $nameFile;
             Storage::delete('public/event_banners/' . explode('/', $eventObj->first()->logo)[3]);
         }
-        $fields = null;
+        $fields = $eventObj->first()->custom_fields;
         if ($req->custom_fields) {
+            $fields = null;
             foreach ($req->custom_fields as $value) {
                 if ($fields == null) $fields = $value;
                 else $fields = $fields . '|' . $value;
@@ -345,20 +369,95 @@ class EventCtrl extends Controller
         }
         AvailableDayTicketSell::where('event_id', $eventObj->first()->id)->delete();
         if (($req->category == 'Attraction' || $req->category == 'Daily Activities' || $req->category == 'Tour Travel (recurring)') && $req->available_days) {
+            $indexDup = [];
+            $index = 0;
+            foreach (array_count_values($req->available_days) as $value => $numOfDuplicated) {
+                if ($numOfDuplicated > 1) {
+                    $indexDup[] = $index;
+                }
+                $index++;
+            }
             foreach ($req->available_days as $key => $avd) {
-                AvailableDayTicketSell::create([
-                    "event_id" => $eventObj->first()->id,
-                    "day" => $avd,
-                    "max_limit_time" => $limitTime[$key]->format('H:i')
-                ]);
+                if (!array_search($key, $indexDup)) {
+                    AvailableDayTicketSell::create([
+                        "event_id" => $eventObj->first()->id,
+                        "day" => $avd,
+                        "start_time" => $startTime[$key]->format('H:i'),
+                        "max_limit_time" => $limitTime[$key]->format('H:i')
+                    ]);
+                }
             }
         }
-        if ($req->limit_reschedule) {
-            LimitReschedule::where('event_id', $eventObj->first()->id)->update([
+        if ($req->limit_reschedule == -1) {
+            LimitReschedule::where('event_id', $req->event_id)->delete();
+        } else if ($req->limit_reschedule) {
+            LimitReschedule::where('event_id', $req->event_id)->update([
                 'limit_time' => $req->limit_reschedule
             ]);
         }
         return response()->json(["updated" => $updated], 202);
+    }
+
+    public function updatePeripheralField(Request $req, $orgId)
+    {
+        $eventObj = Event::where('id', $req->event_id)->where('org_id', $orgId)->where('is_publish', '<', 3)->where('deleted', 0);
+        if (!$eventObj->first()) {
+            return response()->json(["error" => "Event data not found"], 404);
+        }
+        if ($eventObj->first()->is_publish >= 3) {
+            return response()->json(["error" => "This event is not active"], 403);
+        }
+        $validator = Validator::make($req->all(), [
+            // in ticket data
+            "limit_pchs" => "required|numeric",
+            // in event data
+            "single_trx" => "required|boolean",
+            "remove_seat_map" => "required|boolean",
+            "seat_map" => "image|max:2048",
+            "custom_fields" => "array",
+            // in reschedule data
+            "limit_reschedule" => "numeric",
+        ]);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 403);
+        }
+        $fields = $eventObj->first()->custom_fields;
+        if ($req->custom_fields) {
+            $fields = null;
+            foreach ($req->custom_fields as $value) {
+                if ($fields == null) $fields = $value;
+                else $fields = $fields . '|' . $value;
+            }
+        }
+        $seatMapImage = $eventObj->first()->seat_map;
+        if ($req->hasFile('seat_map') && $req->remove_seat_map == false) {
+            if ($seatMapImage != null) {
+                Storage::delete('public/seat_maps/' . explode('/', $seatMapImage)[3]);
+            }
+            $seatMapImage = pathinfo($req->file('seat_map')->getClientOriginalName(), PATHINFO_FILENAME);
+            $seatMapImage .= '_' . time() . '.' . $req->file('seat_map')->getClientOriginalExtension();
+            $req->file('seat_map')->storeAs('public/seat_maps', $seatMapImage);
+            $seatMapImage = '/storage/seat_maps/' . $seatMapImage;
+        } else if ($req->remove_seat_map == true && ($seatMapImage != null || $seatMapImage != '')) {
+            Storage::delete('public/seat_maps/' . explode('/', $seatMapImage)[3]);
+            $seatMapImage = null;
+        }
+        Ticket::where('event_id', $req->event_id)->where('deleted', 0)->update([
+            "max_purchase" => $req->limit_pchs
+        ]);
+        $eventObj->update([
+            'custom_fields' => $fields,
+            'single_trx' => $req->single_trx,
+            'seat_map' => $seatMapImage
+        ]);
+        if ($req->limit_reschedule == -1) {
+            LimitReschedule::where('event_id', $req->event_id)->delete();
+        } else if ($req->limit_reschedule) {
+            LimitReschedule::where('event_id', $req->event_id)->update([
+                'limit_time' => $req->limit_reschedule
+            ]);
+        }
+        return response()->json(["updated" => "Data has updated"], 202);
     }
 
     private function resetDateDailyType($event)
@@ -506,13 +605,13 @@ class EventCtrl extends Controller
         ], 200);
     }
 
-    public function getById($eventId)
+    public function getById(Request $req, $eventId)
     {
         $pchCtrl = new PchCtrl();
         $pchCtrl->loadTrxData();
         $event = null;
         if ($req->org) {
-            $event = Event::where('id', $eventId)->where('is_publish', '<', 3)->where('deleted', 0)->first();
+            $event = Event::where('id', $req->event_id)->where('is_publish', '<', 3)->where('deleted', 0)->first();
         } else {
             $event = Event::where('id', $eventId)->where('is_publish', 2)->where('deleted', 0)->first();
         }
@@ -544,7 +643,7 @@ class EventCtrl extends Controller
         ], 200);
     }
 
-    public function getBySlug($slug)
+    public function getBySlug(Request $req, $slug)
     {
         $pchCtrl = new PchCtrl();
         $pchCtrl->loadTrxData();
@@ -689,6 +788,6 @@ class EventCtrl extends Controller
         $updated = $event->update([
             "is_publish" => $req->code_pub_state
         ]);
-        return response()->json(["updated" => $updated], 200);
+        return response()->json(["updated" => $updated], 202);
     }
 }

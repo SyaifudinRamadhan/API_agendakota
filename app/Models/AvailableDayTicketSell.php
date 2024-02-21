@@ -13,6 +13,7 @@ class AvailableDayTicketSell extends Model
     protected $fillable = [
         "event_id",
         "day",
+        "start_time",
         "max_limit_time"
     ];
 }

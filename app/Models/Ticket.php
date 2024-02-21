@@ -16,6 +16,7 @@ class Ticket extends Model
     protected $fillable = [
         'event_id',
         'name',
+        'cover',
         'desc',
         'type_price',
         'price',
@@ -24,6 +25,7 @@ class Ticket extends Model
         'end_date',
         'seat_number',
         'max_purchase',
+        'seat_map',
         'deleted',
     ];
 

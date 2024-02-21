@@ -33,6 +33,7 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
     Route::get('/ticket-reschedule', [\App\Http\Controllers\EventCtrl::class, 'getQtySeatNumberTicket']);
     Route::get('/event-slug/{slug}', [\App\Http\Controllers\EventCtrl::class, 'getBySlug']);
     Route::get('/event-orgs/{orgId}', [\App\Http\Controllers\EventCtrl::class, 'getByOrg']);
+    Route::get('/tickets/{eventId}', [\App\Http\Controllers\TicketCtrl::class, 'getTicketsPublic']);
     Route::get('/method-trxs', [\App\Http\Controllers\PkgPayCtrl::class, 'listPayMethod']);
     Route::post('/{xApiToken}/webhook-payment', [\App\Http\Controllers\WebhookCtrl::class, 'handleWebhookRedirect'])->name('pkg.payment.redirect');
     Route::post('/{xApiToken}/webhook-refund-data', [\App\Http\Controllers\WebhookCtrl::class, 'receiveValidationRefund']);
@@ -109,12 +110,15 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
                     Route::get('/withdraw/list', [\App\Http\Controllers\WithdrawCtrl::class, 'wds']);
                     Route::get('/withdraw/available', [\App\Http\Controllers\WithdrawCtrl::class, 'availableForWd']);
 
+                    Route::get('/events', [\App\Http\Controllers\EventCtrl::class, 'getByOrg']);
                     Route::post('/event/create', [\App\Http\Controllers\EventCtrl::class, 'create']);
                 });
             });
 
             Route::middleware('eventOrganizer')->prefix("{orgId}/event")->group(function () {
                 Route::middleware('eventData')->group(function () {
+                    Route::get("/", [\App\Http\Controllers\EventCtrl::class, 'getById']);
+                    Route::put('/update-peripheral', [\App\Http\Controllers\EventCtrl::class, 'updatePeripheralField']);
                     Route::put('/update', [\App\Http\Controllers\EventCtrl::class, 'update']);
                     Route::delete('/delete', [\App\Http\Controllers\EventCtrl::class, 'delete']);
                     Route::post('/change-state', [\App\Http\Controllers\EventCtrl::class, 'setPublishState']);
@@ -128,6 +132,7 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
                         Route::get('/ticket', [\App\Http\Controllers\TicketCtrl::class, 'get']);
                         Route::get('/tickets', [\App\Http\Controllers\TicketCtrl::class, 'getTickets']);
                         Route::post('/ticket/create', [\App\Http\Controllers\TicketCtrl::class, 'create']);
+                        Route::post('/ticket/create-bulk', [\App\Http\Controllers\TicketCtrl::class, 'bulkCreate']);
                         Route::put('/ticket/update', [\App\Http\Controllers\TicketCtrl::class, 'update']);
                         Route::delete('/ticket/delete', [\App\Http\Controllers\TicketCtrl::class, 'delete']);
                         Route::get('/refunds', [\App\Http\Controllers\PchCtrl::class, 'getRefunds']);
