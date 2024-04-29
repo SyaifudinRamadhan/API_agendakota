@@ -166,16 +166,16 @@ class AdminPrimaryCtrl extends Controller
         return $wdCtrl->changeStateWd($req);
     }
     // =============================================================
-    public function getRefunds()
+    public function getRefunds(Request $req)
     {
         $pchCtrl = new PchCtrl();
-        return $pchCtrl->getRefunds(true);
+        return $pchCtrl->getRefunds($req, true);
     }
 
     public function getRefund(Request $req)
     {
         $pchCtrl = new PchCtrl();
-        return $pchCtrl->getRefund($req->refund_id, true);
+        return $pchCtrl->getRefund($req, $req->refund_id, true);
     }
 
     public function considerationRefund(Request $req)

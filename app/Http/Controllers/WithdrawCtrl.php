@@ -135,6 +135,9 @@ class WithdrawCtrl extends Controller
         if (!$req->org->credibilityData()->first()) {
             return response()->json(["error" => "You are not allowed to create withdraw before create legality data first"], 403);
         }
+        if ($req->org->credibilityData()->first()->status == 0) {
+            return response()->json(["error" => "You are not allowed to create withdraw before ypur legality approved"], 403);
+        }
         $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         $event = Event::where('id', $req->event_id)->where('org_id', $req->org->id)->where('is_publish', "<", 3)->where('end_date', "<", $now->format('Y-m-d'))->orWhere('category', 'Attraction')->orWhere('category', 'Daily Activities')->orWhere('category', 'Tour Travel (recurring)');
         $eventData = $event->first();
@@ -165,16 +168,17 @@ class WithdrawCtrl extends Controller
                 "is_publish" => intval($eventData->is_publish) + 3
             ]);
         }
+        $wdNominalBasic = ($basicAmount - ($basicAmount * (floatval(config('agendakota.commission')) / 100)));
         $wd = Withdraw::create([
             'event_id' => $eventData->id,
             'org_id' => $req->org->id,
             'bill_acc_id' => $bankAcc->id,
-            'nominal' => (($basicAmount - ($basicAmount * (floatval(config('agendakota.commission')) / 100))) - intval(config('agendakota.profit_plus'))),
+            'nominal' => ($wdNominalBasic <= 10000 ? $wdNominalBasic : ($wdNominalBasic - intval(config('agendakota.profit_plus')))),
             'basic_nominal' => $basicAmount,
             'status' => 0
         ]);
         $user = Auth::user();
-        Mail::to('syaifudinramadhan@gmail.com')->send(new AdminWdNotification(
+        Mail::to(config('agendakota.admin_email'))->send(new AdminWdNotification(
             $eventData->name,
             $eventData->id,
             $req->org->name,
@@ -217,6 +221,11 @@ class WithdrawCtrl extends Controller
         return response()->json(["deleted" => $deleted], 202);
     }
 
+    function deleteWdOrg(Request $req)
+    {
+        return $this->deleteWd($req, false);
+    }
+
     public function getWd(Request $req, $isAdmin = false)
     {
         $validator = Validator::make($req->all(), [
@@ -241,6 +250,11 @@ class WithdrawCtrl extends Controller
         return response()->json(["withdraw" => $wd], 200);
     }
 
+    public function getWdOrg(Request $req)
+    {
+        return $this->getWd($req, false);
+    }
+
     public function wds(Request $req, $isAdmin = false)
     {
         $wds = null;
@@ -259,6 +273,11 @@ class WithdrawCtrl extends Controller
             $wd->legality_data = $wd->organization->credibilityData()->first();
         }
         return response()->json(["withdraws" => $wds], 200);
+    }
+
+    public function wdsOrg(Request $req)
+    {
+        return $this->wds($req, false);
     }
 
     public function availableForWd(Request $req)
@@ -285,7 +304,9 @@ class WithdrawCtrl extends Controller
             }
             $orginAmount = $amount;
             $amount -= (intval($amount) * (floatval(config('agendakota.commission')) / 100));
-            $amount -= intval(config('agendakota.profit_plus'));
+            if ($amount > 10000) {
+                $amount -= intval(config('agendakota.profit_plus'));
+            }
             $totalAmount += $amount;
             $events[] = [
                 "event" => $event,

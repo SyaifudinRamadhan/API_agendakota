@@ -23,6 +23,7 @@ return new class extends Migration
             $table->string('photo');
             $table->string('is_active');
             $table->string('phone');
+            $table->string('interest')->nullable();
             $table->string('linkedin')->nullable();
             $table->string('instagram')->nullbale();
             $table->string('twitter')->nullable();

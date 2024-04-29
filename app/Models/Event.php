@@ -39,6 +39,7 @@ class Event extends Model
         'seat_map',
         'single_trx',
         'visibility',
+        'allow_refund',
         'deleted',
     ];
 

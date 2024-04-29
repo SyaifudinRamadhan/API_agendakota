@@ -18,6 +18,11 @@ return new class extends Migration
             $table->string('pay_state');
             $table->string('order_id');
             $table->string('price');
+            $table->string('code_method')->nullable();
+            $table->string('virtual_acc')->nullable();
+            $table->string('qr_str')->nullable();
+            $table->string('pay_links')->nullable();
+            $table->dateTime('expired');
             $table->timestamps();
         });
     }

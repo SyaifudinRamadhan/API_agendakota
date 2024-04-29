@@ -17,14 +17,21 @@ class Payment extends Model
         'token_trx',
         'pay_state',
         'order_id',
-        'price'
+        'price',
+        'code_method',
+        'virtual_acc',
+        'qr_str',
+        'pay_links',
+        'expired',
     ];
 
-    public function user(): BelongsTo{
+    public function user(): BelongsTo
+    {
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function purchases(): HasMany{
+    public function purchases(): HasMany
+    {
         return $this->hasMany(Purchase::class, 'pay_id');
     }
 }

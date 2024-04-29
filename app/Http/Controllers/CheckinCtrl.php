@@ -37,9 +37,14 @@ class CheckinCtrl extends Controller
         foreach ($purchases as $purchase) {
             $skip = false;
             if ($event->category == 'Attraction' || $event->category == 'Daily Activities' || $event->category == 'Tour Travel (recurring)') {
-                $visitDate = new DateTime($purchase->visitDate()->first()->visit_date, new DateTimeZone('Asia/Jakarta'));
-                if ($now->format('Y-m-d') != $visitDate->format('Y-m-d')) {
+                $visitDateObj = $purchase->visitDate()->first();
+                if (!$visitDateObj) {
                     $skip = true;
+                } else {
+                    $visitDate = new DateTime($visitDateObj->visit_date, new DateTimeZone('Asia/Jakarta'));
+                    if ($now->format('Y-m-d') != $visitDate->format('Y-m-d')) {
+                        $skip = true;
+                    }
                 }
             }
             if (
@@ -60,7 +65,7 @@ class CheckinCtrl extends Controller
                     return response()->json(
                         [
                             "checkin_on" => $checkin->created_at,
-                            "event" => $event->name,
+                            "event" => $event,
                             "user" => Auth::user(),
                             "purchase" => $purchase,
                             "ticket" => $purchase->ticket()->first()
@@ -93,8 +98,8 @@ class CheckinCtrl extends Controller
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
-        $qrStr = explode('"~^|-|^~"', $req->qr_str);
-        $purchase = Purchase::where('id', $req->$qrStr[0])->where('user_id', $qrStr[1])->where('is_mine', true)->first();
+        $qrStr = explode("*~^|-|^~*", $req->qr_str);
+        $purchase = Purchase::where('id', $qrStr[0])->where('user_id', $qrStr[1])->where('is_mine', true)->first();
         if (!$purchase) {
             return response()->json(["error" => "Purchase data not found in this event"], 404);
         }
@@ -107,7 +112,11 @@ class CheckinCtrl extends Controller
         $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         $endEvent = new DateTime($req->event->end_date . ' ' . $req->event->end_time, new DateTimeZone('Asia/Jakarta'));
         if ($req->event->category == 'Attraction' || $req->event->category == 'Daily Activities' || $req->event->category == 'Tour Travel (recurring)') {
-            $visitDate = new DateTime($purchase->visitDate()->first()->visit_date, new DateTimeZone('Asia/Jakarta'));
+            $visitDateObj = $purchase->visitDate()->first();
+            if (!$visitDateObj) {
+                return response()->json(["error" => "This ticket is not valid"], 403);
+            }
+            $visitDate = new DateTime($visitDateOb->visit_date, new DateTimeZone('Asia/Jakarta'));
             if ($now->format('Y-m-d') != $visitDate->format('Y-m-d')) {
                 return response()->json(["error" => "Selected visit date is not match with now"], 403);
             }

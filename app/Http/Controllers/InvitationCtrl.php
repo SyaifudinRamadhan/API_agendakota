@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Mail;
 use App\Models\User;
 use App\Models\Purchase;
 use App\Models\Invitation;
+use App\Models\Payment;
 use App\Models\Otp;
 use App\Mail\InviteEvent;
 
@@ -33,7 +34,7 @@ class InvitationCtrl extends Controller
             return response()->json(["error" =>  "Purchase data not found"], 404);
         }
         if ($purchase->checkin()->first()) {
-            return response()->json(["error" => "This ticket has checkined"], 403);
+            return response()->json(["error" => "This ticket has checkined"], 404);
         }
         if ($sender->email == $req->target_email) {
             return response()->json(["error" => "You can't invite your self"], 403);
@@ -118,20 +119,62 @@ class InvitationCtrl extends Controller
         if (!$invitation->first()) {
             return response()->json(["error" => "Invitation not found"], 404);
         }
+        $pchObj = Purchase::where('id', $invitation->first()->pch_id);
+        if (!$pchObj->first()) {
+            return response()->json(["error" => "Invitation not found"], 404);
+        }
         $invitation->update(
             [
                 'response' => 'ACCEPTED'
             ]
         );
-        Purchase::where('id', $invitation->first()->pch_id)->update(
+        $lastInvoice = $pchObj->first()->payment()->first();
+        $newInvoice = Payment::create([
+            'user_id' => $user->id,
+            'token_trx' => $lastInvoice->token_trx,
+            'pay_state' => $lastInvoice->pay_state,
+            'order_id' => $lastInvoice->order_id,
+            'price' => $pchObj->first()->amount,
+            'code_method' => $lastInvoice->code_method,
+            'virtual_acc' => $lastInvoice->virtual_acc,
+            'qr_str' => $lastInvoice->qr_str,
+            'pay_links' => $lastInvoice->pay_links,
+            'expired' => $lastInvoice->expired,
+        ]);
+        Payment::where('id', $lastInvoice->id)->update([
+            'price' => (int)$lastInvoice->price - (int)$pchObj->first()->amount
+        ]);
+        $pchObj->update(
             [
                 'user_id' => $user->id,
+                'pay_id' => $newInvoice->id,
                 'is_mine' => true
             ]
         );
         return response()->json(["message" => "You have succeeded clain or accept your invitatio"], 202);
     }
-
+    // Delete invitation by purchase_id
+    public function getBackPurchase(Request $req)
+    {
+        $user = Auth::user();
+        $pch = Purchase::where([
+            "id" => $req->purchase_id,
+            "user_id" => $user->id,
+            "is_mine" => false
+        ]);
+        if (!$pch->first()) {
+            return response()->json(["error" => "Waiting invitation accepted data not found"], 404);
+        }
+        Invitation::where([
+            "user_id" => $user->id,
+            "pch_id" => $pch->first()->id
+        ])->delete();
+        $pch->update([
+            "is_mine" => true
+        ]);
+        return response()->json(["message" => "Get back process has succeded"], 202);
+    }
+    // Delete invitation by invitation_id
     public function delete(Request $req)
     {
         $user = Auth::user();
@@ -162,7 +205,10 @@ class InvitationCtrl extends Controller
         }
         foreach ($invitations as $invitation) {
             $invitation->user_receiver = $invitation->userTarget()->first();
+            $invitation->user_sender = $invitation->user()->first();
             $invitation->purchase = $invitation->purchase()->first();
+            $invitation->purchase->visit_date = $invitation->purchase->visitDate()->first();
+            $invitation->purchase->seat_number = $invitation->purchase->seatNumber()->first();
             $invitation->ticket = $invitation->purchase->ticket()->first();
             $invitation->event = $invitation->ticket->event()->first();
         }
@@ -177,7 +223,10 @@ class InvitationCtrl extends Controller
         }
         foreach ($invitations as $invitation) {
             $invitation->user_receiver = $invitation->userTarget()->first();
+            $invitation->user_sender = $invitation->user()->first();
             $invitation->purchase = $invitation->purchase()->first();
+            $invitation->purchase->visit_date = $invitation->purchase->visitDate()->first();
+            $invitation->purchase->seat_number = $invitation->purchase->seatNumber()->first();
             $invitation->ticket = $invitation->purchase->ticket()->first();
             $invitation->event = $invitation->ticket->event()->first();
         }

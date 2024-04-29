@@ -26,7 +26,8 @@ class UserCtrl extends Controller
                 'linkedin' => 'required|string',
                 'instagram' => 'required|string',
                 'twitter' => 'required|string',
-                'whatsapp' => 'required|string'
+                'whatsapp' => 'required|string',
+                'interest' => 'required|array'
             ]
         );
         if ($validator->fails()) {
@@ -54,6 +55,15 @@ class UserCtrl extends Controller
                 Storage::delete('public/avatars/' . $fileName[3]);
             }
         }
+        $interest = '';
+        foreach ($req->interest as $value) {
+            if ($interest === '') {
+                $interest = $value;
+            } else {
+                $interest .= '~^|-|^~' . $value;
+            }
+        }
+
         $updated = User::where('id', $user->id)->update(
             [
                 'f_name' => $req->f_name,
@@ -65,17 +75,18 @@ class UserCtrl extends Controller
                 'linkedin' => $req->linkedin,
                 'instagram' => $req->instagram,
                 'twitter' => $req->twitter,
-                'whatsapp' => $req->whatsapp
+                'whatsapp' => $req->whatsapp,
+                'interest' => $interest,
             ]
         );
-        return response()->json(['updated' => $updated], $updated == 0 ? 404 : 200);
+        return response()->json(['updated' => $updated, 'user' => User::where('id', $user->id)->first()], $updated == 0 ? 404 : 202);
     }
 
     public function updatePassword(Request $req, $userId = null)
     {
         $ruleValidate = [
-            'new_password' => 'required|string',
-            'confirm_password' => 'required|string'
+            'new_password' => 'required|string|min:8',
+            'confirm_password' => 'required|string|min:8'
         ];
         $accesUser = false;
         $needLastPass = false;
@@ -111,7 +122,7 @@ class UserCtrl extends Controller
             return response()->json(["error" => "Your confirm passsword is not match"], 403);
         }
         $updated = User::where('id', $user->id)->update(["password" => Hash::make($req->new_password)]);
-        return response()->json(["updated" => $updated], $updated == 0 ? 404 : 200);
+        return response()->json(["updated" => $updated], $updated == 0 ? 404 : 202);
     }
 
     public function getUser($userId = null)
@@ -137,8 +148,8 @@ class UserCtrl extends Controller
     public function hardDeleteUser($userId)
     {
         $user = User::where('id', $userId);
-        if(explode('/', $user->first()->photo)[3] !== 'default.png'){
-            Storage::delete('public/avatars/'.explode('/', $user->first()->photo)[3]);
+        if (explode('/', $user->first()->photo)[3] !== 'default.png') {
+            Storage::delete('public/avatars/' . explode('/', $user->first()->photo)[3]);
         }
         return response()->json(['deleted' => $user], $user == 0 ? 404 : 202);
     }

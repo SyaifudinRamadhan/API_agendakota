@@ -83,10 +83,20 @@ class Authenticate extends Controller
             // Mail handler to verify
             Mail::to($req->email)->send(new Verification($user->name, $tokenVerify));
         }
-
+        $token = null;
+        if ($req->is_mobile ==  true) {
+            $user->tokens()->where('name', 'auth_token_mobile')->delete();
+            $token = $user->createToken('auth_token_mobile')->plainTextToken;
+        } else {
+            $user->tokens()->where('name', 'auth_token_web')->delete();
+            $token = $user->createToken('auth_token_web')->plainTextToken;
+        }
         return response()->json(
             [
                 'data' => $user,
+                'admin' => $user->admin()->first(),
+                'access_token' => $token,
+                'token_type' => 'Bearer'
             ],
             201
         );

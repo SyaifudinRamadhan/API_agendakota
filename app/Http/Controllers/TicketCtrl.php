@@ -262,7 +262,7 @@ class TicketCtrl extends Controller
             $fileName = $fileName . '_' . time() . $req->file('seat_map')->getClientOriginalExtension();
             $req->file('seat_map')->storeAs('public/seat_map_details', $fileName);
             $seatMap = '/storage/seat_map_details/' . $fileName;
-        } else if ($req->enable_seat_map == false && ($seatMap != null || $seatMap != '')) {
+        } else if ($req->enable_seat_number == false && ($seatMap != null || $seatMap != '')) {
             Storage::delete('public/seat_map_details/' . explode('/', $seatMap)[3]);
             $seatMap = null;
         }
@@ -376,7 +376,7 @@ class TicketCtrl extends Controller
     {
         $tickets = null;
         if ($forOrganizer) {
-            $tickets = Ticket::where('event_id', $req->event->id)->where('deleted', 0)->get();
+            $tickets = Ticket::where('event_id', $req->event->id)->get();
         } else {
             $tickets = Ticket::where('event_id', $eventId)->where('deleted', 0)->get();
         }
@@ -386,23 +386,29 @@ class TicketCtrl extends Controller
         foreach ($tickets as $ticket) {
             $purchases = [];
             foreach ($ticket->purchases()->get() as $purchase) {
-                if ($ticket->type_price != 1) {
-                    if ($purchase->payment()->first()->pay_state != 'EXPIRED') {
-                        $purchase->user = $purchase->user()->first();
-                        $purchase->payment = $purchase->payment()->first();
-                        $purchase->checkin = $purchase->checkin()->first();
-                        $purchase->visitDate = $purchase->visitDate()->first();
-                        $purchase->seatNumber = $purchase->seatNumber()->first();
-                        $purchases[] = $purchase;
-                    }
-                } else {
-                    $purchase->user = $purchase->user()->first();
-                    $purchase->payment = $purchase->payment()->first();
-                    $purchase->checkin = $purchase->checkin()->first();
-                    $purchase->visitDate = $purchase->visitDate()->first();
-                    $purchase->seatNumber = $purchase->seatNumber()->first();
-                    $purchases[] = $purchase;
-                }
+                // if ($ticket->type_price != 1) {
+                //     if ($purchase->payment()->first()->pay_state != 'EXPIRED') {
+                //         $purchase->user = $purchase->user()->first();
+                //         $purchase->payment = $purchase->payment()->first();
+                //         $purchase->checkin = $purchase->checkin()->first();
+                //         $purchase->visitDate = $purchase->visitDate()->first();
+                //         $purchase->seatNumber = $purchase->seatNumber()->first();
+                //         $purchases[] = $purchase;
+                //     }
+                // } else {
+                //     $purchase->user = $purchase->user()->first();
+                //     $purchase->payment = $purchase->payment()->first();
+                //     $purchase->checkin = $purchase->checkin()->first();
+                //     $purchase->visitDate = $purchase->visitDate()->first();
+                //     $purchase->seatNumber = $purchase->seatNumber()->first();
+                //     $purchases[] = $purchase;
+                // }
+                $purchase->user = $purchase->user()->first();
+                $purchase->payment = $purchase->payment()->first();
+                $purchase->checkin = $purchase->checkin()->first();
+                $purchase->visitDate = $purchase->visitDate()->first();
+                $purchase->seatNumber = $purchase->seatNumber()->first();
+                $purchases[] = $purchase;
             }
             $ticket->purchases = $purchases;
             if (($req->event->category == 'Attraction' || $req->event->category == 'Daily Activities' || $req->event->category == 'Tour Travel (recurring)')) {

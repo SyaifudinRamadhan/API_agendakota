@@ -70,7 +70,7 @@ class WebhookCtrl extends Controller
             //         "pay_state" => $req->data["status"]
             //     ]);
             // }
-            Log::info($req->data);
+            // Log::info($req->data);
             if ($req->data["status"] == 'SUCCEEDED') {
                 Payment::where('order_id', $req->data['reference_id'])->update([
                     "pay_state" => $req->data["status"]
@@ -78,7 +78,7 @@ class WebhookCtrl extends Controller
             } else {
                 if ($req->event == 'ewallet.capture' && ($req->data["status"] == "FAILED" || $req->data["status"] == "VOIDED")) {
                     $this->removePayment($req->data["reference_id"]);
-                } else if ($req->event == 'qr.payment' && new DateTime($req->data["expires_at"], new DateTimeZone('UTC')) < new DateTime('now', new DateTimeZone('UTC'))) {
+                } else if ($req->event == 'qr.payment' && new DateTime($req->data["expires_at"], new DateTimeZone('Asia/Jakarta')) < new DateTime('now', new DateTimeZone('Asia/Jakarta'))) {
                     $this->removePayment($req->data["reference_id"]);
                 }
             }

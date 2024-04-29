@@ -17,6 +17,7 @@ use DateTime;
 use DateTimeZone;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class EventCtrl extends Controller
 {
@@ -56,6 +57,7 @@ class EventCtrl extends Controller
             'daily_start_times' => 'array',
             'custom_fields' => 'array',
             'visibility' => 'required|boolean',
+            "allow_refund" => "boolean",
             'single_trx' => 'boolean',
             'is_publish' => 'boolean'
         ];
@@ -138,7 +140,7 @@ class EventCtrl extends Controller
         if ($req->hasFile('seat_map')) {
             $seatMapImage = pathinfo($req->file('seat_map')->getClientOriginalName(), PATHINFO_FILENAME);
             $seatMapImage .= '_' . time() . '.' . $req->file('seat_map')->getClientOriginalExtension();
-            $req->file('seat_map')->storeAs('public/seat_maps' . $seatMapImage);
+            $req->file('seat_map')->storeAs('public/seat_maps', $seatMapImage);
             $seatMapImage = '/storage/seat_maps/' . $seatMapImage;
         }
         $event = Event::create([
@@ -167,6 +169,7 @@ class EventCtrl extends Controller
             'single_trx' => $req->single_trx == false ? false : true,
             'seat_map' => $seatMapImage,
             'visibility' => $req->visibility,
+            'allow_refund' => $req->allow_refund ? $req->allow_refund : false,
             'deleted' => 0,
         ]);
         $breakdowns = [];
@@ -391,9 +394,17 @@ class EventCtrl extends Controller
         if ($req->limit_reschedule == -1) {
             LimitReschedule::where('event_id', $req->event_id)->delete();
         } else if ($req->limit_reschedule) {
-            LimitReschedule::where('event_id', $req->event_id)->update([
-                'limit_time' => $req->limit_reschedule
-            ]);
+            $limRsc = LimitReschedule::where('event_id', $req->event_id);
+            if ($limRsc->first()) {
+                $limRsc->update([
+                    'limit_time' => $req->limit_reschedule
+                ]);
+            } else {
+                LimitReschedule::create([
+                    'event_id' => $req->event_id,
+                    'limit_time' => $req->limit_reschedule
+                ]);
+            }
         }
         return response()->json(["updated" => $updated], 202);
     }
@@ -417,6 +428,7 @@ class EventCtrl extends Controller
             "custom_fields" => "array",
             // in reschedule data
             "limit_reschedule" => "numeric",
+            "allow_refund" => "required|boolean"
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
@@ -448,14 +460,24 @@ class EventCtrl extends Controller
         $eventObj->update([
             'custom_fields' => $fields,
             'single_trx' => $req->single_trx,
-            'seat_map' => $seatMapImage
+            'seat_map' => $seatMapImage,
+            'allow_refund' => $req->allow_refund
         ]);
         if ($req->limit_reschedule == -1) {
             LimitReschedule::where('event_id', $req->event_id)->delete();
         } else if ($req->limit_reschedule) {
-            LimitReschedule::where('event_id', $req->event_id)->update([
-                'limit_time' => $req->limit_reschedule
-            ]);
+
+            $limRsc = LimitReschedule::where('event_id', $req->event_id);
+            if ($limRsc->first()) {
+                $limRsc->update([
+                    'limit_time' => $req->limit_reschedule
+                ]);
+            } else {
+                LimitReschedule::create([
+                    'event_id' => $req->event_id,
+                    'limit_time' => $req->limit_reschedule
+                ]);
+            }
         }
         return response()->json(["updated" => "Data has updated"], 202);
     }
@@ -484,60 +506,71 @@ class EventCtrl extends Controller
 
     public function coreSeatNumberQtyTicket($ticket, $date)
     {
-        if ($ticket->seat_number == 1 || $ticket->seat_number == true) {
-            $allSeatNumber = null;
-            $reservedSeats = null;
-            if ($ticket->quantity == -1) {
-                $allSeatNumber = range(1, intval($ticket->limitDaily()->first()->limit_quantity));
-                $reservedSeats = DB::table('purchases')
-                    ->join('reserved_seats', 'reserved_seats.pch_id', '=', 'purchases.id')
-                    ->join('daily_tickets', 'daily_tickets.purchase_id', '=', 'purchases.id')
-                    ->select(['reserved_seats.seat_number'])
-                    ->where('purchases.ticket_id', '=', $ticket->id)
-                    ->where('daily_tickets.visit_date', '=', $date->format('Y-m-d'))
-                    ->get();
+        $allSeatNumber = null;
+        $reservedSeats = null;
+        if ($ticket->quantity == -1) {
+            $avlDays = $ticket->event()->first()->availableDays()->where('day', $date->format('D'))->first();
+            $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+            if ($avlDays) {
+                $maxLimit = new DateTime($avlDays->max_limit_time, new DateTimeZone('Asia/Jakarta'));
+                if ($now < $date || ($now->format('Y-m-d') === $date->format('Y-m-d') && $now->format("H:i") <= $maxLimit->format("H:i"))) {
+                    $purchases = DB::table('purchases')
+                        ->join('daily_tickets', 'daily_tickets.purchase_id', '=', 'purchases.id')
+                        ->where('purchases.ticket_id', '=', $ticket->id)
+                        ->where('daily_tickets.visit_date', '=', $date->format('Y-m-d'))
+                        ->get();
+                    $ticket->quantity = intval($ticket->limitDaily()->first()->limit_quantity) - count($purchases);
+                    if ($ticket->seat_number == 1 || $ticket->seat_number == true) {
+                        $allSeatNumber = range(1, intval($ticket->limitDaily()->first()->limit_quantity));
+                        $reservedSeats = DB::table('purchases')
+                            ->join('reserved_seats', 'reserved_seats.pch_id', '=', 'purchases.id')
+                            ->join('daily_tickets', 'daily_tickets.purchase_id', '=', 'purchases.id')
+                            ->select(['reserved_seats.seat_number'])
+                            ->where('purchases.ticket_id', '=', $ticket->id)
+                            ->where('daily_tickets.visit_date', '=', $date->format('Y-m-d'))
+                            ->get();
+                    }
+                } else {
+                    $ticket->quantity = 0;
+                    $allSeatNumber = [];
+                    $reservedSeats = [];
+                }
             } else {
-                $allSeatNumber = range(0, intval($ticket->quantity));
-                $reservedSeats = DB::table('purchases')
-                    ->join('reserved_seats', 'reserved_seats.pch_id', '=', 'purchases.id')
-                    ->select(['reserved_seats.seat_number'])
-                    ->where('purchases.ticket_id', '=', $ticket->id)
-                    ->get();
+                $ticket->quantity = 0;
+                $allSeatNumber = [];
+                $reservedSeats = [];
             }
+        } else if ($ticket->seat_number == 1 || $ticket->seat_number == true) {
+            $allSeatNumber = range(0, intval($ticket->quantity));
+            $reservedSeats = DB::table('purchases')
+                ->join('reserved_seats', 'reserved_seats.pch_id', '=', 'purchases.id')
+                ->select(['reserved_seats.seat_number'])
+                ->where('purchases.ticket_id', '=', $ticket->id)
+                ->get();
+        }
+        if ($ticket->seat_number == 1 || $ticket->seat_number == true) {
             foreach ($reservedSeats as $rsvSeat) {
-                unset($allSeatNumber[$rsvSeat->seat_number]);
+                $removedIndex = array_search((int)($rsvSeat->seat_number), $allSeatNumber);
+                if ($removedIndex) {
+                    array_splice($allSeatNumber,  $removedIndex, 1);
+                }
             }
             $ticket->available_seat_numbers = $allSeatNumber;
-        }
-        if ($ticket->quantity == -1) {
-            $purchases = DB::table('purchases')
-                ->join('daily_tickets', 'daily_tickets.purchase_id', '=', 'purchases.id')
-                ->where('purchases.ticket_id', '=', $ticket->id)
-                ->where('daily_tickets.visit_date', '=', $date->format('Y-m-d'))
-                ->get();
-            $ticket->quantity = intval($ticket->limitDaily()->first()->limit_quantity) - count($purchases);
         }
         return $ticket;
     }
 
     private function getAvailableSeatNumberQty($event, $date)
     {
-        $tickets = null;
-        if (
-            count($event->availableDays()->get()) == 0 ||
-            (count($event->availableDays()->get()) > 0 &&
-                count($event->availableDays()->where('day', $date->format('D'))->get()) > 0
-            )
-        ) {
-            $tickets = $event->tickets()->get();
-            foreach ($tickets as $ticket) {
-                $ticket = $this->coreSeatNumberQtyTicket($ticket, $date);
-            }
+        $tickets = $event->tickets()->get();
+
+        foreach ($tickets as $ticket) {
+            $ticket = $this->coreSeatNumberQtyTicket($ticket, $date);
         }
         return $tickets;
     }
 
-    public function getQtySeatNumberTicket(Request $req)
+    public function getRescheduleAvailableData(Request $req)
     {
         $date = null;
         $strDate = $req->visit_date ? $req->visit_date : 'now';
@@ -557,6 +590,110 @@ class EventCtrl extends Controller
         $availableDays = $ticket->event()->first()->availableDays()->get();
         $ticket = $this->coreSeatNumberQtyTicket($ticket, $date);
         return response()->json(["ticket" => $ticket, "available_day" => $availableDays], 200);
+    }
+
+    public function getVisitDateAvlTicket(Request $req)
+    {
+        $validator = Validator::make($req->all(), [
+            "date" => "required|string",
+            "ticket_id" => "required|string"
+        ]);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 403);
+        }
+        $date = null;
+        try {
+            $date = new DateTime($req->date, new DateTimeZone('Asia/Jakarta'));
+        } catch (\Throwable $th) {
+            return response()->json(["error" => "Invalid date format", "dates" => $req->dates], 403);
+        }
+        $ticket = Ticket::where('id', $req->ticket_id)->first();
+        if (!$ticket) {
+            return response()->json(["error" => "Ticket data not found"], 404);
+        }
+        $event = $ticket->event()->first();
+        $quantity = $ticket->quantity;
+        if ($event->category === "Attraction" || $event->category === "Daily Activities" || $event->category === "Tour Travel (recurring)") {
+            $purchases = DB::table('purchases')
+                ->join('daily_tickets', 'daily_tickets.purchase_id', '=', 'purchases.id')
+                ->where('purchases.ticket_id', '=', $req->ticket_id)
+                ->where('daily_tickets.visit_date', '=', $date->format('Y-m-d'))
+                ->get();
+            $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+            $avldt = $event->availableDays()->where('day', $date->format('D'))->first();
+            if ($avldt) {
+                $maxTime = new DateTime($avldt->max_limit_time, new DateTimeZone('Asia/Jakarta'));
+                if ($now < $date || (
+                    $now->format('Y-m-d') === $date->format('Y-m-d') && $now->format("H:i") <= $maxTime->format("H:i"))) {
+                    $quantity = intval($ticket->limitDaily()->first()->limit_quantity) - count($purchases);
+                } else {
+                    $quantity = 0;
+                }
+            } else {
+                $quantity = 0;
+            }
+        }
+
+        return response()->json(["ticket_id" => $ticket->id, "quantity" => $quantity], 200);
+    }
+
+    public function getVisitDateAvlTickets(Request $req)
+    {
+        $validator = Validator::make($req->all(), [
+            "dates" => "required|array",
+            "ticket_ids" => "required|array"
+        ]);
+        if ($validator->fails()) {
+            return response()->json($validator->errors(), 403);
+        }
+        if (count($req->dates) !== count($req->ticket_ids)) {
+            return response()->json(["error" => "Length of dates array and ticket_ids not similiar"], 403);
+        }
+        $dates = [];
+        foreach ($req->dates as $date) {
+            try {
+                $date = new DateTime($date, new DateTimeZone('Asia/Jakarta'));
+                $dates[] = $date;
+            } catch (\Throwable $th) {
+                return response()->json(["error" => "Invalid date format", "dates" => $req->dates], 403);
+            }
+        }
+        $returnData = [];
+        $ticket = null;
+
+        for ($i = 0; $i < count($dates); $i++) {
+            $ticket = $ticket === null ? Ticket::where('id', $req->ticket_ids[$i])->first() : ($ticket->id === $req->ticket_ids[$i] ? $ticket : Ticket::where('id', $req->ticket_ids[$i])->first());
+
+            if (!$ticket) {
+                return response()->json(["error" => "Ticket data not found"], 404);
+            }
+
+            $event = $ticket->event()->first();
+            $quantity = $ticket->quantity;
+            if ($event->category === "Attraction" || $event->category === "Daily Activities" || $event->category === "Tour Travel (recurring)") {
+                $purchases = DB::table('purchases')
+                    ->join('daily_tickets', 'daily_tickets.purchase_id', '=', 'purchases.id')
+                    ->where('purchases.ticket_id', '=', $req->ticket_ids[$i])
+                    ->where('daily_tickets.visit_date', '=', $dates[$i]->format('Y-m-d'))
+                    ->get();
+                $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+                $avldt = $event->availableDays()->where('day', $dates[$i]->format('D'))->first();
+                if ($avldt) {
+                    $maxTime = new DateTime($avldt->max_limit_time, new DateTimeZone('Asia/Jakarta'));
+                    if ($now < $dates[$i] || (
+                        $now->format('Y-m-d') === $dates[$i]->format('Y-m-d') && $now->format("H:i") <= $maxTime->format("H:i"))) {
+                        $quantity = intval($ticket->limitDaily()->first()->limit_quantity) - count($purchases);
+                    } else {
+                        $quantity = 0;
+                    }
+                } else {
+                    $quantity = 0;
+                }
+            }
+
+            $returnData[] = ["ticket_id" => $ticket->id, "quantity" => $quantity,];
+        }
+        return response()->json(["tickets" => $returnData], 200);
     }
 
     public function getAvailableSeatNumberDailyTicket(Request $req, $eventId)
@@ -590,6 +727,8 @@ class EventCtrl extends Controller
         if ($date < new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta'))) {
             $event->tickets = $this->getAvailableSeatNumberQty($event, $date);
         }
+        $org = $event->org()->first();
+        $org->legality = $org->credibilityData()->first();
         return response()->json([
             "event" => $event,
             "available_days" => $event->availableDays()->get(),
@@ -600,7 +739,7 @@ class EventCtrl extends Controller
             "exhibitors" => $event->exhs()->get(),
             "handbooks" => $event->handbooks()->get(),
             "receptionists" => $event->receptionists()->get(),
-            "organization" => $event->org()->first(),
+            "organization" => $org,
             "vouchers" => new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta')) ? $event->vouchers()->get() : [],
         ], 200);
     }
@@ -628,6 +767,9 @@ class EventCtrl extends Controller
         if ($date < new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta'))) {
             $event->tickets = $this->getAvailableSeatNumberQty($event, $date);
         }
+        // $event->tickets = $this->getAvailableSeatNumberQty($event, $date);
+        $org = $event->org()->first();
+        $org->legality = $org->credibilityData()->first();
         return response()->json([
             "event" => $event,
             "available_days" => $event->availableDays()->get(),
@@ -638,7 +780,7 @@ class EventCtrl extends Controller
             "exhibitors" => $event->exhs()->get(),
             "handbooks" => $event->handbooks()->get(),
             "receptionists" => $event->receptionists()->get(),
-            "organization" => $event->org()->first(),
+            "organization" => $org,
             "vouchers" => new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta')) ? $event->vouchers()->get() : [],
         ], 200);
     }
@@ -666,6 +808,8 @@ class EventCtrl extends Controller
         if ($date < new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta'))) {
             $event->tickets = $this->getAvailableSeatNumberQty($event, $date);
         }
+        $org = $event->org()->first();
+        $org->legality = $org->credibilityData()->first();
         return response()->json([
             "event" => $event,
             "available_days" => $event->availableDays()->get(),
@@ -676,7 +820,7 @@ class EventCtrl extends Controller
             "exhibitors" => $event->exhs()->get(),
             "handbooks" => $event->handbooks()->get(),
             "receptionists" => $event->receptionists()->get(),
-            "organization" => $event->org()->first(),
+            "organization" => $org,
             "vouchers" => new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta')) ? $event->vouchers()->get() : [],
         ], 200);
     }
@@ -709,6 +853,8 @@ class EventCtrl extends Controller
             if ($date < new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta'))) {
                 $event->tickets = $this->getAvailableSeatNumberQty($event, $date);
             }
+            $org = $event->org()->first();
+            $org->legality = $org->credibilityData()->first();
             $data["events"][] = [
                 "event" => $event,
                 "available_days" => $event->availableDays()->get(),
@@ -719,7 +865,7 @@ class EventCtrl extends Controller
                 "exhibitors" => $event->exhs()->get(),
                 "handbooks" => $event->handbooks()->get(),
                 "receptionists" => $event->receptionists()->get(),
-                "organization" => $event->org()->first(),
+                "organization" => $org,
                 "vouchers" => new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta')) ? $event->vouchers()->get() : [],
             ];
         }
@@ -758,7 +904,7 @@ class EventCtrl extends Controller
             Ticket::where('event_id', $eventObj->first()->id)->update(["deleted" => 1]);
             $deleted = $eventObj->update(['deleted' => 1]);
         }
-        return response()->json(["deleted" => $deleted], 200);
+        return response()->json(["deleted" => $deleted], 202);
     }
 
     public function setPublishState(Request $req, $orgId)
@@ -789,5 +935,20 @@ class EventCtrl extends Controller
             "is_publish" => $req->code_pub_state
         ]);
         return response()->json(["updated" => $updated], 202);
+    }
+
+    public function getQREvent(Request $req, $orgId)
+    {
+        $event = Event::where('id', $req->event_id)->where('org_id', $orgId)->first();
+        $org = $event->org()->first();
+        $org->legality = $org->credibilityData()->first();
+        $pdf = Pdf::loadView('pdfs.unique-qr-download', [
+            'myData' => Auth::user(),
+            'event' => $event,
+            'organizationID' => $orgId,
+            'organization' => $org,
+            'isManageEvent' => 1,
+        ])->setPaper('a4', 'portrait');
+        return $pdf->download();
     }
 }

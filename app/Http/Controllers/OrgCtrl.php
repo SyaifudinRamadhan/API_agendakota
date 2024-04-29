@@ -202,6 +202,7 @@ class OrgCtrl extends Controller
         if (!$org) {
             return response()->json(["error" => "Data not found or match"], 404);
         }
+        $org->legality = $org->credibilityData()->first();
         return response()->json(["organization" => $org], 200);
     }
 
@@ -212,9 +213,13 @@ class OrgCtrl extends Controller
         }
         $orgs = Organization::where('user_id', $userId)->where('deleted', 0)->get();
         $teams = Team::where('user_id', $userId)->get();
+        foreach ($orgs as $org) {
+            $org->legality = $org->credibilityData()->first();
+        }
         foreach ($teams as $team) {
             $org = $team->organization()->first();
             $org->is_team = true;
+            $org->legality = $org->credibilityData()->first();
             $orgs[] = $org;
         }
         return response()->json(["organizations" => $orgs], count($orgs) == 0 ? 404 : 200);

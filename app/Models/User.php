@@ -31,6 +31,7 @@ class User extends Authenticatable
         'photo',
         'is_active',
         'phone',
+        'interest',
         'linkedin',
         'instagram',
         'twitter',

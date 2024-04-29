@@ -20,11 +20,12 @@ class EventOrganizer
     {
         $orgId = $request->route()->parameter('orgId');
         $org = Organization::where('id', $orgId)->where('deleted', 0)->first();
-        $team = Team::where('org_id')->first();
-        if(!$org){
+
+        if (!$org) {
             return response()->json(["error" => "Organization not found"], 404);
-        }else if($org->user_id != Auth::user()->id){
-            if(!$team || $team->user_id != Auth::user()->id){
+        } else if ($org->user_id != Auth::user()->id) {
+            $team = Team::where('org_id', $org->id)->where('user_id', Auth::user()->id)->first();
+            if (!$team) {
                 return response()->json(["error" => "Access forbidden. You are not an organizer event"], 403);
             }
         }

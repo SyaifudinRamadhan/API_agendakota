@@ -38,6 +38,7 @@ return new class extends Migration
             $table->string('seat_map')->nullable();
             $table->boolean('single_trx')->default(false);
             $table->boolean('visibility')->default(true);
+            $table->boolean('allow_refund')->default(false);
             $table->integer('deleted');
             $table->timestamps();
         });

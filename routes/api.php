@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
+// Route::get('/download-ticket', [\App\Http\Controllers\PchCtrl::class, 'downloadTicket']);
 Route::middleware('apiToken')->prefix('/')->group(function () {
     // Register route
     Route::post('/register', [\App\Http\Controllers\Authenticate::class, 'register']);
@@ -30,10 +31,12 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
     Route::get('/verify-invite/{token}', [\App\Http\Controllers\OrgCtrl::class, 'acceptInviteTeam'])->name('accept-invite');
     Route::get('/event/{eventId}', [\App\Http\Controllers\EventCtrl::class, 'getById']);
     Route::get('/event-daily-refresh-date/{eventId}', [\App\Http\Controllers\EventCtrl::class, 'getAvailableSeatNumberDailyTicket']);
-    Route::get('/ticket-reschedule', [\App\Http\Controllers\EventCtrl::class, 'getQtySeatNumberTicket']);
+    Route::get('/ticket-reschedule', [\App\Http\Controllers\EventCtrl::class, 'getRescheduleAvailableData']);
     Route::get('/event-slug/{slug}', [\App\Http\Controllers\EventCtrl::class, 'getBySlug']);
     Route::get('/event-orgs/{orgId}', [\App\Http\Controllers\EventCtrl::class, 'getByOrg']);
     Route::get('/tickets/{eventId}', [\App\Http\Controllers\TicketCtrl::class, 'getTicketsPublic']);
+    Route::post("/check-avl-ticket-daily-events", [\App\Http\Controllers\EventCtrl::class, "getVisitDateAvlTickets"]);
+    Route::post("/check-avl-ticket-daily-event", [\App\Http\Controllers\EventCtrl::class, "getVisitDateAvlTicket"]);
     Route::get('/method-trxs', [\App\Http\Controllers\PkgPayCtrl::class, 'listPayMethod']);
     Route::post('/{xApiToken}/webhook-payment', [\App\Http\Controllers\WebhookCtrl::class, 'handleWebhookRedirect'])->name('pkg.payment.redirect');
     Route::post('/{xApiToken}/webhook-refund-data', [\App\Http\Controllers\WebhookCtrl::class, 'receiveValidationRefund']);
@@ -50,7 +53,7 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
     Route::get('/pop-events', [\App\Http\Controllers\SearchCtrl::class, 'popularEvents']);
     Route::get('/pop-city-events', [\App\Http\Controllers\SearchCtrl::class, 'popularCityEvents']);
     Route::get('/search', [\App\Http\Controllers\SearchCtrl::class, 'searchEvents']);
-
+    Route::get('/get-banks-code', [\App\Http\Controllers\WithdrawCtrl::class, 'getBanksCode']);
     // ================= Route for test only ================
     // Route::post('/create-trx-pkg/{eventId}', [\App\Http\Controllers\PkgPayCtrl::class, 'createTrxEd']);
     // Route::get('/get-trx-pkg', [\App\Http\Controllers\PkgPayCtrl::class, 'getTrx']);
@@ -74,7 +77,9 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
         Route::post('/request-refund', [\App\Http\Controllers\PchCtrl::class, 'submitRefund']);
         Route::get('/get-purchase', [\App\Http\Controllers\PchCtrl::class, 'get']);
         Route::get('/get-purchases', [\App\Http\Controllers\PchCtrl::class, 'purchases']);
+        Route::get('/download-ticket', [\App\Http\Controllers\PchCtrl::class, 'downloadTicket']);
         Route::post('/invite-user', [\App\Http\Controllers\InvitationCtrl::class, 'create']);
+        Route::delete('/get-back-invite', [\App\Http\Controllers\InvitationCtrl::class, 'getBackPurchase']);
         Route::post('/invitation-accept', [\App\Http\Controllers\InvitationCtrl::class, 'accept']);
         Route::delete('/invitation-delete', [\App\Http\Controllers\InvitationCtrl::class, 'delete']);
         Route::get('/invitations-received', [\App\Http\Controllers\InvitationCtrl::class, 'invitationsRcv']);
@@ -82,6 +87,7 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
 
         Route::post('/checkin', [\App\Http\Controllers\CheckinCtrl::class, 'createByUser']);
         Route::post('/fill-survey', [\App\Http\Controllers\SurveyCtrl::class, 'fillSurveyUser']);
+
         // Route organization
         Route::group(["prefix" => "org"], function () {
             Route::post('/register-org', [\App\Http\Controllers\OrgCtrl::class, 'create']);
@@ -105,23 +111,24 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
                     Route::post('/bank/verify', [\App\Http\Controllers\WithdrawCtrl::class, 'verifyAccount']);
                     Route::get('/bank/list', [\App\Http\Controllers\WithdrawCtrl::class, 'banks']);
                     Route::post('/withdraw/create', [\App\Http\Controllers\WithdrawCtrl::class, 'createWd']);
-                    Route::delete('/withdraw/delete', [\App\Http\Controllers\WithdrawCtrl::class, 'deleteWd']);
-                    Route::get('/withdraw/detail', [\App\Http\Controllers\WithdrawCtrl::class, 'getWd']);
-                    Route::get('/withdraw/list', [\App\Http\Controllers\WithdrawCtrl::class, 'wds']);
+                    Route::delete('/withdraw/delete', [\App\Http\Controllers\WithdrawCtrl::class, 'deleteWdOrg']);
+                    Route::get('/withdraw/detail', [\App\Http\Controllers\WithdrawCtrl::class, 'getWdOrg']);
+                    Route::get('/withdraw/list', [\App\Http\Controllers\WithdrawCtrl::class, 'wdsOrg']);
                     Route::get('/withdraw/available', [\App\Http\Controllers\WithdrawCtrl::class, 'availableForWd']);
 
-                    Route::get('/events', [\App\Http\Controllers\EventCtrl::class, 'getByOrg']);
                     Route::post('/event/create', [\App\Http\Controllers\EventCtrl::class, 'create']);
                 });
             });
 
-            Route::middleware('eventOrganizer')->prefix("{orgId}/event")->group(function () {
-                Route::middleware('eventData')->group(function () {
+            Route::middleware('eventOrganizer')->prefix("{orgId}")->group(function () {
+                Route::get('/events', [\App\Http\Controllers\EventCtrl::class, 'getByOrg']);
+                Route::middleware('eventData')->prefix('/event')->group(function () {
                     Route::get("/", [\App\Http\Controllers\EventCtrl::class, 'getById']);
                     Route::put('/update-peripheral', [\App\Http\Controllers\EventCtrl::class, 'updatePeripheralField']);
                     Route::put('/update', [\App\Http\Controllers\EventCtrl::class, 'update']);
                     Route::delete('/delete', [\App\Http\Controllers\EventCtrl::class, 'delete']);
                     Route::post('/change-state', [\App\Http\Controllers\EventCtrl::class, 'setPublishState']);
+                    Route::get('/download-qr-event', [\App\Http\Controllers\EventCtrl::class, 'getQREvent']);
                     // Route::get('/get-trx-pkg', [\App\Http\Controllers\PkgPayCtrl::class, 'getTrx']);
                     // Route::post('/renew-trx-pkg', [\App\Http\Controllers\PkgPayCtrl::class, 'renewTransaction']);
                     Route::prefix("{eventId}/manage")->group(function () {
@@ -135,8 +142,8 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
                         Route::post('/ticket/create-bulk', [\App\Http\Controllers\TicketCtrl::class, 'bulkCreate']);
                         Route::put('/ticket/update', [\App\Http\Controllers\TicketCtrl::class, 'update']);
                         Route::delete('/ticket/delete', [\App\Http\Controllers\TicketCtrl::class, 'delete']);
-                        Route::get('/refunds', [\App\Http\Controllers\PchCtrl::class, 'getRefunds']);
-                        Route::get('/refund/detail', [\App\Http\Controllers\PchCtrl::class, 'getRefund']);
+                        Route::get('/refunds', [\App\Http\Controllers\PchCtrl::class, 'getRefundsOrg']);
+                        Route::get('/refund/detail', [\App\Http\Controllers\PchCtrl::class, 'getRefundOrg']);
                         Route::post('/refund/change-state', [\App\Http\Controllers\PchCtrl::class, 'considerationRefund']);
                         Route::middleware('eventSessionData')->group(function () {
                             Route::put('/session/update', [\App\Http\Controllers\EvtSessionCtrl::class, 'update']);

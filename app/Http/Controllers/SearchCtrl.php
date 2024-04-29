@@ -6,6 +6,7 @@ use App\Models\Event;
 use App\Models\ViralCity;
 use DateTime;
 use DateTimeZone;
+use Hamcrest\Arrays\IsArray;
 use Illuminate\Http\Request;
 
 class SearchCtrl extends Controller
@@ -25,8 +26,8 @@ class SearchCtrl extends Controller
             $selectedIndex = $i;
             $selectedValue = $this->countPurchases($events[$selectedIndex]);
             for ($j = $i + 1; $j < count($events); $j++) {
-                $toCompare = $this->countPurchases($events[$selectedIndex + $j]);
-                if ($selectedValue > $toCompare) {
+                $toCompare = $this->countPurchases($events[$j]);
+                if ($selectedValue < $toCompare) {
                     $selectedValue = $toCompare;
                     $selectedIndex = $j;
                 }
@@ -39,6 +40,7 @@ class SearchCtrl extends Controller
             }
             $events[$i]->available_days = $events[$i]->availableDays()->get();
             $events[$i]->org = $events[$i]->org()->first();
+            $events[$i]->org->legality = $events[$i]->org->credibilityData()->first();
             $events[$i]->tickets = $events[$i]->tickets()->orderBy('price', 'ASC')->get();
         }
         return $events;
@@ -62,35 +64,34 @@ class SearchCtrl extends Controller
     public function searchEvents(Request $req)
     {
         $whereClauses = [];
-        $whereClauses[] = [
-            'is_publish', '=', 2
-        ];
+        if (!$req->include_all) {
+            $whereClauses[] = [
+                'is_publish', '=', 2,
+            ];
+        }
         if ($req->event_name) {
             $whereClauses[] = [
                 'name', 'like', '%' . $req->event_name . '%'
             ];
         }
-        if ($req->category) {
-            $whereClauses[] = [
-                'category', '=', $req->category
-            ];
-        }
-        if ($req->start_date) {
-            $start = new DateTime($req->start_date, new DateTimeZone('Asia/Jakarta'));
-            $whereClauses[] = [
-                'end_date', '>=', $start->format('Y-m-d')
-            ];
-        } else {
-            $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-            $whereClauses[] = [
-                'end_date', '>=', $now->format('Y-m-d')
-            ];
-        }
-        if ($req->until_date && $req->start_date && ($req->category != 'Attraction' && $req->category != 'Daily Activities' && $req->category != 'Tour Travel (recurring)')) {
-            $end = new DateTime($req->until_date, new DateTimeZone('Asia/Jakarta'));
-            $whereClauses[] = [
-                'end_date', '<=', $end->format('Y-m-d')
-            ];
+        // if ($req->until_date && $req->start_date && ($req->category != 'Attraction' && $req->category != 'Daily Activities' && $req->category != 'Tour Travel (recurring)')) {
+        //     $end = new DateTime($req->until_date, new DateTimeZone('Asia/Jakarta'));
+        //     $whereClauses[] = [
+        //         'end_date', '<=', $end->format('Y-m-d')
+        //     ];
+        // }
+        $start = new DateTime($req->start_date, new DateTimeZone('Asia/Jakarta'));
+        if (!$req->include_all) {
+            if ($req->start_date) {
+                $whereClauses[] = [
+                    'end_date', '>=', $start->format('Y-m-d')
+                ];
+            } else {
+                $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+                $whereClauses[] = [
+                    'end_date', '>=', $now->format('Y-m-d')
+                ];
+            }
         }
         if ($req->city) {
             $whereClauses[] = [
@@ -102,13 +103,21 @@ class SearchCtrl extends Controller
                 'exe_type', '=', $req->exe_type
             ];
         }
+
         $whereClauses[] = [
             'visibility', '=', true
         ];
         $events = [];
-        foreach (Event::where($whereClauses)->get() as $event) {
+        $untilDate = $req->until_date ? new DateTime($req->until_date, new DateTimeZone('Asia/Jakarta')) : null;
+
+        foreach ($req->category ? Event::where($whereClauses)->whereIn('category', is_array($req->category) ? $req->category : [$req->category])->get() : Event::where($whereClauses)->get() as $event) {
             $state = true;
+            $trueTopic = true;
+            $trueTime = true;
             if ($req->org_name && !str_contains($event->org()->first()->name, $req->org_name)) {
+                $state = false;
+            }
+            if ($req->org_id && $req->org_id !== $event->org()->first()->id) {
                 $state = false;
             }
             if ($req->start_price && count($event->tickets()->where('price', '>=', intval($req->start_price))->get()) == 0) {
@@ -117,7 +126,34 @@ class SearchCtrl extends Controller
             if ($req->until_price && $req->start_price && count($event->tickets()->where('price', '>=', intval($req->until_price))->get()) == 0) {
                 $state = false;
             }
-            if ($state) {
+            if ($req->topic && $req->topic_delimiter && is_string($req->topic_delimiter)) {
+                $topics = is_array($req->topic) ? $req->topic : [$req->topic];
+                $eventTopic = explode($req->topic_delimiter, $event->topics);
+                $trueTopic = false;
+                foreach ($topics as $topic) {
+                    if (in_array($topic, $eventTopic)) {
+                        $trueTopic = true;
+                        break;
+                    }
+                }
+            }
+            /* 
+            Accept time condition:
+                -> if interval => start_event <= until_date (user insert) && end_event >= start_date (user_insert)
+                -> if only start => end_event >= start_date (user_insert)
+
+            In invert condition:
+                -> if interval => start_event > until_date (user insert) || end_event < start_date (user insert)
+                -> if only start => end_event < start_date (user insert)
+            */
+            if (
+                $untilDate && !$req->include_all &&
+                ($event->category !== "Attraction" && $event->category !== "Tour Travel (recurring)" && $event->category !== "Daily Activities") &&
+                (new DateTime($event->start_date, new DateTimeZone('Asia/Jakarta')) > $untilDate || new DateTime($event->end_date, new DateTimeZone('Asia/Jakarta')) < $start)
+            ) {
+                $trueTime = false;
+            }
+            if ($state && $trueTopic && $trueTime) {
                 $events[] = $event;
             }
         }
