@@ -27,7 +27,7 @@ class AdminSeeder extends Seeder
             'linkedin' => "",
             'instagram' => "",
             'twitter' => "",
-            'whatsapp' => "",,
+            'whatsapp' => "",
             "deleted" => 0
         ];
         $userData = User::create($admin);
