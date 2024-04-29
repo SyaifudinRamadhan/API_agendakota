@@ -19,7 +19,7 @@ class AdminSeeder extends Seeder
             'f_name' =>  "halo",
             'l_name' => "agendakota",
             'name' => "haloagendakota",
-            'email' => "halo@agendakota.com",
+            'email' => "halo@agendakota.id",
             'password' => bcrypt('haloagendakota_c-2023_agdkt-2023_ifud'),
             'photo' => '/storage/avatars/default.png',
             'is_active' => "1",
