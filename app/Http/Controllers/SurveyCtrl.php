@@ -72,7 +72,7 @@ class SurveyCtrl extends Controller
                 }
                 $filename = pathinfo($req->file("files_data")[abs((int)$ans)]->getClientOriginalName(), PATHINFO_FILENAME);
                 $filename .= "_" . time() . "." . $req->file("files_data")[abs((int)$ans)]->getClientOriginalExtension();
-                $req->file("files_data")[abs((int)$ans)]->storeAs('public/survey_ans_images', $filename);
+                $req->file("files_data")[abs((int)$ans)]->storePubliclyAs('public/survey_ans_images', $filename);
                 $tmpStr = '/storage/survey_ans_images/' . $filename;
             } else if ($fieldData[1] === "file") {
                 // check is type file
@@ -87,7 +87,7 @@ class SurveyCtrl extends Controller
                 } else {
                     $filename = pathinfo($req->file("files_data")[abs((int)$ans)]->getClientOriginalName(), PATHINFO_FILENAME);
                     $filename .= "_" . time() . "." . $req->file("files_data")[abs((int)$ans)]->getClientOriginalExtension();
-                    $req->file("files_data")[abs((int)$ans)]->storeAs('public/survey_ans_images', $filename);
+                    $req->file("files_data")[abs((int)$ans)]->storePubliclyAs('public/survey_ans_images', $filename);
                     $tmpStr = '/storage/survey_ans_images/' . $filename;
                 }
             } else if ($fieldData[2] == "required") {

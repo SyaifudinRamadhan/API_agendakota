@@ -38,7 +38,7 @@ class EvtSessionCtrl extends Controller
         }
         $coverImage = pathinfo($req->file('cover')->getClientOriginalName(), PATHINFO_FILENAME);
         $coverImage .= '_' . time() . '.' . $req->file('cover')->getClientOriginalExtension();
-        $req->file('cover')->storeAs('public/session_covers', $coverImage);
+        $req->file('cover')->storePubliclyAs('public/session_covers', $coverImage);
         $coverImage = '/storage/session_covers/' . $coverImage;
         $session = EventSession::create([
             "event_id" => $req->event->id,
@@ -87,7 +87,7 @@ class EvtSessionCtrl extends Controller
             Storage::delete('public/session_covers/' . explode('/', $coverImage)[3]);
             $coverImage = pathinfo($req->file('cover')->getClientOriginalName(), PATHINFO_FILENAME);
             $coverImage .= '_' . time() . '.' . $req->file('cover')->getClientOriginalExtension();
-            $req->file('cover')->storeAs('public/session_covers', $coverImage);
+            $req->file('cover')->storePubliclyAs('public/session_covers', $coverImage);
             $coverImage = '/storage/session_covers/' . $coverImage;
         }
         $updated = $session->update([

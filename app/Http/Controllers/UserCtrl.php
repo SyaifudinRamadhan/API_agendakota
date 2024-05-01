@@ -47,7 +47,7 @@ class UserCtrl extends Controller
         if ($req->hasFile('photo')) {
             $originName = pathinfo($req->file('photo')->getClientOriginalName(), PATHINFO_FILENAME);
             $namePhoto = $originName . '_' . time() . '.' . $req->file('photo')->getClientOriginalExtension();
-            $req->file('photo')->storeAs('public/avatars', $namePhoto);
+            $req->file('photo')->storePubliclyAs('public/avatars', $namePhoto);
             $namePhoto = '/storage/avatars/' . $namePhoto;
             // Remove last image
             if ($user->photo != '/storage/avatars/default.png') {

@@ -54,7 +54,7 @@ class Authenticate extends Controller
             $namePhoto = $originName . '_' . time() . '.' . $req->file('photo')->getClientOriginalExtension();
 
             // save image data
-            $req->file('photo')->storeAs('public/avatars', $namePhoto);
+            $req->file('photo')->storePubliclyAs('public/avatars', $namePhoto);
             $namePhoto = '/storage/avatars/' . $namePhoto;
         }
 
