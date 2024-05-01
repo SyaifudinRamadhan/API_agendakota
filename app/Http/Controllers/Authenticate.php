@@ -403,21 +403,27 @@ class Authenticate extends Controller
         try {
             $payload = JWT::decode($subId, new Key(env('JWT_SECRET'), env('JWT_ALG')));
         } catch (\Throwable $th) {
-            return response()->json(
-                [
-                    'error' => 'Invalid signature credential',
-                ],
-                403
-            );
+            // return response()->json(
+            //     [
+            //         'error' => 'Invalid signature credential',
+            //     ],
+            //     403
+            // );
+            return redirect()->to(env("FRONTEND_URL") . "/auth-user");
         }
-        $user = User::where('id', $payload->sub)->update(
+        User::where('id', $payload->sub)->update(
             [
                 'is_active' => '1'
             ]
         );
-        if ($user->deleted === 1) {
-            return response()->json(["error" => "This account has removed"], 404);
-        }
+        // $user = User::where('id', $payload->sub)->first();
+        // if(!$user){
+        //     return redirect()->to(env("FRONTEND_URL") . "/auth-user");
+        // }
+        // if ($user->deleted === 1) {
+        //     return redirect()->to(env("FRONTEND_URL") . "/auth-user");
+        //     // return response()->json(["error" => "This account has removed"], 404);
+        // }
         // NOTE : Replace response with redirect to ReactApp
         // return response()->json(
         //     [
