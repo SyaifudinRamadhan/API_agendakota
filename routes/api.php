@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Route::get('/download-ticket', [\App\Http\Controllers\PchCtrl::class, 'downloadTicket']);
+Route::get('/verify/{subId}', [\App\Http\Controllers\Authenticate::class, 'verify'])->name('verify');
 Route::middleware('apiToken')->prefix('/')->group(function () {
     // Register route
     Route::post('/register', [\App\Http\Controllers\Authenticate::class, 'register']);
@@ -22,7 +23,6 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
     Route::post('/login-w-google', [\App\Http\Controllers\Authenticate::class, 'loginGoogle']);
     Route::post('/login-w-otp', [\App\Http\Controllers\Authenticate::class, 'loginWithOtp']);
     Route::post('/verify-otp', [\App\Http\Controllers\Authenticate::class, 'verifyOtp']);
-    Route::get('/verify/{subId}', [\App\Http\Controllers\Authenticate::class, 'verify'])->name('verify');
     Route::post('/request-reset-pass', [\App\Http\Controllers\Authenticate::class, 'requestResetPass']);
     Route::post('/reset-pass', [\App\Http\Controllers\Authenticate::class, 'resetPassword']);
 
