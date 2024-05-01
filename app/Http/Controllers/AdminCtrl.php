@@ -42,7 +42,7 @@ class AdminCtrl extends Controller
         }
         $fileName = pathinfo($req->file('photo')->getClientOriginalName(), PATHINFO_FILENAME);
         $fileName = $fileName . '_' . time() . '.' . $req->file('photo')->getClientOriginalExtension();
-        $req->file('photo')->storePubliclyAs('public/categories_images', $fileName);
+        $req->file('photo')->storeAs('public/categories_images', $fileName);
         $fileName = '/storage/categories_images/' . $fileName;
         $category = Category::create([
             'name' => $req->name,
@@ -220,7 +220,7 @@ class AdminCtrl extends Controller
         }
         $fileName = pathinfo($req->file('photo')->getClientOriginalName(), PATHINFO_FILENAME);
         $fileName = $fileName . '_' . time() . '.' . $req->file('photo')->getClientOriginalExtension();
-        $req->file('photo')->storePubliclyAs('public/city_images', $fileName);
+        $req->file('photo')->storeAs('public/city_images', $fileName);
         $fileName = '/storage/city_images/' . $fileName;
         $city = City::create([
             "name" => $req->name,
@@ -318,7 +318,7 @@ class AdminCtrl extends Controller
         }
         $fileName = pathinfo($req->file('banner')->getClientOriginalName(), PATHINFO_FILENAME);
         $fileName = $fileName . '_' . time() . '.' . $req->file('banner')->getClientOriginalExtension();
-        $req->file('banner')->storePubliclyAs('public/banner_images', $fileName);
+        $req->file('banner')->storeAs('public/banner_images', $fileName);
         $fileName = '/storage/banner_images/' . $fileName;
         $banner = FrontBanner::create([
             "name" => $req->name,
@@ -415,7 +415,7 @@ class AdminCtrl extends Controller
         }
         $nameBanner = pathinfo($req->file('banner')->getClientOriginalName(), PATHINFO_FILENAME);
         $nameBanner .= '_' . time() . '.' . $req->file('banner')->getClientOriginalExtension();
-        $req->file('banner')->storePubliclyAs('public/spotlight_banners', $nameBanner);
+        $req->file('banner')->storeAs('public/spotlight_banners', $nameBanner);
         $nameBanner = '/storage/spotlight_banners/' . $nameBanner;
         if ($req->view) {
             DB::table('spotlights')->update(['view' => false]);
@@ -447,7 +447,7 @@ class AdminCtrl extends Controller
         if ($req->hasFile('banner')) {
             $nameBanner = pathinfo($req->file('banner')->getClientOriginalName(), PATHINFO_FILENAME);
             $nameBanner .= '_' . time() . '.' . $req->file('banner')->getClientOriginalExtension();
-            $req->file('banner')->storePubliclyAs('public/spotlight_banners', $nameBanner);
+            $req->file('banner')->storeAs('public/spotlight_banners', $nameBanner);
             $nameBanner = '/storage/spotlight_banners/' . $nameBanner;
             Storage::delete('public/spotlight_banners/' . explode('/', $spotlight->first()->banner)[3]);
         }

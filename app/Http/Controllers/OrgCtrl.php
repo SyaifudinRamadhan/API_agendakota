@@ -97,7 +97,7 @@ class OrgCtrl extends Controller
         if ($req->hasFile('photo')) {
             $originName = pathinfo($req->file('photo')->getClientOriginalName(), PATHINFO_FILENAME);
             $namePhoto = $originName . '_' . time() . '.' . $req->file('photo')->getClientOriginalExtension();
-            $req->file('photo')->storePubliclyAs('public/org_avatars', $namePhoto);
+            $req->file('photo')->storeAs('public/org_avatars', $namePhoto);
             $namePhoto = '/storage/org_avatars/' . $namePhoto;
             if ($orgObj->first()->photo != '/storage/org_avatars/default.png') {
                 $fileName = explode('/', $orgObj->first()->photo);
@@ -108,7 +108,7 @@ class OrgCtrl extends Controller
         if ($req->hasFile('banner')) {
             $originalName = pathinfo($req->file('banner')->getClientOriginalName(), PATHINFO_FILENAME);
             $nameBanner = $originalName . '_' . time() . '.' . $req->file('banner')->getClientOriginalExtension();
-            $req->file('banner')->storePubliclyAs('public/org_banners', $nameBanner);
+            $req->file('banner')->storeAs('public/org_banners', $nameBanner);
             $nameBanner = '/storage/org_banners/' . $nameBanner;
             if ($orgObj->first()->banner != '/storage/org_banners/default.png') {
                 $fileName = explode('/', $orgObj->first()->banner);

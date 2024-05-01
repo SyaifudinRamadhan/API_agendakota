@@ -38,11 +38,11 @@ class LegalityDataCtrl extends Controller
         }
         $namePhoto = pathinfo($req->file('nic_image')->getClientOriginalName(), PATHINFO_FILENAME);
         $namePhoto .= '_' . time() . '.' . $req->file('nic_image')->getClientOriginalExtension();
-        $req->file('nic_image')->storePubliclyAs('public/legality_datas', $namePhoto);
+        $req->file('nic_image')->storeAs('public/legality_datas', $namePhoto);
         $namePhoto = '/storage/legality_datas/' . $namePhoto;
         $namePhotoTax = pathinfo($req->file('tax_image')->getClientOriginalName(), PATHINFO_FILENAME);
         $namePhotoTax .= '_' . time() . '.' . $req->file('tax_image')->getClientOriginalExtension();
-        $req->file('tax_image')->storePubliclyAs('public/legality_datas', $namePhotoTax);
+        $req->file('tax_image')->storeAs('public/legality_datas', $namePhotoTax);
         $namePhotoTax = '/storage/legality_datas/' . $namePhotoTax;
         $datas = CredibilityOrg::create([
             "org_id" => $req->org->id,
@@ -89,7 +89,7 @@ class LegalityDataCtrl extends Controller
         if ($req->hasFile('nic_image')) {
             $namePhoto = pathinfo($req->file('nic_image')->getClientOriginalName(),  PATHINFO_FILENAME);
             $namePhoto .= '_' . time() . '.' . $req->file('nic_image')->getClientOriginalExtension();
-            $req->file('nic_image')->storePubliclyAs('public/legality_datas', $namePhoto);
+            $req->file('nic_image')->storeAs('public/legality_datas', $namePhoto);
             $namePhoto = '/storage/legality_datas/' . $namePhoto;
             Storage::delete('public/legality_datas/' . explode('/', $dataLegality->first()->pic_nic_image)[3]);
         }
@@ -97,7 +97,7 @@ class LegalityDataCtrl extends Controller
         if ($req->hasFile('tax_image')) {
             $namePhotoTax = pathinfo($req->file('tax_image')->getClientOriginalName(),  PATHINFO_FILENAME);
             $namePhotoTax .= '_' . time() . '.' . $req->file('tax_image')->getClientOriginalExtension();
-            $req->file('tax_image')->storePubliclyAs('public/legality_datas', $namePhotoTax);
+            $req->file('tax_image')->storeAs('public/legality_datas', $namePhotoTax);
             $namePhotoTax = '/storage/legality_datas/' . $namePhotoTax;
             Storage::delete('public/legality_datas/' . explode('/', $dataLegality->first()->tax_image)[3]);
         }
