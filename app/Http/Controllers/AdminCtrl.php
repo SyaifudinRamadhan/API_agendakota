@@ -938,9 +938,9 @@ class AdminCtrl extends Controller
         // is only return 1 selected event data base from view attribute is true
         $data = $this->detailSelectedEvent($req->selected_event_id);
         if ($data["status"] !== 200) {
-            return response()->json(["error" => $data["error"], $data["status"]]);
+            return response()->json(["error" => $data["error"]], $data["status"]);
         }
-        return response()->json(["selected_event" => ["data" => $data["data"], "events" => $data["events"]]], 200);
+        return response()->json(["selected_event" => ["data" => $data["data"], "events" => $data["events"]]], $data["status"]);
     }
 
     public function listSlctEvents()
@@ -1114,9 +1114,9 @@ class AdminCtrl extends Controller
         // is only return 1 selected event data base from view attribute is true
         $data = $this->detailSelectedActivity($req->selected_activity_id);
         if ($data["status"] !== 200) {
-            return response()->json(["error" => $data["error"], $data["status"]]);
+            return response()->json(["error" => $data["error"]], $data["status"]);
         }
-        return response()->json(["selected_activity" => ["data" => $data["data"], "events" => $data["events"]]], 200);
+        return response()->json(["selected_activity" => ["data" => $data["data"], "events" => $data["events"]]], $data["status"]);
     }
 
     public function listSlctActivities()
