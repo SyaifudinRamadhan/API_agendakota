@@ -22,7 +22,7 @@ return new class extends Migration
             $table->string('virtual_acc')->nullable();
             $table->string('qr_str')->nullable();
             $table->string('pay_links')->nullable();
-            $table->dateTime('expired');
+            $table->dateTime('expired')->nullable();
             $table->timestamps();
         });
     }
