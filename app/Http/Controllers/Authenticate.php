@@ -419,13 +419,14 @@ class Authenticate extends Controller
             return response()->json(["error" => "This account has removed"], 404);
         }
         // NOTE : Replace response with redirect to ReactApp
-        return response()->json(
-            [
-                'updated' => $user,
-                'message' => $user == 0 ? 'User account not found' : 'User account has been updated'
-            ],
-            $user == 0 ? 404 : 200
-        );
+        // return response()->json(
+        //     [
+        //         'updated' => $user,
+        //         'message' => $user == 0 ? 'User account not found' : 'User account has been updated'
+        //     ],
+        //     $user == 0 ? 404 : 200
+        // );
+        return redirect()->to(env("FRONTEND_URL") . "/auth-user");
     }
 
     //forget password (send email)
