@@ -205,7 +205,7 @@
                                                                                             style="font-size:38px;">WELCOME</span></span></strong></span>
                                                                         </p>
                                                                         <p
-                                                                            style="margin: 0; font-size: 14px; text-align: center; mso-line-height-alt: 51px;">
+                                                                            style="margin: 20px 0 0 0; font-size: 14px; text-align: center; mso-line-height-alt: 51px;">
                                                                             <span style="font-size:34px;"><strong><span
                                                                                         style="font-size:34px;"><span
                                                                                             style="color:#2190e3;font-size:34px;">{{ $name }}</span></span></strong></span>
