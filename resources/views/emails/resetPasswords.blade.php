@@ -1,16 +1,3 @@
-<!-- <x-mail::message>
-# Introduction
-
-The body of your message.
-
-<x-mail::button :url="''">
-Button Text
-</x-mail::button>
-
-Thanks,<br>
-{{ config('app.name') }}
-</x-mail::message> -->
-
 <!doctype html>
 <html lang="en">
 
@@ -211,9 +198,10 @@ Thanks,<br>
                                         <div class="o_px-xs o_sans o_text o_left o_xs-center"
                                             style="font-family: Helvetica, Arial, sans-serif;margin-top: 0px;margin-bottom: 0px;font-size: 16px;line-height: 24px;text-align: left;padding-left: 8px;padding-right: 8px;">
                                             <p style="margin-top: 0px;margin-bottom: 0px;"><a class="o_text-primary"
-                                                href="https://agendakota.id/" style="text-decoration: none;outline: none;color: #126de5;"><img
-                                                        src="{{ $message->embed(public_path('storage').'/images/mail-send-img/logo-ak2020.png') }}" width="136" height="36"
-                                                        alt="Agendakota"
+                                                    href="https://agendakota.id/"
+                                                    style="text-decoration: none;outline: none;color: #126de5;"><img
+                                                        src="{{ $message->embed(public_path('storage') . '/images/mail-send-img/logo-ak2020.png') }}"
+                                                        width="136" height="36" alt="Agendakota"
                                                         style="max-width: 136px;-ms-interpolation-mode: bicubic;vertical-align: middle;border: 0;line-height: 100%;height: auto;outline: none;text-decoration: none;"></a>
                                             </p>
                                         </div>
@@ -232,9 +220,9 @@ Thanks,<br>
                                                             style="font-family: Helvetica, Arial, sans-serif;font-weight: bold;margin-top: 0px;margin-bottom: 0px;font-size: 14px;line-height: 21px;mso-padding-alt: 7px 8px;">
                                                             <a class="o_text-light"
                                                                 style="text-decoration: none;outline: none;color: #82899a;display: block;padding: 7px 8px;font-weight: bold;"><span
-                                                                    style="mso-text-raise: 6px;display: inline;color: #82899a;">{{$name}}</span> <img
-                                                                    src="{{ $message->embed(public_path('storage').'/images/mail-send-img/person-24-light.png') }}" width="24"
-                                                                    height="24" alt=""
+                                                                    style="mso-text-raise: 6px;display: inline;color: #82899a;">{{ $name }}</span>
+                                                                <img src="{{ $message->embed(public_path('storage') . '/images/mail-send-img/person-24-light.png') }}"
+                                                                    width="24" height="24" alt=""
                                                                     style="max-width: 24px;-ms-interpolation-mode: bicubic;vertical-align: middle;border: 0;line-height: 100%;height: auto;outline: none;text-decoration: none;"></a>
                                                         </td>
                                                     </tr>
@@ -274,8 +262,8 @@ Thanks,<br>
                                                 <td rowspan="2" class="o_sans o_text o_text-secondary o_px o_py"
                                                     align="center"
                                                     style="font-family: Helvetica, Arial, sans-serif;margin-top: 0px;margin-bottom: 0px;font-size: 16px;line-height: 24px;color: #424651;padding-left: 16px;padding-right: 16px;padding-top: 16px;padding-bottom: 16px;">
-                                                    <img src="{{ $message->embed(public_path('storage').'/images/mail-send-img/vpn_key-48-primary.png') }}" width="48"
-                                                        height="48" alt=""
+                                                    <img src="{{ $message->embed(public_path('storage') . '/images/mail-send-img/vpn_key-48-primary.png') }}"
+                                                        width="48" height="48" alt=""
                                                         style="max-width: 48px;-ms-interpolation-mode: bicubic;vertical-align: middle;border: 0;line-height: 100%;height: auto;outline: none;text-decoration: none;">
                                                 </td>
                                                 <td class="o_bb-primary" height="40" width="32"
@@ -294,7 +282,8 @@ Thanks,<br>
                                     <h2 class="o_heading o_text-dark o_mb-xxs"
                                         style="font-family: Helvetica, Arial, sans-serif;font-weight: bold;margin-top: 0px;margin-bottom: 4px;color: #242b3d;font-size: 30px;line-height: 39px;">
                                         Kamu Lupa Sandi/Password ?</h2>
-                                    <p style="margin-top: 0px;margin-bottom: 0px;">Silahkan mengikuti tahapan berikut ini.</p>
+                                    <p style="margin-top: 0px;margin-bottom: 0px;">Silahkan mengikuti tahapan berikut
+                                        ini.</p>
                                 </td>
                             </tr>
                         </tbody>
@@ -340,7 +329,8 @@ Thanks,<br>
                                 <td class="o_bg-white o_px-md o_py o_sans o_text o_text-secondary" align="center"
                                     style="font-family: Helvetica, Arial, sans-serif;margin-top: 0px;margin-bottom: 0px;font-size: 16px;line-height: 24px;background-color: #ffffff;color: #424651;padding-left: 24px;padding-right: 24px;padding-top: 16px;padding-bottom: 16px;">
                                     <p style="margin-top: 0px;margin-bottom: 0px;">
-                                        Untuk me-reset password akunmu, dibutuhkan verifkadi email kamu. Klik tombol verifikasi untuk memverfikasi email.</p>
+                                        Untuk me-reset password akunmu, dibutuhkan verifkadi email kamu. Klik tombol
+                                        verifikasi untuk memverfikasi email.</p>
                                 </td>
                             </tr>
                         </tbody>
@@ -429,7 +419,8 @@ Thanks,<br>
                                             style="font-family: Helvetica, Arial, sans-serif;margin-top: 0px;margin-bottom: 0px;font-size: 14px;line-height: 21px;color: #82899a;text-align: left;padding-left: 8px;padding-right: 8px;">
                                             <p class="o_mb-xs" style="margin-top: 0px;margin-bottom: 8px;">©2022
                                                 Agendakota. All rights reserved.</p>
-                                            <p class="o_mb-xs" style="margin-top: 0px;margin-bottom: 8px;">Koridor Co-Working Space, Siola 3rd Floor, Jl. Tunjungan No. 1, Surabaya</p>
+                                            <p class="o_mb-xs" style="margin-top: 0px;margin-bottom: 8px;">Koridor
+                                                Co-Working Space, Siola 3rd Floor, Jl. Tunjungan No. 1, Surabaya</p>
                                             <p style="margin-top: 0px;margin-bottom: 0px;">
                                                 <a class="o_text-light o_underline" href="https://agendakota.id/"
                                                     style="text-decoration: underline;outline: none;color: #82899a;">Help
@@ -458,4 +449,3 @@ Thanks,<br>
 </body>
 
 </html>
-

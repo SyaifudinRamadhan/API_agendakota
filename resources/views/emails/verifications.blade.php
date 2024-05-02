@@ -1,77 +1,71 @@
-<!-- <x-mail::message>
-# Introduction
+<!doctype html>
+<html lang="en">
 
-The body of your message.
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="x-apple-disable-message-reformatting">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
 
-<x-mail::button :url="''">
-Button Text
-</x-mail::button>
+    <link href="https://fonts.googleapis.com/css?family=Lato" rel="stylesheet" type="text/css" />
 
-Thanks,<br>
-{{ config('app.name') }}
-</x-mail::message>
- -->
-
-<link href="https://fonts.googleapis.com/css?family=Lato" rel="stylesheet" type="text/css" />
-
-<style>
-    * {
-        box-sizing: border-box;
-    }
-
-    body {
-        margin: 0;
-        padding: 0;
-    }
-
-    a[x-apple-data-detectors] {
-        color: inherit !important;
-        text-decoration: inherit !important;
-    }
-
-    #MessageViewBody a {
-        color: inherit;
-        text-decoration: none;
-    }
-
-    p {
-        line-height: inherit
-    }
-
-    @media (max-width:670px) {
-        .icons-inner {
-            text-align: center;
+    <style>
+        * {
+            box-sizing: border-box;
         }
 
-        .icons-inner td {
-            margin: 0 auto;
+        body {
+            margin: 0;
+            padding: 0;
         }
 
-        .fullMobileWidth,
-        .row-content {
-            width: 100% !important;
+        a[x-apple-data-detectors] {
+            color: inherit !important;
+            text-decoration: inherit !important;
         }
 
-        .image_block img.big {
-            width: auto !important;
+        #MessageViewBody a {
+            color: inherit;
+            text-decoration: none;
         }
 
-        .column .border {
-            display: none;
+        p {
+            line-height: inherit
         }
 
-        table {
-            table-layout: fixed !important;
+        @media (max-width:670px) {
+            .icons-inner {
+                text-align: center;
+            }
+
+            .icons-inner td {
+                margin: 0 auto;
+            }
+
+            .fullMobileWidth,
+            .row-content {
+                width: 100% !important;
+            }
+
+            .image_block img.big {
+                width: auto !important;
+            }
+
+            .column .border {
+                display: none;
+            }
+
+            table {
+                table-layout: fixed !important;
+            }
+
+            .stack .column {
+                width: 100%;
+                display: block;
+            }
         }
-
-        .stack .column {
-            width: 100%;
-            display: block;
-        }
-    }
-
-</style>
-
+    </style>
+</head>
 
 <body style="background-color: #F5F5F5; margin: 0; padding: 0; -webkit-text-size-adjust: none; text-size-adjust: none;">
     <table border="0" cellpadding="0" cellspacing="0" class="nl-container" role="presentation"
@@ -125,7 +119,7 @@ Thanks,<br>
                                                             <td
                                                                 style="width:100%;padding-right:0px;padding-left:0px;padding-top:25px;padding-bottom:25px;">
                                                                 <div style="line-height:10px"><img alt="Image"
-                                                                        src="{{ $message->embed(public_path('storage').'/images/mail-send-img/logo-ak2020.png') }}"
+                                                                        src="{{ $message->embed(public_path('storage') . '/images/mail-send-img/logo-ak2020.png') }}"
                                                                         style="display: block; height: auto; border: 0; width: 195px; max-width: 100%;"
                                                                         title="Image" width="195" /></div>
                                                             </td>
@@ -188,7 +182,7 @@ Thanks,<br>
                                                                 style="padding-top:45px;width:100%;padding-right:0px;padding-left:0px;">
                                                                 <div align="center" style="line-height:10px"><img
                                                                         alt="Image" class="fullMobileWidth big"
-                                                                        src="{{ $message->embed(public_path('storage').'/images/mail-send-img/Loginn.png') }}"
+                                                                        src="{{ $message->embed(public_path('storage') . '/images/mail-send-img/Loginn.png') }}"
                                                                         style="display: block; height: auto; border: 0; width: 600px; max-width: 100%;"
                                                                         title="Image" width="600" /></div>
                                                             </td>
@@ -214,7 +208,7 @@ Thanks,<br>
                                                                             style="margin: 0; font-size: 14px; text-align: center; mso-line-height-alt: 51px;">
                                                                             <span style="font-size:34px;"><strong><span
                                                                                         style="font-size:34px;"><span
-                                                                                            style="color:#2190e3;font-size:34px;">{{$name}}</span></span></strong></span>
+                                                                                            style="color:#2190e3;font-size:34px;">{{ $name }}</span></span></strong></span>
                                                                         </p>
                                                                     </div>
                                                                 </div>
@@ -239,7 +233,8 @@ Thanks,<br>
                                                                                 everything new and good that you’ll
                                                                                 probably want to know about: new
                                                                                 products, posts, promos, and
-                                                                                parties.</span></p>
+                                                                                parties.</span>
+                                                                        </p>
                                                                     </div>
                                                                 </div>
                                                             </td>
@@ -253,19 +248,22 @@ Thanks,<br>
                                                             <td
                                                                 style="padding-bottom:10px;padding-left:10px;padding-right:10px;padding-top:20px;text-align:center;">
                                                                 <div align="center">
-                                                                   @if($is_otp == true)
-                                                                   <p style="margin: 0; font-size: 14px; text-align: center;">
-                                                                        <span style="font-size:18px;color:#000000;">
-                                                                         Use this OPT code to sign in <strong><b>{{ $otp_code }}</b></strong>
-                                                                        </span></p>
-                                                                   @else
-                                                                   <a
-                                                                        href="{{ $url }}"
-                                                                        style="text-decoration:none;display:inline-block;color:#ffffff;background-color:#fc7318;border-radius:15px;width:auto;border-top:1px solid #fc7318;border-right:1px solid #fc7318;border-bottom:1px solid #fc7318;border-left:1px solid #fc7318;padding-top:10px;padding-bottom:10px;font-family:Lato, Tahoma, Verdana, Segoe, sans-serif;text-align:center;mso-border-alt:none;word-break:keep-all;"
-                                                                        target="_blank"><span
-                                                                            style="padding-left:40px;padding-right:40px;font-size:16px;display:inline-block;letter-spacing:normal;"><span
-                                                                                style="font-size: 16px; line-height: 2; word-break: break-word; mso-line-height-alt: 32px;"><strong>LOGIN</strong></span></span></a>
-                                                                   @endif
+                                                                    @if ($is_otp == true)
+                                                                        <p
+                                                                            style="margin: 0; font-size: 14px; text-align: center;">
+                                                                            <span
+                                                                                style="font-size:18px;color:#000000;">
+                                                                                Use this OPT code to sign in
+                                                                                <strong><b>{{ $otp_code }}</b></strong>
+                                                                            </span>
+                                                                        </p>
+                                                                    @else
+                                                                        <a href="{{ $url }}"
+                                                                            style="text-decoration:none;display:inline-block;color:#ffffff;background-color:#fc7318;border-radius:15px;width:auto;border-top:1px solid #fc7318;border-right:1px solid #fc7318;border-bottom:1px solid #fc7318;border-left:1px solid #fc7318;padding-top:10px;padding-bottom:10px;font-family:Lato, Tahoma, Verdana, Segoe, sans-serif;text-align:center;mso-border-alt:none;word-break:keep-all;"
+                                                                            target="_blank"><span
+                                                                                style="padding-left:40px;padding-right:40px;font-size:16px;display:inline-block;letter-spacing:normal;"><span
+                                                                                    style="font-size: 16px; line-height: 2; word-break: break-word; mso-line-height-alt: 32px;"><strong>LOGIN</strong></span></span></a>
+                                                                    @endif
                                                                 </div>
                                                             </td>
                                                         </tr>
@@ -308,33 +306,37 @@ Thanks,<br>
                                                                                 href="https://www.facebook.com/agendakota"
                                                                                 target="_blank"><img alt="Facebook"
                                                                                     height="32"
-                                                                                    src="{{ $message->embed(public_path('storage').'/images/mail-send-img/facebook2x.png') }}"
+                                                                                    src="{{ $message->embed(public_path('storage') . '/images/mail-send-img/facebook2x.png') }}"
                                                                                     style="display: block; height: auto; border: 0;"
-                                                                                    title="Facebook" width="32" /></a>
+                                                                                    title="Facebook"
+                                                                                    width="32" /></a>
                                                                         </td>
                                                                         <td style="padding:0 15px 0 0px;"><a
                                                                                 href="https://twitter.com/agendakotaid"
                                                                                 target="_blank"><img alt="Twitter"
                                                                                     height="32"
-                                                                                    src="{{ $message->embed(public_path('storage').'/images/mail-send-img/twitter2x.png') }}"
+                                                                                    src="{{ $message->embed(public_path('storage') . '/images/mail-send-img/twitter2x.png') }}"
                                                                                     style="display: block; height: auto; border: 0;"
-                                                                                    title="Twitter" width="32" /></a>
+                                                                                    title="Twitter"
+                                                                                    width="32" /></a>
                                                                         </td>
                                                                         <td style="padding:0 15px 0 0px;"><a
                                                                                 href="https://instagram.com/agendakota"
                                                                                 target="_blank"><img alt="Instagram"
                                                                                     height="32"
-                                                                                    src="{{ $message->embed(public_path('storage').'/images/mail-send-img/instagram2x.png') }}"
+                                                                                    src="{{ $message->embed(public_path('storage') . '/images/mail-send-img/instagram2x.png') }}"
                                                                                     style="display: block; height: auto; border: 0;"
-                                                                                    title="Instagram" width="32" /></a>
+                                                                                    title="Instagram"
+                                                                                    width="32" /></a>
                                                                         </td>
                                                                         <td style="padding:0 15px 0 0px;"><a
                                                                                 href="https://www.youtube.com/agendakotaTV"
                                                                                 target="_blank"><img alt="YouTube"
                                                                                     height="32"
-                                                                                    src="{{ $message->embed(public_path('storage').'/images/mail-send-img/youtube2x.png') }}"
+                                                                                    src="{{ $message->embed(public_path('storage') . '/images/mail-send-img/youtube2x.png') }}"
                                                                                     style="display: block; height: auto; border: 0;"
-                                                                                    title="YouTube" width="32" /></a>
+                                                                                    title="YouTube"
+                                                                                    width="32" /></a>
                                                                         </td>
                                                                     </tr>
                                                                 </table>
@@ -370,14 +372,15 @@ Thanks,<br>
                                                         <tr>
                                                             <td>
                                                                 <div align="center">
-                                                                    <table border="0" cellpadding="0" cellspacing="0"
-                                                                        role="presentation"
+                                                                    <table border="0" cellpadding="0"
+                                                                        cellspacing="0" role="presentation"
                                                                         style="mso-table-lspace: 0pt; mso-table-rspace: 0pt;"
                                                                         width="60%">
                                                                         <tr>
                                                                             <td class="divider_inner"
                                                                                 style="font-size: 1px; line-height: 1px; border-top: 1px dotted #C4C4C4;">
-                                                                                <span> </span></td>
+                                                                                <span> </span>
+                                                                            </td>
                                                                         </tr>
                                                                     </table>
                                                                 </div>
@@ -397,3 +400,5 @@ Thanks,<br>
         </tbody>
     </table>
 </body>
+
+</html>

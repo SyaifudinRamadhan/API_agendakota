@@ -1,16 +1,3 @@
-<!-- <x-mail::message>
-# Introduction
-
-The body of your message.
-
-<x-mail::button :url="''">
-Button Text
-</x-mail::button>
-
-Thanks,<br>
-{{ config('app.name') }}
-</x-mail::message> -->
-
 <!doctype html>
 <html lang="en">
 
@@ -204,8 +191,8 @@ Thanks,<br>
                                             border-radius: 6px;">
                                             <p style="margin-top: 0px;margin-bottom: 0px;"><a class="o_text-white"
                                                     style="text-decoration: none;outline: none;color: #ffffff;"><img
-                                                        src="{{ $message->embed(public_path('storage').'/images/mail-send-img/logo-ak2020.png') }}" width="136" height="36"
-                                                        alt="Agendakota.id"
+                                                        src="{{ $message->embed(public_path('storage') . '/images/mail-send-img/logo-ak2020.png') }}"
+                                                        width="136" height="36" alt="Agendakota.id"
                                                         style="max-width: 136px;-ms-interpolation-mode: bicubic;vertical-align: middle;border: 0;line-height: 100%;height: auto;outline: none;text-decoration: none;"></a>
                                             </p>
                                         </div>
@@ -224,7 +211,8 @@ Thanks,<br>
                                                             align="center"
                                                             style="font-family: Helvetica, Arial, sans-serif;font-weight: bold;margin-top: 0px;margin-bottom: 0px;font-size: 14px;line-height: 21px;mso-padding-alt: 7px 16px;background-color: #e59312;border-radius: 4px;">
                                                             <a class="o_text-white" href="https://agendakota.id/"
-                                                                style="text-decoration: none;outline: none;color: #ffffff;display: block;padding: 7px 16px;mso-text-raise: 3px;">Go To App</a>
+                                                                style="text-decoration: none;outline: none;color: #ffffff;display: block;padding: 7px 16px;mso-text-raise: 3px;">Go
+                                                                To App</a>
                                                         </td>
                                                     </tr>
                                                 </tbody>
@@ -258,7 +246,8 @@ Thanks,<br>
                                     <h1 class="o_heading o_text-dark o_mb-xxs"
                                         style="font-family: Helvetica, Arial, sans-serif;font-weight: bold;margin-top: 0px;margin-bottom: 4px;color: #242b3d;font-size: 36px;line-height: 47px;">
                                         Service Information</h1>
-                                    <p style="margin-top: 0px;margin-bottom: 0px;">You have added new bank account into your organizer account</p>
+                                    <p style="margin-top: 0px;margin-bottom: 0px;">You have added new bank account into
+                                        your organizer account</p>
                                 </td>
                             </tr>
                         </tbody>
@@ -290,7 +279,7 @@ Thanks,<br>
             </tr>
         </tbody>
     </table>
-    
+
     <!-- content -->
     <table width="100%" cellspacing="0" cellpadding="0" border="0" role="presentation">
         <tbody>
@@ -304,7 +293,8 @@ Thanks,<br>
                             <tr>
                                 <td class="o_bg-white o_px-md o_py o_sans o_text o_text-secondary" align="center"
                                     style="font-family: Helvetica, Arial, sans-serif;margin-top: 0px;margin-bottom: 0px;font-size: 16px;line-height: 24px;background-color: #ffffff;color: #424651;padding-left: 24px;padding-right: 24px;padding-top: 16px;padding-bottom: 16px;">
-                                    <p style="margin-top: 0px;margin-bottom: 0px;">You've just added a bank account. With details as follows.</p>
+                                    <p style="margin-top: 0px;margin-bottom: 0px;">You've just added a bank account.
+                                        With details as follows.</p>
                                     <p style="margin-top: 25px;margin-bottom: 0px;"><b>{{ $account }}</b></p>
                                     <p style="margin-top: 25px;margin-bottom: 0px;"><b>{{ $bank }}</b></p>
                                 </td>
@@ -359,7 +349,9 @@ Thanks,<br>
                                                 <td width="300" class="o_btn o_bg-success o_br o_heading o_text"
                                                     align="center"
                                                     style="font-family: Helvetica, Arial, sans-serif;font-weight: bold;margin-top: 0px;margin-bottom: 0px;font-size: 16px;line-height: 24px;mso-padding-alt: 12px 24px;background-color: #0ec06e;border-radius: 4px;">
-                                                    <p style="margin-top: 15px;margin-bottom: 15px; color: #fff">Use this opt code to verify <b><strong>{{ $otp }}</strong></b></p>
+                                                    <p style="margin-top: 15px;margin-bottom: 15px; color: #fff">Use
+                                                        this opt code to verify
+                                                        <b><strong>{{ $otp }}</strong></b></p>
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -373,7 +365,7 @@ Thanks,<br>
             </tr>
         </tbody>
     </table>
-    
+
     <!-- spacer -->
     <table width="100%" cellspacing="0" cellpadding="0" border="0" role="presentation">
         <tbody>
@@ -417,7 +409,8 @@ Thanks,<br>
                                             style="font-family: Helvetica, Arial, sans-serif;margin-top: 0px;margin-bottom: 0px;font-size: 14px;line-height: 21px;color: #fff;text-align: left;padding-left: 8px;padding-right: 8px;">
                                             <p class="o_mb-xs" style="margin-top: 0px;margin-bottom: 8px;">©2022
                                                 Agendakota. All rights reserved.</p>
-                                            <p class="o_mb-xs" style="margin-top: 0px;margin-bottom: 8px;">Koridor Co-Working Space, Siola 3rd Floor, Jl. Tunjungan No. 1, Surabaya</p>
+                                            <p class="o_mb-xs" style="margin-top: 0px;margin-bottom: 8px;">Koridor
+                                                Co-Working Space, Siola 3rd Floor, Jl. Tunjungan No. 1, Surabaya</p>
                                             <p style="margin-top: 0px;margin-bottom: 0px;">
                                                 <a class="o_text-dark_light o_underline" href="https://agendakota.id/"
                                                     style="text-decoration: underline;outline: none;color: #fff;">Help
