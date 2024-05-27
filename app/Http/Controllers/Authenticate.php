@@ -397,7 +397,7 @@ class Authenticate extends Controller
     }
 
     //Verify account
-    public function verify($subId)
+    public function verify($subId, $redirect=null)
     {
         $payload = '';
         try {
@@ -432,7 +432,7 @@ class Authenticate extends Controller
         //     ],
         //     $user == 0 ? 404 : 200
         // );
-        return redirect()->to(env("FRONTEND_URL") . "/auth-user");
+        return redirect()->to($redirect ? env("FRONTEND_URL") . '/auth-user?redirect_to=' . $redirect : env("FRONTEND_URL") ."/auth-user");
     }
 
     //forget password (send email)

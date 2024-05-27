@@ -187,14 +187,19 @@ class AdminCtrl extends Controller
     public function createOrgType(Request $req)
     {
         $validator = Validator::make($req->all(), [
-            "name" => "required|string"
+            "name" => "required|unique:org_types|array"
         ]);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
-        $orgType = OrgType::create([
-            "name" => $req->name
-        ]);
+        $orgType = [];
+        
+        foreach ($req->name as $type) {
+            $orgType[] =  orgType::create([
+                "name" => $type
+            ]);
+        }
+       
         return response()->json(["data" => $orgType], 201);
     }
 

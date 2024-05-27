@@ -120,12 +120,36 @@ class SearchCtrl extends Controller
             if ($req->org_id && $req->org_id !== $event->org()->first()->id) {
                 $state = false;
             }
-            if ($req->start_price && count($event->tickets()->where('price', '>=', intval($req->start_price))->get()) == 0) {
-                $state = false;
+            // if ($req->start_price != null && count($event->tickets()->where('price', '>=', intval($req->start_price))->get()) == 0) {
+            //     $state = false;
+            // }
+            // if ($req->until_price != null && count($event->tickets()->where('price', '<=', intval($req->until_price))->get()) == 0) {
+            //     $state = false;
+            // }
+            
+            if($req->start_price != null && $req->start_price == 0 && $req->until_price != null && $req->until_price == 0){
+                // for free tickets
+                if(count($event->tickets()->where('type_price', 1)->get()) === 0){
+                    $state = false;
+                }
+            }else if($req->start_price != null && $req->until_price != null){
+                // for custom interval price
+                if(count($event->tickets()->where('price', '>=', intval($req->start_price))->where('price', '<=', intval($req->until_price))->get()) == 0){
+                    $state = false;
+                }
+            }else if($req->start_price != null){
+                // for custom price with only start param
+                if(count($event->tickets()->where('price', '>=', intval($req->start_price))->get()) == 0){
+                    $state = false;
+                }
+            }else if($req->until_price != null){
+                // for custom price with only max limit param
+                if(count($event->tickets()->where('price', '<=', intval($req->until_price))->get()) == 0){
+                    $state = false;
+                }
             }
-            if ($req->until_price && $req->start_price && count($event->tickets()->where('price', '>=', intval($req->until_price))->get()) == 0) {
-                $state = false;
-            }
+
+
             if ($req->topic && $req->topic_delimiter && is_string($req->topic_delimiter)) {
                 $topics = is_array($req->topic) ? $req->topic : [$req->topic];
                 $eventTopic = explode($req->topic_delimiter, $event->topics);
@@ -157,6 +181,6 @@ class SearchCtrl extends Controller
                 $events[] = $event;
             }
         }
-        return response()->json(["events" => $this->basePopEvents($events)], 200);
+        return response()->json(["events" => $this->basePopEvents($events), "until_p" => $req->until_price, "start__p" => $req->start_price], 200);
     }
 }

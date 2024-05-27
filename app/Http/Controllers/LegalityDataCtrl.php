@@ -18,43 +18,63 @@ class LegalityDataCtrl extends Controller
         if ($legalityData) {
             return $this->update($req);
         }
+
         $arrayValidator = [
             "type_legality" => "required|string",
-            "pic_name" => "required|string",
-            "nic_number" => "required|string",
-            "nic_image" => "required|image|max:2048",
             "tax_id_number" => "required|string",
-            "tax_image" => "required|image|max:2048"
+            "tax_image" => "required|image|max:2048",
+            'confirm_true' => 'required|boolean'
         ];
-        if ($req->type_legality === 'perusahaan') {
+        if ($req->type_legality === 'Perusahaan') {
             $arrayValidator += [
                 "company_name" => "required|string",
-                "business_entity" => "required|string"
+                "business_entity" => "required|string",
+                "company_address" => "required|string"
+            ];
+        }else{
+            $arrayValidator += [
+                "pic_name" => "required|string",
+                "nic_number" => "required|string",
+                "nic_image" => "required|image|max:2048",
             ];
         }
         $validator = Validator::make($req->all(), $arrayValidator);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
-        $namePhoto = pathinfo($req->file('nic_image')->getClientOriginalName(), PATHINFO_FILENAME);
-        $namePhoto .= '_' . time() . '.' . $req->file('nic_image')->getClientOriginalExtension();
-        $req->file('nic_image')->storeAs('public/legality_datas', $namePhoto);
-        $namePhoto = '/storage/legality_datas/' . $namePhoto;
+
+        if(!$req->confirm_true){
+            return response()->json(["error" => "Plase confirm your legality data is true"], 403);
+        }
+
+        $namePhoto = '';
+
         $namePhotoTax = pathinfo($req->file('tax_image')->getClientOriginalName(), PATHINFO_FILENAME);
         $namePhotoTax .= '_' . time() . '.' . $req->file('tax_image')->getClientOriginalExtension();
         $req->file('tax_image')->storeAs('public/legality_datas', $namePhotoTax);
         $namePhotoTax = '/storage/legality_datas/' . $namePhotoTax;
+
+        if($req->type_legality === 'Individu'){
+            $namePhoto = pathinfo($req->file('nic_image')->getClientOriginalName(), PATHINFO_FILENAME);
+            $namePhoto .= '_' . time() . '.' . $req->file('nic_image')->getClientOriginalExtension();
+            $req->file('nic_image')->storeAs('public/legality_datas', $namePhoto);
+            $namePhoto = '/storage/legality_datas/' . $namePhoto;
+        }
+
         $datas = CredibilityOrg::create([
             "org_id" => $req->org->id,
             "type_legality" => $req->type_legality,
             "tax_id_number" => $req->tax_id_number,
             "tax_image" => $namePhotoTax,
+
             "company_name" => $req->company_name ? $req->company_name : " ",
-            "address" => " ",
+            "address" => $req->company_address ? $req->company_address : ' ',
             'business_entity' => $req->business_entity ? $req->business_entity : " ",
-            'pic_name' => $req->pic_name,
-            'pic_nic' => $req->nic_number,
-            'pic_nic_image' => $namePhoto,
+            
+            'pic_name' => $req->pic_name ? $req->pic_name : " ",
+            'pic_nic' => $req->nic_number ? $req->nic_number : ' ',
+            'pic_nic_image' => $namePhoto !== '' ? $namePhoto : ' ',
+
             'company_phone' => " ",
             'status' => false,
         ]);
@@ -67,26 +87,38 @@ class LegalityDataCtrl extends Controller
         if (!$dataLegality->first()) {
             return $this->create($req);
         }
+        
         $arrayValidator = [
             "type_legality" => "required|string",
-            "pic_name" => "required|string",
-            "nic_number" => "required|string",
-            "nic_image" => "image|max:2048",
             "tax_id_number" => "required|string",
-            "tax_image" => "image|max:2048"
+            "tax_image" => "image|max:2048",
+            'confirm_true' => 'required|boolean'
         ];
-        if ($req->type_legality === 'perusahaan') {
+        if ($req->type_legality === 'Perusahaan') {
             $arrayValidator += [
                 "company_name" => "required|string",
-                "business_entity" => "required|string"
+                "business_entity" => "required|string",
+                "company_address" => "required|string"
+            ];
+        }else{
+            $arrayValidator += [
+                "pic_name" => "required|string",
+                "nic_number" => "required|string",
+                "nic_image" => "image|max:2048",
             ];
         }
         $validator = Validator::make($req->all(), $arrayValidator);
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
+
+        if(!$req->confirm_true){
+            return response()->json(["error" => "Plase confirm your legality data is true"], 403);
+        }
+        
+        
         $namePhoto = $dataLegality->first()->pic_nic_image;
-        if ($req->hasFile('nic_image')) {
+        if ($req->hasFile('nic_image') && $req->type_legality === 'Individu') {
             $namePhoto = pathinfo($req->file('nic_image')->getClientOriginalName(),  PATHINFO_FILENAME);
             $namePhoto .= '_' . time() . '.' . $req->file('nic_image')->getClientOriginalExtension();
             $req->file('nic_image')->storeAs('public/legality_datas', $namePhoto);
@@ -106,12 +138,15 @@ class LegalityDataCtrl extends Controller
             "type_legality" => $req->type_legality,
             "tax_id_number" => $req->tax_id_number,
             "tax_image" => $namePhotoTax,
+
             "company_name" => $req->company_name ? $req->company_name : " ",
-            "address" => " ",
+            "address" => $req->company_address ? $req->company_address : ' ',
             'business_entity' => $req->business_entity ? $req->business_entity : " ",
-            'pic_name' => $req->pic_name,
-            'pic_nic' => $req->nic_number,
-            'pic_nic_image' => $namePhoto,
+            
+            'pic_name' => $req->pic_name ? $req->pic_name : " ",
+            'pic_nic' => $req->nic_number ? $req->nic_number : ' ',
+            'pic_nic_image' => $namePhoto !== '' ? $namePhoto : ' ',
+
             'company_phone' => " ",
             'status' => false,
         ]);

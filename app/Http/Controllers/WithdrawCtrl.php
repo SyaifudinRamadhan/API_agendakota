@@ -138,8 +138,11 @@ class WithdrawCtrl extends Controller
         if ($req->org->credibilityData()->first()->status == 0) {
             return response()->json(["error" => "You are not allowed to create withdraw before ypur legality approved"], 403);
         }
-        $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-        $event = Event::where('id', $req->event_id)->where('org_id', $req->org->id)->where('is_publish', "<", 3)->where('end_date', "<", $now->format('Y-m-d'))->orWhere('category', 'Attraction')->orWhere('category', 'Daily Activities')->orWhere('category', 'Tour Travel (recurring)');
+        
+        $event = Event::where('id', $req->event_id)->where('org_id', $req->org->id)->where(function($query){
+            $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+            $query->where('is_publish', "<", 3)->where('end_date', "<", $now->format('Y-m-d'))->orWhere('category', 'Attraction')->orWhere('category', 'Daily Activities')->orWhere('category', 'Tour Travel (recurring)');
+        });
         $eventData = $event->first();
         if (!$eventData) {
             return response()->json(["error" => "Event data not found or cannot add to withdraw"], 404);
@@ -168,7 +171,7 @@ class WithdrawCtrl extends Controller
                 "is_publish" => intval($eventData->is_publish) + 3
             ]);
         }
-        $wdNominalBasic = ($basicAmount - ($basicAmount * (floatval(config('agendakota.commission')) / 100)));
+        $wdNominalBasic = ($basicAmount - ($basicAmount * (floatval(config('agendakota.commission')))));
         $wd = Withdraw::create([
             'event_id' => $eventData->id,
             'org_id' => $req->org->id,
@@ -183,7 +186,8 @@ class WithdrawCtrl extends Controller
             $eventData->id,
             $req->org->name,
             $req->org->id,
-            (($basicAmount - ($basicAmount * (floatval(config('agendakota.commission')) / 100))) - intval(config('agendakota.profit_plus'))),
+            ($wdNominalBasic <= 10000 ? $wdNominalBasic : ($wdNominalBasic - intval(config('agendakota.profit_plus')))),
+            // (($basicAmount - ($basicAmount * (floatval(config('agendakota.commission'))))) - intval(config('agendakota.profit_plus'))),
             $bankAcc->acc_number,
             $user->name,
             $user->email
@@ -212,7 +216,7 @@ class WithdrawCtrl extends Controller
         if (($wdData->event()->first()->category == 'Attraction' || $wdData->event()->first()->category == 'Daily Activities' || $wdData->event()->first()->category == 'Tour Travel (recurring)') && $wdData->status == 1) {
             return response()->json(["error" => "Your aren't remove withdraw data of event with category Attraction, Daily Activities, or Tour Travel (recurring)"], 403);
         }
-        if ($wdData->status == 0) {
+        if ($wdData->status == 0 && $wdData->event()->first()->category != 'Attraction' && $wdData->event()->first()->category != 'Daily Activities' && $wdData->event()->first()->category != 'Tour Travel (recurring)') {
             Event::where('id', $wdData->event()->first()->id)->update([
                 "is_publish" => intval($wdData->event()->first()->is_publish) - 3
             ]);
@@ -238,7 +242,7 @@ class WithdrawCtrl extends Controller
         if ($isAdmin) {
             $wd = Withdraw::where('id', $req->wd_id)->first();
         } else {
-            $wd = Withdraw::where('id', $req->id)->where('org_id', $req->org->id)->first();
+            $wd = Withdraw::where('id', $req->wd_id)->where('org_id', $req->org->id)->first();
         }
         if (!$wd) {
             return response()->json(["error" => "Withdraw data not found"], 404);
@@ -284,8 +288,10 @@ class WithdrawCtrl extends Controller
     {
         $events = [];
         $totalAmount = 0;
-        $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-        foreach (Event::where('org_id', $req->org->id)->where('is_publish', '<', 3)->where('end_date', '<', $now->format('Y-m-d'))->orWhere('category', 'Attraction')->orWhere('category', 'Daily Activities')->orWhere('category', 'Tour Travel (recurring)')->get() as $event) {
+        foreach (Event::where('org_id', $req->org->id)->where(function($query){
+            $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+            $query->where('is_publish', '<', 3)->where('end_date', '<', $now->format('Y-m-d'))->orWhere('category', 'Attraction')->orWhere('category', 'Daily Activities')->orWhere('category', 'Tour Travel (recurring)');
+        })->get() as $event) {
             $tickets = Ticket::where('event_id', $event->id)->where('type_price', '!=', 1)->get();
             $amount = 0;
             foreach ($tickets as $ticket) {
@@ -303,7 +309,7 @@ class WithdrawCtrl extends Controller
                 $amount -= $hasWithdrawn;
             }
             $orginAmount = $amount;
-            $amount -= (intval($amount) * (floatval(config('agendakota.commission')) / 100));
+            $amount -= (intval($amount) * (floatval(config('agendakota.commission'))));
             if ($amount > 10000) {
                 $amount -= intval(config('agendakota.profit_plus'));
             }

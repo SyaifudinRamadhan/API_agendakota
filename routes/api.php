@@ -16,6 +16,8 @@ use Illuminate\Support\Facades\Route;
 
 // Route::get('/download-ticket', [\App\Http\Controllers\PchCtrl::class, 'downloadTicket']);
 Route::get('/verify/{subId}', [\App\Http\Controllers\Authenticate::class, 'verify'])->name('verify');
+Route::get('/verify/{subId}/auto/{redirect}', [\App\Http\Controllers\Authenticate::class, 'verify'])->name('verifyAndRedirect');
+Route::get('/verify-invite/{token}', [\App\Http\Controllers\OrgCtrl::class, 'acceptInviteTeam'])->name('accept-invite');
 Route::middleware('apiToken')->prefix('/')->group(function () {
     // Register route
     Route::post('/register', [\App\Http\Controllers\Authenticate::class, 'register']);
@@ -28,7 +30,6 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
 
     // Public route
     Route::get('/org-profile/{orgId}', [\App\Http\Controllers\OrgCtrl::class, 'getOrg']);
-    Route::get('/verify-invite/{token}', [\App\Http\Controllers\OrgCtrl::class, 'acceptInviteTeam'])->name('accept-invite');
     Route::get('/event/{eventId}', [\App\Http\Controllers\EventCtrl::class, 'getById']);
     Route::get('/event-daily-refresh-date/{eventId}', [\App\Http\Controllers\EventCtrl::class, 'getAvailableSeatNumberDailyTicket']);
     Route::get('/ticket-reschedule', [\App\Http\Controllers\EventCtrl::class, 'getRescheduleAvailableData']);

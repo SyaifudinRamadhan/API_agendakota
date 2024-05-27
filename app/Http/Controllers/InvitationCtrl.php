@@ -13,6 +13,9 @@ use App\Models\Invitation;
 use App\Models\Payment;
 use App\Models\Otp;
 use App\Mail\InviteEvent;
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
+use App\Http\Controllers\BasicFunctional;
 
 class InvitationCtrl extends Controller
 {
@@ -40,12 +43,14 @@ class InvitationCtrl extends Controller
             return response()->json(["error" => "You can't invite your self"], 403);
         }
         $newUser = false;
-        $otp = "";
+        $tokenVerify = "";
+        $userPass = "";
         $user = User::where('email', $req->target_email)->first();
         if (!$user) {
             // if (!filter_var($req->email, FILTER_VALIDATE_EMAIL)) {
             //     return response()->json(["error" => "Email is not valid"], 403);
             // }
+            $userPass = BasicFunctional::randomStr(8);
             $name = explode('@', $req->target_email)[0];
             $user = User::create(
                 [
@@ -53,7 +58,7 @@ class InvitationCtrl extends Controller
                     'l_name' => $name,
                     'name' => $name,
                     'email' => $req->target_email,
-                    'password' => Hash::make(env('SECRET_PASS_BACKDOOR_OTP_LOGIN')),
+                    'password' => $userPass,
                     'g_id' => '-',
                     'photo' => '/storage/avatars/default.png',
                     'is_active' => '0',
@@ -65,15 +70,8 @@ class InvitationCtrl extends Controller
                     "deleted" => 0
                 ]
             );
-            for ($i = 0; $i < 6; $i++) {
-                $otp .= rand(0, 9);
-            }
-            Otp::create(
-                [
-                    'user_id' => $user->id,
-                    'otp_code' => $otp
-                ]
-            );
+            $tokenVerify = JWT::encode(['sub' => $user->id], env('JWT_SECRET'), env('JWT_ALG'));
+
             $newUser = true;
         }
         Purchase::where('id', $purchase->id)->update(
@@ -105,7 +103,8 @@ class InvitationCtrl extends Controller
                     $sender->email,
                     $purchase->ticket()->first()->event()->first()->name,
                     $purchase->ticket()->first()->name,
-                    $otp
+                    $tokenVerify,
+                    $userPass
                 )
             );
         }

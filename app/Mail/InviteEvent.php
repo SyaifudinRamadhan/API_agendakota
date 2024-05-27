@@ -16,13 +16,14 @@ class InviteEvent extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct($username, $senderMail, $eventName, $ticketName, $token = null)
+    public function __construct($username, $senderMail, $eventName, $ticketName, $token = null, $userPass = null)
     {
         $this->token = $token;
         $this->username = $username;
         $this->eventName = $eventName;
         $this->ticketName = $ticketName;
         $this->senderMail = $senderMail;
+        $this->userPass = $userPass;
     }
 
     /**
@@ -47,8 +48,10 @@ class InviteEvent extends Mailable
                 "username" => $this->username,
                 "eventName" => $this->eventName,
                 "ticketName" => $this->ticketName,
-                "token" => $this->token,
-                "url" => $this->token != null ? 'redirect to verify token' : 'redirect  to login page'
+                "userPass" => $this->userPass,
+                "url" => $this->token != null ? 
+                    route('verifyAndRedirect', [$this->token, 'invitation']) 
+                    : env('FRONTEND_URL')."/auth-user?redirect_to=invitation"
             ]
         );
     }

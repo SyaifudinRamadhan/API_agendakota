@@ -426,10 +426,11 @@
                         color: #242b3d;
                         font-size: 30px;
                         line-height: 39px;
+                        text-align: center;
                       ">
-                                        You ({{ $username }}) Have Inivited
+                                        You ({{ $username }}) Have Invited
                                     </h2>
-                                    <p style="margin-top: 0px; margin-bottom: 0px">
+                                    <p style="margin-top: 0px; margin-bottom: 0px; text-align:center;">
                                         For join to an {{ $eventName }} event with "{{ $ticketName }}" ticket
                                     </p>
                                 </td>
@@ -476,11 +477,11 @@
                                             {{ $sender }}.</span>
                                     </p>
 
-                                    @if ($token != null)
+                                    @if ($userPass != null)
                                         <p style="margin: 0; font-size: 14px; text-align: center;">
                                             <span style="font-size:18px;color:#000000;">
-                                                Please login with otp code <strong>{{ $token }}</strong> for
-                                                view and accept yout invitation
+                                                Please login with this password <strong>{{ $userPass }}</strong> for
+                                                view and accept your invitation
                                             </span>
                                         </p>
                                         <a href="{{ $url }}"

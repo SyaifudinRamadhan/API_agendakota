@@ -280,7 +280,7 @@ class OrgCtrl extends Controller
                 'password' => $decoded->def_pass,
                 'g_id' => '-',
                 'photo' => '/storage/avatars/default.png',
-                'is_active' => '0',
+                'is_active' => '1',
                 'phone' => '-',
                 'linkedin' => '-',
                 'instagram' => '-',
@@ -291,14 +291,14 @@ class OrgCtrl extends Controller
         } else if (
             Team::where('org_id', $decoded->org_id)->where('user_id', $user->id)->first()
         ) {
-            return response()->json(["error" => "This email or user account has registered as member"], 403);
+            return redirect()->to(env("FRONTEND_URL") . '/auth-user?redirect_to=invite_team&org_id=' . $decoded->org_id);
         }
-        $team = Team::create([
+        Team::create([
             'org_id' => $decoded->org_id,
             'user_id' => $user->id
         ]);
         // NOTE : replace with return redirect to react App
-        return response()->json(["team" => $team, "user" => $user], 202);
+        return redirect()->to(env("FRONTEND_URL") . '/auth-user?redirect_to=invite_team&org_id=' . $decoded->org_id);
     }
 
     // Get teams

@@ -427,15 +427,17 @@
                         color: #242b3d;
                         font-size: 30px;
                         line-height: 39px;
+                        text-align: center;
                       ">
                                         <b>{{ $email }}</b> You are have invited
                                     </h2>
-                                    <p style="margin-top: 0px; margin-bottom: 0px">
+                                    <p style="margin-top: 0px; margin-bottom: 0px; text-align: center;">
                                         For join as team of an event organizer {{ '( ' . $name . ' )' }} <br>
                                         If you haven't account in this platform, you can login to this platform with
                                         this default passwowrd bellow. Ignore this if you have account before.
                                     </p>
-                                    Default password ({{ $pass }})
+                                    <b style="text-align:center; color: #000;">Default password
+                                        ({{ $pass }})</b>
                                 </td>
                             </tr>
                         </tbody>
