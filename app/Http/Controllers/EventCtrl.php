@@ -928,9 +928,9 @@ class EventCtrl extends Controller
         // if (!Auth::user()->legality()->first()) {
         //     return response()->json(["error" => "Please fill your legality data first"], 403);
         // }
-        if (!$req->org->credibilityData()->first()) {
-            return response()->json(["error" => "Please fill your legality data first"], 403);
-        }
+        // if (!$req->org->credibilityData()->first()) {
+        //     return response()->json(["error" => "Please fill your legality data first"], 403);
+        // }
         $updated = $event->update([
             "is_publish" => $req->code_pub_state
         ]);
