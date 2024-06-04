@@ -53,9 +53,17 @@ class TicketCtrl extends Controller
             } catch (\Throwable $th) {
                 return response()->json(["error" => "Invalid format input date or time"], 400);
             }
-            $endEvent = new DateTime($req->event->end_date . ' ' . $req->event->end_time, new DateTimeZone('Asia/Jakarta'));
-            if ($start > $end || $start >= $endEvent || $end >= $endEvent) {
+            
+            if ($start > $end) {
                 return response()->json(["error" => "Start date must be lower than end date or end date of the event"], 403);
+            }
+
+            $endEvent = new DateTime($req->event->end_date, new DateTimeZone('Asia/Jakarta'));
+            if($start > $endEvent){
+                $start = new DateTime($req->event->start_date, new DateTimeZone('Asia/Jakarta'));
+            }
+            if($end > $endEvent){
+                $end = new DateTime($req->event->end_date, new DateTimeZone('Asia/Jakarta'));
             }
         } else {
             if (!$req->daily_limit_qty) {
@@ -109,7 +117,7 @@ class TicketCtrl extends Controller
             'ticket_datas' => 'required|array'
         ]);
         if ($validatorBasic->fails()) {
-            return response()->json($validator->errors(), 403);
+            return response()->json($validatorBasic->errors(), 403);
         }
         $starts = [];
         $ends = [];
@@ -142,9 +150,17 @@ class TicketCtrl extends Controller
                 } catch (\Throwable $th) {
                     return response()->json(["error" => "Invalid format input date or time"], 400);
                 }
-                $endEvent = new DateTime($req->event->end_date . ' ' . $req->event->end_time, new DateTimeZone('Asia/Jakarta'));
-                if ($start > $end || $start >= $endEvent || $end >= $endEvent) {
+                
+                if ($start > $end) {
                     return response()->json(["error" => "Start date must be lower than end date or end date of the event"], 403);
+                }
+
+                $endEvent = new DateTime($req->event->end_date, new DateTimeZone('Asia/Jakarta'));
+                if($start > $endEvent){
+                    $start = new DateTime($req->event->start_date, new DateTimeZone('Asia/Jakarta'));
+                }
+                if($end > $endEvent){
+                    $end = new DateTime($req->event->end_date, new DateTimeZone('Asia/Jakarta'));
                 }
             } else {
                 if (!isset($ticket_data->daily_limit_qty)) {

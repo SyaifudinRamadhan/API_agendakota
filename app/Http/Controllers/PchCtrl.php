@@ -340,7 +340,7 @@ class PchCtrl extends Controller
             }
 
             $startTicket = new DateTime($ticket->start_date, new DateTimeZone('Asia/Jakarta'));
-            $endTicket = new DateTime($ticket->end_date, new DateTimeZone('Asia/Jakarta'));
+            $endTicket = new DateTime($ticket->end_date === $event->end_date ? ($ticket->end_date.' '.$event->end_time) : ($ticket->end_date.' 23:59'), new DateTimeZone('Asia/Jakarta'));
 
             $purchases = $ticket->purchases()->where('user_id', Auth::user()->id)->get();
 
@@ -1555,18 +1555,18 @@ class PchCtrl extends Controller
         $end = null;
         $time = '';
         $visitDate = $pch->visitDate()->first();
+        $ticket = $pch->ticket()->first();
+        $event = $ticket->event()->first();
         if ($visitDate) {
             $visitDate = new DateTime($visitDate->visit_date, new DateTimeZone('Asia/Jakarta'));
             $start = $visitDate;
             $end = $visitDate;
         } else {
-            $event = $pch->event()->first();
             $start = new DateTime($event->start_date . " " . $event->start_time, new DateTimeZone('Asia/Jakarta'));
             $end = new DateTime($event->end_date . " " . $event->end_time, new DateTimeZone('Asia/Jakarta'));
             $time = $start->format("H:i") . ' - ' . $end->format("H:i") . ' WIB';
         }
-        $ticket = $pch->ticket()->first();
-        $event = $ticket->event()->first();
+        
         $org = $event->org()->first();
         $org->legality = $org->credibilityData()->first();
         $pdf = Pdf::loadView('pdfs.invoice-ticket', [
