@@ -271,10 +271,11 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
                 Route::get('/list-bank', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'listBank']);
                 Route::delete('/delete-bank', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'deleteBank']);
                 Route::put('/update-status-bank', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'updateBankStatus']);
-                Route::post('event/create', [\App\Http\Controllers\EventCtrl::class, 'create']);
-                Route::put('event/update', [\App\Http\Controllers\EventCtrl::class, 'update']);
-                Route::delete('event/delete', [\App\Http\Controllers\EventCtrl::class, 'delete']);
-                Route::prefix('event/{eventId}/manage')->group(function () {
+                Route::post('/event/create', [\App\Http\Controllers\EventCtrl::class, 'create']);
+                Route::put('/event/update', [\App\Http\Controllers\EventCtrl::class, 'update']);
+                Route::delete('/event/delete', [\App\Http\Controllers\EventCtrl::class, 'delete']);
+                Route::put('/event/rollback', [\App\Http\Controllers\EventCtrl::class, 'rollbackEvent']);
+                Route::prefix('/event/{eventId}/manage')->group(function () {
                     Route::middleware('eventData')->group(function () {
                         Route::get('/rundowns', [\App\Http\Controllers\RundownCtrl::class, 'getRundowns']);
                         Route::post('/session/create', [\App\Http\Controllers\EvtSessionCtrl::class, 'create']);

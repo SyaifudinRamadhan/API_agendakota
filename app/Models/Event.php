@@ -113,6 +113,11 @@ class Event extends Model
         return $this->hasMany(Ticket::class, 'event_id')->where('deleted', 0);
     }
 
+    public function ticketsNonFilter(): HasMany
+    {
+        return $this->hasMany(Ticket::class, 'event_id');   
+    }
+
     public function surveys(): HasMany
     {
         return $this->hasMany(CustomFieldSurvey::class, 'event_id');

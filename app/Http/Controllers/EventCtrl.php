@@ -879,7 +879,7 @@ class EventCtrl extends Controller
             return response()->json(["error" => "Event data not found"], 404);
         }
         $fixPurchases = 0;
-        foreach ($eventObj->first()->tickets()->get() as $ticket) {
+        foreach ($eventObj->first()->ticketsNonFilter()->get() as $ticket) {
             foreach ($ticket->purchases()->get() as $purchase) {
                 if ($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED') {
                     $fixPurchases += 1;
@@ -950,5 +950,12 @@ class EventCtrl extends Controller
             'isManageEvent' => 1,
         ])->setPaper('a4', 'portrait');
         return $pdf->download();
+    }
+
+    public function rollBackEvent(Request $req){
+        $updated = Event::where('id', $req->event_id)->where('is_publish', '<', 3)->update([
+            'deleted' => 0
+        ]);
+        return response()->json(["msg" => $updated === 0 ? "Data not found" : "Update data has succeeded"], $updated === 0 ? 404 : 202);
     }
 }
