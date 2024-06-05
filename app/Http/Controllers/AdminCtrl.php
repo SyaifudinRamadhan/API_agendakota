@@ -27,6 +27,8 @@ use App\Models\ViralCity;
 use App\Models\SelectedActivity;
 use App\Models\SelectedActivityDatas;
 use Illuminate\Support\Facades\DB;
+use DateTime;
+use DateTimeZone;
 
 class AdminCtrl extends Controller
 {
@@ -1286,8 +1288,39 @@ class AdminCtrl extends Controller
         return response()->json(["payments" => $payemnts], 200);
     }
 
+    private function countPurchases($event)
+    {
+        $total = 0;
+        foreach ($event->tickets()->get() as $ticket) {
+            $total += count($ticket->purchases()->get());
+        }
+        return $total;
+    }
+
+
     public function events(Request $req) {
         $events = Event::where('is_publish', '<', 3)->get();
-        return response()->json(['events' => $events], 200);
+        for ($i = 0; $i < count($events); $i++) {
+            $selectedIndex = $i;
+            $selectedValue = $this->countPurchases($events[$selectedIndex]);
+            for ($j = $i + 1; $j < count($events); $j++) {
+                $toCompare = $this->countPurchases($events[$j]);
+                if ($selectedValue < $toCompare) {
+                    $selectedValue = $toCompare;
+                    $selectedIndex = $j;
+                }
+            }
+            if ($selectedIndex != $i) {
+                $tmp = $events[$i];
+                $events[$i] = $events[$selectedIndex];
+                $events[$selectedIndex] = $tmp;
+                $tmp = null;
+            }
+            $events[$i]->available_days = $events[$i]->availableDays()->get();
+            $events[$i]->org = $events[$i]->org()->first();
+            $events[$i]->org->legality = $events[$i]->org->credibilityData()->first();
+            $events[$i]->tickets = $events[$i]->tickets()->orderBy('price', 'ASC')->get();
+        }
+        return response()->json(["events" => $events], 200);
     }
 }
