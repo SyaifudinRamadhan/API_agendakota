@@ -1285,4 +1285,9 @@ class AdminCtrl extends Controller
         }
         return response()->json(["payments" => $payemnts], 200);
     }
+
+    public function events(Request $req) {
+        $events = Event::where('is_publish', '<', 3)->get();
+        return response()->json(['events' => $events], 200);
+    }
 }

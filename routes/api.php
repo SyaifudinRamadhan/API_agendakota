@@ -264,6 +264,7 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
             Route::get('/legality-data/detail', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'getLegality']);
             Route::put('/legality-data/update', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'changeLegalityState']);
             Route::delete('/legality-data/delete', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'legalityDelete']);
+            Route::get('/all-event', [\App\Http\Controllers\AdminCtrl::class, 'events']);
             Route::prefix('org/{orgId}')->group(function () {
                 Route::put('/update-org-profile', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'updateProfileOrg']);
                 Route::delete('/delete-organization', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'deleteOrganization']);
