@@ -75,15 +75,15 @@ class TicketCtrl extends Controller
         }
         $seatMap = null;
         if ($req->enable_seat_number == true && $req->hasFile('seat_map')) {
-            $fileName = pathinfo($req->file('seat_map')->getClientOriginalName(), PATHINFO_FILENAME);
-            $fileName = $fileName . '_' . time() . $req->file('seat_map')->getClientOriginalExtension();
+            // $fileName = pathinfo($req->file('seat_map')->getClientOriginalName(), PATHINFO_FILENAME);
+            $fileName = BasicFunctional::randomStr(5) . '_' . time() . $req->file('seat_map')->getClientOriginalExtension();
             $req->file('seat_map')->storeAs('public/seat_map_details', $fileName);
             $seatMap = '/storage/seat_map_details/' . $fileName;
         }
         $cover = '/storage/ticket_covers/default.png';
         if ($req->hasFile('cover')) {
-            $filename = pathinfo($req->file('cover')->getClientOriginalName(), PATHINFO_FILENAME);
-            $filename = $filename . '_' . time() . $req->file('cover')->getClientOriginalExtension();
+            // $filename = pathinfo($req->file('cover')->getClientOriginalName(), PATHINFO_FILENAME);
+            $filename = BasicFunctional::randomStr(5) . '_' . time() . $req->file('cover')->getClientOriginalExtension();
             $req->file('cover')->storeAs('public/ticket_covers', $filename);
             $cover = '/storage/ticket_covers/' . $filename;
         }
@@ -179,15 +179,15 @@ class TicketCtrl extends Controller
             $seatMap = null;
             // return response()->json(["data" => $ticket_data->enable_seat_number == "false" ? false : true], 500);
             if ($ticket_data->enable_seat_number == true && isset($ticket_data->seat_map)) {
-                $fileName = pathinfo($ticket_data->seat_map->getClientOriginalName(), PATHINFO_FILENAME);
-                $fileName = $fileName . '_' . time() . $ticket_data->seat_map->getClientOriginalExtension();
+                // $fileName = pathinfo($ticket_data->seat_map->getClientOriginalName(), PATHINFO_FILENAME);
+                $fileName = BasicFunctional::randomStr(5) . '_' . time() . $ticket_data->seat_map->getClientOriginalExtension();
                 $ticket_data->seat_map->storeAs('public/seat_map_details', $fileName);
                 $seatMap = '/storage/seat_map_details/' . $fileName;
             }
             $cover = '/storage/ticket_covers/default.png';
             if (isset($ticket_data->cover)) {
-                $filename = pathinfo($ticket_data->cover->getClientOriginalName(), PATHINFO_FILENAME);
-                $filename = $filename . '_' . time() . $ticket_data->cover->getClientOriginalExtension();
+                // $filename = pathinfo($ticket_data->cover->getClientOriginalName(), PATHINFO_FILENAME);
+                $filename = BasicFunctional::randomStr(5) . '_' . time() . $ticket_data->cover->getClientOriginalExtension();
                 $ticket_data->cover->storeAs('public/ticket_covers', $filename);
                 $cover = '/storage/ticket_covers/' . $filename;
             }
@@ -274,8 +274,8 @@ class TicketCtrl extends Controller
             if ($seatMap != null || $seatMap != '') {
                 Storage::delete('public/seat_map_details/' . explode('/', $seatMap)[3]);
             }
-            $fileName = pathinfo($req->file('seat_map')->getClientOriginalName(), PATHINFO_FILENAME);
-            $fileName = $fileName . '_' . time() . $req->file('seat_map')->getClientOriginalExtension();
+            // $fileName = pathinfo($req->file('seat_map')->getClientOriginalName(), PATHINFO_FILENAME);
+            $fileName = BasicFunctional::randomStr(5) . '_' . time() . $req->file('seat_map')->getClientOriginalExtension();
             $req->file('seat_map')->storeAs('public/seat_map_details', $fileName);
             $seatMap = '/storage/seat_map_details/' . $fileName;
         } else if ($req->enable_seat_number == false && ($seatMap != null || $seatMap != '')) {
@@ -284,8 +284,8 @@ class TicketCtrl extends Controller
         }
         $cover = $ticket->cover;
         if ($req->hasFile('cover')) {
-            $filename = pathinfo($req->file('cover')->getClientOriginalName(), PATHINFO_FILENAME);
-            $filename = $filename . '_' . time() . $req->file('cover')->getClientOriginalExtension();
+            // $filename = pathinfo($req->file('cover')->getClientOriginalName(), PATHINFO_FILENAME);
+            $filename = BasicFunctional::randomStr(5) . '_' . time() . $req->file('cover')->getClientOriginalExtension();
             $req->file('cover')->storeAs('public/ticket_covers', $filename);
             $cover = '/storage/ticket_covers/' . $filename;
             if ($cover !== '/storage/ticket_covers/default.png') {

@@ -49,14 +49,14 @@ class LegalityDataCtrl extends Controller
 
         $namePhoto = '';
 
-        $namePhotoTax = pathinfo($req->file('tax_image')->getClientOriginalName(), PATHINFO_FILENAME);
-        $namePhotoTax .= '_' . time() . '.' . $req->file('tax_image')->getClientOriginalExtension();
+        // $namePhotoTax = pathinfo($req->file('tax_image')->getClientOriginalName(), PATHINFO_FILENAME);
+        $namePhotoTax = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('tax_image')->getClientOriginalExtension();
         $req->file('tax_image')->storeAs('public/legality_datas', $namePhotoTax);
         $namePhotoTax = '/storage/legality_datas/' . $namePhotoTax;
 
         if($req->type_legality === 'Individu'){
-            $namePhoto = pathinfo($req->file('nic_image')->getClientOriginalName(), PATHINFO_FILENAME);
-            $namePhoto .= '_' . time() . '.' . $req->file('nic_image')->getClientOriginalExtension();
+            // $namePhoto = pathinfo($req->file('nic_image')->getClientOriginalName(), PATHINFO_FILENAME);
+            $namePhoto = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('nic_image')->getClientOriginalExtension();
             $req->file('nic_image')->storeAs('public/legality_datas', $namePhoto);
             $namePhoto = '/storage/legality_datas/' . $namePhoto;
         }
@@ -119,16 +119,16 @@ class LegalityDataCtrl extends Controller
         
         $namePhoto = $dataLegality->first()->pic_nic_image;
         if ($req->hasFile('nic_image') && $req->type_legality === 'Individu') {
-            $namePhoto = pathinfo($req->file('nic_image')->getClientOriginalName(),  PATHINFO_FILENAME);
-            $namePhoto .= '_' . time() . '.' . $req->file('nic_image')->getClientOriginalExtension();
+            // $namePhoto = pathinfo($req->file('nic_image')->getClientOriginalName(),  PATHINFO_FILENAME);
+            $namePhoto = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('nic_image')->getClientOriginalExtension();
             $req->file('nic_image')->storeAs('public/legality_datas', $namePhoto);
             $namePhoto = '/storage/legality_datas/' . $namePhoto;
             Storage::delete('public/legality_datas/' . explode('/', $dataLegality->first()->pic_nic_image)[3]);
         }
         $namePhotoTax = $dataLegality->first()->tax_image;
         if ($req->hasFile('tax_image')) {
-            $namePhotoTax = pathinfo($req->file('tax_image')->getClientOriginalName(),  PATHINFO_FILENAME);
-            $namePhotoTax .= '_' . time() . '.' . $req->file('tax_image')->getClientOriginalExtension();
+            // $namePhotoTax = pathinfo($req->file('tax_image')->getClientOriginalName(),  PATHINFO_FILENAME);
+            $namePhotoTax = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('tax_image')->getClientOriginalExtension();
             $req->file('tax_image')->storeAs('public/legality_datas', $namePhotoTax);
             $namePhotoTax = '/storage/legality_datas/' . $namePhotoTax;
             Storage::delete('public/legality_datas/' . explode('/', $dataLegality->first()->tax_image)[3]);

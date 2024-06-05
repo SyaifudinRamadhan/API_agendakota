@@ -70,8 +70,8 @@ class SurveyCtrl extends Controller
                 } else if (($req->file("files_data")[abs((int)$ans)]->getSize() / 1024) >= 1024) {
                     return response()->json(["error" => "File size is to large. Max size is 1 Mb"], 403);
                 }
-                $filename = pathinfo($req->file("files_data")[abs((int)$ans)]->getClientOriginalName(), PATHINFO_FILENAME);
-                $filename .= "_" . time() . "." . $req->file("files_data")[abs((int)$ans)]->getClientOriginalExtension();
+                // $filename = pathinfo($req->file("files_data")[abs((int)$ans)]->getClientOriginalName(), PATHINFO_FILENAME);
+                $filename = BasicFunctional::randomStr(5) . "_" . time() . "." . $req->file("files_data")[abs((int)$ans)]->getClientOriginalExtension();
                 $req->file("files_data")[abs((int)$ans)]->storeAs('public/survey_ans_images', $filename);
                 $tmpStr = '/storage/survey_ans_images/' . $filename;
             } else if ($fieldData[1] === "file") {
@@ -85,8 +85,8 @@ class SurveyCtrl extends Controller
                 } else if (($req->file("files_data")[abs((int)$ans)]->getSize() / 1024) >= 1024) {
                     return response()->json(["error" => "File size is to large. Max size is 1 Mb"], 403);
                 } else {
-                    $filename = pathinfo($req->file("files_data")[abs((int)$ans)]->getClientOriginalName(), PATHINFO_FILENAME);
-                    $filename .= "_" . time() . "." . $req->file("files_data")[abs((int)$ans)]->getClientOriginalExtension();
+                    // $filename = pathinfo($req->file("files_data")[abs((int)$ans)]->getClientOriginalName(), PATHINFO_FILENAME);
+                    $filename = BasicFunctional::randomStr(5) . "_" . time() . "." . $req->file("files_data")[abs((int)$ans)]->getClientOriginalExtension();
                     $req->file("files_data")[abs((int)$ans)]->storeAs('public/survey_ans_images', $filename);
                     $tmpStr = '/storage/survey_ans_images/' . $filename;
                 }

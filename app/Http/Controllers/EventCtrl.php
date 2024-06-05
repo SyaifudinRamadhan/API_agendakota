@@ -125,8 +125,8 @@ class EventCtrl extends Controller
         // if(count($eventSameTime) >= $pkg->event_same_time){
         //     return response()->json(["error" => "You have created ".count($eventSameTime)." events with start date in same day. This package only receive ".$pkg->event_same_time." events in same start date"], 403);
         // }
-        $originNameFile = pathinfo($req->file('logo')->getClientOriginalName(), PATHINFO_FILENAME);
-        $fileName = $originNameFile . '_' . time() . '.' . $req->file('logo')->getClientOriginalExtension();
+        // $originNameFile = pathinfo($req->file('logo')->getClientOriginalName(), PATHINFO_FILENAME);
+        $fileName = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('logo')->getClientOriginalExtension();
         $req->file('logo')->storeAs('public/event_banners', $fileName);
         $fileName = "/storage/event_banners/" . $fileName;
         $fields = null;
@@ -138,8 +138,8 @@ class EventCtrl extends Controller
         }
         $seatMapImage = null;
         if ($req->hasFile('seat_map')) {
-            $seatMapImage = pathinfo($req->file('seat_map')->getClientOriginalName(), PATHINFO_FILENAME);
-            $seatMapImage .= '_' . time() . '.' . $req->file('seat_map')->getClientOriginalExtension();
+            // $seatMapImage = pathinfo($req->file('seat_map')->getClientOriginalName(), PATHINFO_FILENAME);
+            $seatMapImage = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('seat_map')->getClientOriginalExtension();
             $req->file('seat_map')->storeAs('public/seat_maps', $seatMapImage);
             $seatMapImage = '/storage/seat_maps/' . $seatMapImage;
         }
@@ -306,8 +306,8 @@ class EventCtrl extends Controller
         // }
         $nameFile = $eventObj->first()->logo;
         if ($req->hasFile('logo')) {
-            $originNameFile = pathinfo($req->file('logo')->getClientOriginalName(), PATHINFO_FILENAME);
-            $nameFile = $originNameFile . '_' . time() . '.' . $req->file('logo')->getClientOriginalExtension();
+            // $originNameFile = pathinfo($req->file('logo')->getClientOriginalName(), PATHINFO_FILENAME);
+            $nameFile = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('logo')->getClientOriginalExtension();
             $req->file('logo')->storeAs('public/event_banners', $nameFile);
             $nameFile = '/storage/event_banners/' . $nameFile;
             Storage::delete('public/event_banners/' . explode('/', $eventObj->first()->logo)[3]);
@@ -325,8 +325,8 @@ class EventCtrl extends Controller
             if ($seatMapImage != null) {
                 Storage::delete('public/seat_maps/' . explode('/', $seatMapImage)[3]);
             }
-            $seatMapImage = pathinfo($req->file('seat_map')->getClientOriginalName(), PATHINFO_FILENAME);
-            $seatMapImage .= '_' . time() . '.' . $req->file('seat_map')->getClientOriginalExtension();
+            // $seatMapImage = pathinfo($req->file('seat_map')->getClientOriginalName(), PATHINFO_FILENAME);
+            $seatMapImage = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('seat_map')->getClientOriginalExtension();
             $req->file('seat_map')->storeAs('public/seat_maps', $seatMapImage);
             $seatMapImage = '/storage/seat_maps/' . $seatMapImage;
         }
@@ -446,8 +446,8 @@ class EventCtrl extends Controller
             if ($seatMapImage != null) {
                 Storage::delete('public/seat_maps/' . explode('/', $seatMapImage)[3]);
             }
-            $seatMapImage = pathinfo($req->file('seat_map')->getClientOriginalName(), PATHINFO_FILENAME);
-            $seatMapImage .= '_' . time() . '.' . $req->file('seat_map')->getClientOriginalExtension();
+            // $seatMapImage = pathinfo($req->file('seat_map')->getClientOriginalName(), PATHINFO_FILENAME);
+            $seatMapImage = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('seat_map')->getClientOriginalExtension();
             $req->file('seat_map')->storeAs('public/seat_maps', $seatMapImage);
             $seatMapImage = '/storage/seat_maps/' . $seatMapImage;
         } else if ($req->remove_seat_map == true && ($seatMapImage != null || $seatMapImage != '')) {

@@ -95,8 +95,8 @@ class OrgCtrl extends Controller
         // handle upload image
         $namePhoto = $orgObj->first()->photo;
         if ($req->hasFile('photo')) {
-            $originName = pathinfo($req->file('photo')->getClientOriginalName(), PATHINFO_FILENAME);
-            $namePhoto = $originName . '_' . time() . '.' . $req->file('photo')->getClientOriginalExtension();
+            // $originName = pathinfo($req->file('photo')->getClientOriginalName(), PATHINFO_FILENAME);
+            $namePhoto = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('photo')->getClientOriginalExtension();
             $req->file('photo')->storeAs('public/org_avatars', $namePhoto);
             $namePhoto = '/storage/org_avatars/' . $namePhoto;
             if ($orgObj->first()->photo != '/storage/org_avatars/default.png') {
@@ -106,8 +106,8 @@ class OrgCtrl extends Controller
         }
         $nameBanner = $orgObj->first()->banner;
         if ($req->hasFile('banner')) {
-            $originalName = pathinfo($req->file('banner')->getClientOriginalName(), PATHINFO_FILENAME);
-            $nameBanner = $originalName . '_' . time() . '.' . $req->file('banner')->getClientOriginalExtension();
+            // $originalName = pathinfo($req->file('banner')->getClientOriginalName(), PATHINFO_FILENAME);
+            $nameBanner = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('banner')->getClientOriginalExtension();
             $req->file('banner')->storeAs('public/org_banners', $nameBanner);
             $nameBanner = '/storage/org_banners/' . $nameBanner;
             if ($orgObj->first()->banner != '/storage/org_banners/default.png') {

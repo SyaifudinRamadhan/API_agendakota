@@ -36,8 +36,8 @@ class EvtSessionCtrl extends Controller
         if ($start >= $end || $start < $startEvent || $start >= $endEvent || $end <= $startEvent || $end > $endEvent) {
             return response()->json(["error" => "Your selected date time is out from date time event range"], 403);
         }
-        $coverImage = pathinfo($req->file('cover')->getClientOriginalName(), PATHINFO_FILENAME);
-        $coverImage .= '_' . time() . '.' . $req->file('cover')->getClientOriginalExtension();
+        // $coverImage = pathinfo($req->file('cover')->getClientOriginalName(), PATHINFO_FILENAME);
+        $coverImage = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('cover')->getClientOriginalExtension();
         $req->file('cover')->storeAs('public/session_covers', $coverImage);
         $coverImage = '/storage/session_covers/' . $coverImage;
         $session = EventSession::create([
@@ -85,8 +85,8 @@ class EvtSessionCtrl extends Controller
         $coverImage = $session->first()->cover;
         if ($req->hasFile('cover')) {
             Storage::delete('public/session_covers/' . explode('/', $coverImage)[3]);
-            $coverImage = pathinfo($req->file('cover')->getClientOriginalName(), PATHINFO_FILENAME);
-            $coverImage .= '_' . time() . '.' . $req->file('cover')->getClientOriginalExtension();
+            // $coverImage = pathinfo($req->file('cover')->getClientOriginalName(), PATHINFO_FILENAME);
+            $coverImage = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('cover')->getClientOriginalExtension();
             $req->file('cover')->storeAs('public/session_covers', $coverImage);
             $coverImage = '/storage/session_covers/' . $coverImage;
         }

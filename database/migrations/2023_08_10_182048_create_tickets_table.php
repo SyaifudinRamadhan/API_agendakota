@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignUuid('event_id')->references('id')->on('events')->onDelete('cascade')->onUpdate('cascade');
             $table->string('name');
             $table->string('cover')->default('/storage/ticket_covers/default.png');
-            $table->string('desc');
+            $table->text('desc');
             $table->integer('type_price');
             $table->integer('price');
             $table->integer('quantity');

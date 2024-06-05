@@ -50,8 +50,8 @@ class Authenticate extends Controller
         // create uniq filename
         $namePhoto = '/storage/avatars/default.png';
         if ($req->hasFile('photo')) {
-            $originName = pathinfo($req->file('photo')->getClientOriginalName(), PATHINFO_FILENAME);
-            $namePhoto = $originName . '_' . time() . '.' . $req->file('photo')->getClientOriginalExtension();
+            // $originName = pathinfo($req->file('photo')->getClientOriginalName(), PATHINFO_FILENAME);
+            $namePhoto = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('photo')->getClientOriginalExtension();
 
             // save image data
             $req->file('photo')->storeAs('public/avatars', $namePhoto);

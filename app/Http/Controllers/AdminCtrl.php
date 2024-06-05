@@ -40,8 +40,8 @@ class AdminCtrl extends Controller
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
-        $fileName = pathinfo($req->file('photo')->getClientOriginalName(), PATHINFO_FILENAME);
-        $fileName = $fileName . '_' . time() . '.' . $req->file('photo')->getClientOriginalExtension();
+        // $fileName = pathinfo($req->file('photo')->getClientOriginalName(), PATHINFO_FILENAME);
+        $fileName = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('photo')->getClientOriginalExtension();
         $req->file('photo')->storeAs('public/categories_images', $fileName);
         $fileName = '/storage/categories_images/' . $fileName;
         $category = Category::create([
@@ -223,8 +223,8 @@ class AdminCtrl extends Controller
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
-        $fileName = pathinfo($req->file('photo')->getClientOriginalName(), PATHINFO_FILENAME);
-        $fileName = $fileName . '_' . time() . '.' . $req->file('photo')->getClientOriginalExtension();
+        // $fileName = pathinfo($req->file('photo')->getClientOriginalName(), PATHINFO_FILENAME);
+        $fileName = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('photo')->getClientOriginalExtension();
         $req->file('photo')->storeAs('public/city_images', $fileName);
         $fileName = '/storage/city_images/' . $fileName;
         $city = City::create([
@@ -321,8 +321,8 @@ class AdminCtrl extends Controller
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
-        $fileName = pathinfo($req->file('banner')->getClientOriginalName(), PATHINFO_FILENAME);
-        $fileName = $fileName . '_' . time() . '.' . $req->file('banner')->getClientOriginalExtension();
+        // $fileName = pathinfo($req->file('banner')->getClientOriginalName(), PATHINFO_FILENAME);
+        $fileName = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('banner')->getClientOriginalExtension();
         $req->file('banner')->storeAs('public/banner_images', $fileName);
         $fileName = '/storage/banner_images/' . $fileName;
         $banner = FrontBanner::create([
@@ -418,8 +418,8 @@ class AdminCtrl extends Controller
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
-        $nameBanner = pathinfo($req->file('banner')->getClientOriginalName(), PATHINFO_FILENAME);
-        $nameBanner .= '_' . time() . '.' . $req->file('banner')->getClientOriginalExtension();
+        // $nameBanner = pathinfo($req->file('banner')->getClientOriginalName(), PATHINFO_FILENAME);
+        $nameBanner = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('banner')->getClientOriginalExtension();
         $req->file('banner')->storeAs('public/spotlight_banners', $nameBanner);
         $nameBanner = '/storage/spotlight_banners/' . $nameBanner;
         if ($req->view) {
@@ -450,8 +450,8 @@ class AdminCtrl extends Controller
         }
         $nameBanner = $spotlight->first()->banner;
         if ($req->hasFile('banner')) {
-            $nameBanner = pathinfo($req->file('banner')->getClientOriginalName(), PATHINFO_FILENAME);
-            $nameBanner .= '_' . time() . '.' . $req->file('banner')->getClientOriginalExtension();
+            // $nameBanner = pathinfo($req->file('banner')->getClientOriginalName(), PATHINFO_FILENAME);
+            $nameBanner = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('banner')->getClientOriginalExtension();
             $req->file('banner')->storeAs('public/spotlight_banners', $nameBanner);
             $nameBanner = '/storage/spotlight_banners/' . $nameBanner;
             Storage::delete('public/spotlight_banners/' . explode('/', $spotlight->first()->banner)[3]);

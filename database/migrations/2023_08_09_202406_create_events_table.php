@@ -20,7 +20,7 @@ return new class extends Migration
             $table->string('topics');
             $table->string('logo');
             $table->text('desc');
-            $table->string('snk');
+            $table->text('snk');
             $table->string('exe_type');
             $table->text('location');
             $table->string('province');
