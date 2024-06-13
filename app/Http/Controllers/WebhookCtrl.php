@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\OrganizerTicketNotiffication;
 use App\Models\DailyTicket;
 use App\Models\DisburstmentRefund;
 use App\Models\DisburstmentWd;
@@ -16,6 +17,7 @@ use App\Models\Ticket;
 use App\Models\Withdraw;
 use DateTime;
 use DateTimeZone;
+use Illuminate\Support\Facades\Mail;
 
 class WebhookCtrl extends Controller
 {
@@ -56,9 +58,14 @@ class WebhookCtrl extends Controller
             //         "pay_state" => "SUCCEEDED"
             //     ]);
             // }
-            Payment::where('token_trx', $req->id)->update([
+            $payment = Payment::where('token_trx', $req->id);
+            $payment->update([
                 "pay_state" => "SUCCEEDED"
             ]);
+            $payment = $payment->first();
+            if($payment){
+                Mail::to($payment->user()->first()->email)->send(new OrganizerTicketNotiffication($payment->id));
+            }
         } else {
             // $pkgPay = PkgPayment::where('order_id', $req->data["reference_id"]);
             // if(!$pkgPay->first()){
@@ -72,9 +79,14 @@ class WebhookCtrl extends Controller
             // }
             // Log::info($req->data);
             if ($req->data["status"] == 'SUCCEEDED') {
-                Payment::where('order_id', $req->data['reference_id'])->update([
+                $payment = Payment::where('order_id', $req->data['reference_id']);
+                $payment->update([
                     "pay_state" => $req->data["status"]
                 ]);
+                $payment = $payment->first();
+                if($payment){
+                    Mail::to($payment->user()->first()->email)->send(new OrganizerTicketNotiffication($payment->id));
+                }
             } else {
                 if ($req->event == 'ewallet.capture' && ($req->data["status"] == "FAILED" || $req->data["status"] == "VOIDED")) {
                     $this->removePayment($req->data["reference_id"]);

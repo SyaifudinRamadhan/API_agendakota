@@ -1,6 +1,8 @@
 <?php
 
+use App\Mail\OrganizerTicketNotiffication;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -13,7 +15,9 @@ use Illuminate\Support\Facades\Route;
 | be assigned to the "api" middleware group. Make something great!
 |
 */
-
+// Route::get('/test-mail', function(){
+//     Mail::to('syaifudinramadhan@gmail.com')->send(new OrganizerTicketNotiffication('9beba6ae-0891-4266-8de3-132227346e3b'));
+// });
 // Route::get('/download-ticket', [\App\Http\Controllers\PchCtrl::class, 'downloadTicket']);
 Route::get('/verify/{subId}', [\App\Http\Controllers\Authenticate::class, 'verify'])->name('verify');
 Route::get('/verify/{subId}/auto/{redirect}', [\App\Http\Controllers\Authenticate::class, 'verify'])->name('verifyAndRedirect');
