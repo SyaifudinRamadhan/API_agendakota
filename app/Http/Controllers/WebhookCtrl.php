@@ -64,7 +64,7 @@ class WebhookCtrl extends Controller
             ]);
             $payment = $payment->first();
             if($payment){
-                Mail::to($payment->user()->first()->email)->send(new OrganizerTicketNotiffication($payment->id));
+                Mail::to($payment->purchases()->get()[0]->ticket()->first()->event()->first()->org()->first()->user()->first()->email)->send(new OrganizerTicketNotiffication($payment->id));
             }
         } else {
             // $pkgPay = PkgPayment::where('order_id', $req->data["reference_id"]);
@@ -85,7 +85,7 @@ class WebhookCtrl extends Controller
                 ]);
                 $payment = $payment->first();
                 if($payment){
-                    Mail::to($payment->user()->first()->email)->send(new OrganizerTicketNotiffication($payment->id));
+                    Mail::to($payment->purchases()->get()[0]->ticket()->first()->event()->first()->org()->first()->user()->first()->email)->send(new OrganizerTicketNotiffication($payment->id));
                 }
             } else {
                 if ($req->event == 'ewallet.capture' && ($req->data["status"] == "FAILED" || $req->data["status"] == "VOIDED")) {
