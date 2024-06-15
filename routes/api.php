@@ -23,7 +23,7 @@ use Illuminate\Support\Facades\Route;
 Route::get('/verify/{subId}', [\App\Http\Controllers\Authenticate::class, 'verify'])->name('verify');
 Route::get('/verify/{subId}/auto/{redirect}', [\App\Http\Controllers\Authenticate::class, 'verify'])->name('verifyAndRedirect');
 Route::get('/verify-invite/{token}', [\App\Http\Controllers\OrgCtrl::class, 'acceptInviteTeam'])->name('accept-invite');
-Route::post('/webhook-payment', [\App\Http\Controllers\WebhookCtrl::class, 'handleWebhookRedirect'])->name('pkg.payment.redirect');
+Route::patch('/webhook-payment', [\App\Http\Controllers\WebhookCtrl::class, 'handleWebhookRedirect'])->name('pkg.payment.redirect');
 Route::post('/webhook-refund-data', [\App\Http\Controllers\WebhookCtrl::class, 'receiveValidationRefund']);
 Route::middleware('apiToken')->prefix('/')->group(function () {
     // Register route
