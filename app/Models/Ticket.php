@@ -43,6 +43,11 @@ class Ticket extends Model
     //     return $this->hasMany(Voucher::class, 'ticket_id');
     // }
 
+    public function secretInfo(): HasOne
+    {
+        return $this->hasOne(SecretInfoTicket::class, 'ticket_id');
+    }
+
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class, 'event_id');

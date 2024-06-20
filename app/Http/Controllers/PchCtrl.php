@@ -916,6 +916,7 @@ class PchCtrl extends Controller
         }
         return response()->json(
             [
+                "local_pay_id" => $payment->id,
                 "payment" => $paymentXendit["payment"],
                 "purchases" => $purchases
             ],
@@ -1481,13 +1482,15 @@ class PchCtrl extends Controller
             $payData = $purchase->payment()->first();
             $payData->user = $user;
         }
+        $ticket = $purchase->ticket()->first();
         return response()->json(
             [
                 "purchase" => $purchase,
+                'secret_info' => $ticket->secretInfo()->first(),
                 "payment" => $payData,
                 "qr_str" => $purchase->id . "*~^|-|^~*" . $user->id,
-                "ticket" => $purchase->ticket()->first(),
-                "event" => $purchase->ticket()->first()->event()->first(),
+                "ticket" => $ticket,
+                "event" => $ticket->event()->first(),
                 "visit_date" => $purchase->visitDate()->first(),
                 "seat_number" => $purchase->seatNumber()->first()
             ],
@@ -1509,6 +1512,7 @@ class PchCtrl extends Controller
             $purchases = $payData->purchases()->where('user_id', $user->id)->get();
             foreach ($purchases as $purchase) {
                 $purchase->ticket = $purchase->ticket()->first();
+                $purchase->secret_info = $purchase->ticket->secretInfo()->first();
                 if ($purchase->ticket->quantity == -1) {
                     $purchase->ticket->quantity = $purchase->ticket->limitDaily()->first()->limit_quantity;
                 }
