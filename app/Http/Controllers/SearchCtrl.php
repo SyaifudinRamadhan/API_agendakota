@@ -41,7 +41,7 @@ class SearchCtrl extends Controller
             }
             
             $events[$i]->org = $events[$i]->org()->first();
-            if($events[$i]->org){
+            if($events[$i]->org && $events[$i]->deleted === 0){
                 $events[$i]->available_days = $events[$i]->availableDays()->get();
                 $events[$i]->org->legality = $events[$i]->org->credibilityData()->first();
                 $events[$i]->tickets = $events[$i]->tickets()->orderBy('price', 'ASC')->get();
