@@ -1300,27 +1300,32 @@ class AdminCtrl extends Controller
 
     public function events(Request $req) {
         $events = Event::where('is_publish', '<', 3)->get();
+        $fixEvents = [];
         for ($i = 0; $i < count($events); $i++) {
-            $selectedIndex = $i;
-            $selectedValue = $this->countPurchases($events[$selectedIndex]);
-            for ($j = $i + 1; $j < count($events); $j++) {
-                $toCompare = $this->countPurchases($events[$j]);
-                if ($selectedValue < $toCompare) {
-                    $selectedValue = $toCompare;
-                    $selectedIndex = $j;
+            $org = $events[$i]->org()->first();
+            if($org){
+                $selectedIndex = $i;
+                $selectedValue = $this->countPurchases($events[$selectedIndex]);
+                for ($j = $i + 1; $j < count($events); $j++) {
+                    $toCompare = $this->countPurchases($events[$j]);
+                    if ($selectedValue < $toCompare) {
+                        $selectedValue = $toCompare;
+                        $selectedIndex = $j;
+                    }
                 }
+                if ($selectedIndex != $i) {
+                    $tmp = $events[$i];
+                    $events[$i] = $events[$selectedIndex];
+                    $events[$selectedIndex] = $tmp;
+                    $tmp = null;
+                }
+                $events[$i]->available_days = $events[$i]->availableDays()->get();
+                $events[$i]->org = $org;
+                $events[$i]->org->legality = $events[$i]->org->credibilityData()->first();
+                $events[$i]->tickets = $events[$i]->tickets()->orderBy('price', 'ASC')->get();
+                array_push($fixEvents, $events[$i]);
             }
-            if ($selectedIndex != $i) {
-                $tmp = $events[$i];
-                $events[$i] = $events[$selectedIndex];
-                $events[$selectedIndex] = $tmp;
-                $tmp = null;
-            }
-            $events[$i]->available_days = $events[$i]->availableDays()->get();
-            $events[$i]->org = $events[$i]->org()->first();
-            $events[$i]->org->legality = $events[$i]->org->credibilityData()->first();
-            $events[$i]->tickets = $events[$i]->tickets()->orderBy('price', 'ASC')->get();
         }
-        return response()->json(["events" => $events], 200);
+        return response()->json(["events" => $fixEvents], 200);
     }
 }
