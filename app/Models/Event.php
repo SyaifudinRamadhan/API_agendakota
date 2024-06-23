@@ -45,7 +45,7 @@ class Event extends Model
 
     public function org(): BelongsTo
     {
-        return $this->belongsTo(Organization::class, 'org_id')->where('deleted', 0);
+        return $this->belongsTo(Organization::class, 'org_id');
     }
 
     public function sessions(): HasMany

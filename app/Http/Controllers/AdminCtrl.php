@@ -584,11 +584,14 @@ class AdminCtrl extends Controller
         $eventsTargets = $spotlight->events()->get();
         $events = [];
         foreach ($eventsTargets as $key => $evtTraget) {
-            $events[] = $evtTraget->event()->first();
-            $events[$key]->id_data = $evtTraget->id;
-            $events[$key]->available_days = $events[$key]->availableDays()->get();
-            $events[$key]->org = $events[$key]->org()->first();
-            $events[$key]->tickets = $events[$key]->tickets()->orderBy('price', 'ASC')->get();
+            $event = $evtTraget->event()->first();
+            if($event->deleted === 0){
+                $events[] = $event;
+                $events[$key]->id_data = $evtTraget->id;
+                $events[$key]->available_days = $events[$key]->availableDays()->get();
+                $events[$key]->org = $events[$key]->org()->first();
+                $events[$key]->tickets = $events[$key]->tickets()->orderBy('price', 'ASC')->get();
+            }
         }
         return ["data" => $spotlight, "events" => $events, "status" => 200];
     }
@@ -755,11 +758,14 @@ class AdminCtrl extends Controller
         }
         $events = [];
         foreach ($spcDayEvent->events()->get() as $key => $spcDayEvt) {
-            $events[] = $spcDayEvt->event()->first();
-            $events[$key]->id_data = $spcDayEvt->id;
-            $events[$key]->available_days = $events[$key]->availableDays()->get();
-            $events[$key]->org = $events[$key]->org()->first();
-            $events[$key]->tickets = $events[$key]->tickets()->orderBy('price', 'ASC')->get();
+            $event = $spcDayEvt->event()->first();
+            if($event->deleted === 0){
+                $events[] = $event;
+                $events[$key]->id_data = $spcDayEvt->id;
+                $events[$key]->available_days = $events[$key]->availableDays()->get();
+                $events[$key]->org = $events[$key]->org()->first();
+                $events[$key]->tickets = $events[$key]->tickets()->orderBy('price', 'ASC')->get();
+            }
         }
         return ["data" => $spcDayEvent, "events" => $events, "status" => 200];
     }
@@ -931,11 +937,14 @@ class AdminCtrl extends Controller
         }
         $events = [];
         foreach ($slcEvent->events()->get() as $key => $slcDayEvtData) {
-            $events[] = $slcDayEvtData->event()->first();
-            $events[$key]->id_data = $slcDayEvtData->id;
-            $events[$key]->available_days = $events[$key]->availableDays()->get();
-            $events[$key]->org = $events[$key]->org()->first();
-            $events[$key]->tickets = $events[$key]->tickets()->orderBy('price', 'ASC')->get();
+            $event = $slcDayEvtData->event()->first();
+            if($event->deleted === 0){
+                $events[] = $event;
+                $events[$key]->id_data = $slcDayEvtData->id;
+                $events[$key]->available_days = $events[$key]->availableDays()->get();
+                $events[$key]->org = $events[$key]->org()->first();
+                $events[$key]->tickets = $events[$key]->tickets()->orderBy('price', 'ASC')->get();
+            }
         }
         return ["data" => $slcEvent, "events" => $events, "status" => 200];
     }
@@ -1107,11 +1116,14 @@ class AdminCtrl extends Controller
         }
         $events = [];
         foreach ($slcActivity->events()->get() as $key => $slcActivityEventData) {
-            $events[] = $slcActivityEventData->event()->first();
-            $events[$key]->id_data = $slcActivityEventData->id;
-            $events[$key]->available_days = $events[$key]->availableDays()->get();
-            $events[$key]->org = $events[$key]->org()->first();
-            $events[$key]->tickets = $events[$key]->tickets()->orderBy('price', 'ASC')->get();
+            $event = $slcActivityEventData->event()->first();
+            if($event->deleted === 0){
+                $events[] = $event;
+                $events[$key]->id_data = $slcActivityEventData->id;
+                $events[$key]->available_days = $events[$key]->availableDays()->get();
+                $events[$key]->org = $events[$key]->org()->first();
+                $events[$key]->tickets = $events[$key]->tickets()->orderBy('price', 'ASC')->get();
+            }
         }
         return ["data" => $slcActivity, "events" => $events, "status" => 200];
     }

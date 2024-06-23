@@ -42,6 +42,11 @@ class Organization extends Model
         return $this->hasMany(Event::class, 'org_id')->where('deleted', 0);
     }
 
+    public function eventsNoFilter(): HasMany
+    {
+        return $this->hasMany(Event::class, 'org_id');
+    }
+
     public function withdrawals(): HasMany
     {
         return $this->hasMany(Withdraw::class, 'org_id');

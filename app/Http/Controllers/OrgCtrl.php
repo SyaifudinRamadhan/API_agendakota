@@ -180,37 +180,46 @@ class OrgCtrl extends Controller
         }
         $fixPurchaseActiveEvent = 0;
         $fixPurchaseInActiveEvent = 0;
-        foreach ($orgObj->first()->events()->get() as $event) {
+        foreach ($orgObj->first()->eventsNoFilter()->get() as $event) {
             foreach ($event->tickets()->get() as $ticket) {
                 foreach ($ticket->purchases()->get() as $purchase) {
-                    if (new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta')) && $event->deleted == 0) {
-                        // if(($event->is_publish == 1 || $event->is_publish == 2) && ($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED')){
-                        $fixPurchaseActiveEvent += 1;
-                        break;
-                    } else if ($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED') {
+                    // if (new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta')) && $event->deleted == 0) {
+                    //     // if(($event->is_publish == 1 || $event->is_publish == 2) && ($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED')){
+                    //     $fixPurchaseActiveEvent += 1;
+                    //     break;
+                    // } else if ($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED') {
+                    //     $fixPurchaseInActiveEvent += 1;
+                    // }
+                    if ($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED') {
                         $fixPurchaseInActiveEvent += 1;
                     }
                 }
-                if ($fixPurchaseActiveEvent > 0) {
+                // if ($fixPurchaseActiveEvent > 0) {
+                //     break;
+                // }
+                if ($fixPurchaseInActiveEvent > 0) {
                     break;
                 }
             }
-            if ($fixPurchaseActiveEvent > 0) {
+            // if ($fixPurchaseActiveEvent > 0) {
+            //     break;
+            // }
+            if ($fixPurchaseInActiveEvent > 0) {
                 break;
             }
         }
-        if ($fixPurchaseActiveEvent > 0) {
-            return response()->json(["error" => "You can't remove this organization, because this organization have active events"], 403);
-        }
+        // if ($fixPurchaseActiveEvent > 0) {
+        //     return response()->json(["error" => "You can't remove this organization, because this organization have active events"], 403);
+        // }
         $deleted = null;
         if ($fixPurchaseInActiveEvent > 0) {
             $deleted = $orgObj->update(['deleted' => '1']);
             $orgId = $orgObj->first()->id;
-            foreach ($orgObj->first()->events()->get() as $event){
+            foreach ($orgObj->first()->eventsNoFilter()->get() as $event){
                 $this->partDelete($event->id, $orgId);
             }
         } else {
-            foreach ($orgObj->first()->events()->get() as $event) {
+            foreach ($orgObj->first()->eventsNoFilter()->get() as $event) {
                 Storage::delete('public/event_banners/' . explode('/', $event->logo)[3]);
             }
             if (explode('/', $orgObj->first()->photo)[3] !== "default.png") {
