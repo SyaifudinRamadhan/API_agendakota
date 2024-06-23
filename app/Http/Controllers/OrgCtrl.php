@@ -140,7 +140,7 @@ class OrgCtrl extends Controller
     // Delete organiztion (can access admin only)
     private function partDelete($event_id, $orgId)
     {
-        $eventObj = Event::where('id', $event_id)->where('org_id', $orgId)->where('deleted', 0);
+        $eventObj = Event::where('id', $event_id)->where('org_id', $orgId);
         $fixPurchases = 0;
         foreach ($eventObj->first()->ticketsNonFilter()->get() as $ticket) {
             foreach ($ticket->purchases()->get() as $purchase) {
@@ -181,7 +181,7 @@ class OrgCtrl extends Controller
         $fixPurchaseActiveEvent = 0;
         $fixPurchaseInActiveEvent = 0;
         foreach ($orgObj->first()->eventsNoFilter()->get() as $event) {
-            foreach ($event->tickets()->get() as $ticket) {
+            foreach ($event->ticketsNonFilter()->get() as $ticket) {
                 foreach ($ticket->purchases()->get() as $purchase) {
                     // if (new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta')) && $event->deleted == 0) {
                     //     // if(($event->is_publish == 1 || $event->is_publish == 2) && ($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED')){
