@@ -280,7 +280,7 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
                 Route::put('/update-status-bank', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'updateBankStatus']);
                 Route::post('/event/create', [\App\Http\Controllers\EventCtrl::class, 'create']);
                 Route::put('/event/update', [\App\Http\Controllers\EventCtrl::class, 'update']);
-                Route::delete('/event/delete', [\App\Http\Controllers\EventCtrl::class, 'delete']);
+                Route::delete('/event/delete', [\App\Http\Controllers\EventCtrl::class, 'deleteForAdmin']);
                 Route::put('/event/rollback', [\App\Http\Controllers\EventCtrl::class, 'rollbackEvent']);
                 Route::prefix('/event/{eventId}/manage')->group(function () {
                     Route::middleware('eventData')->group(function () {

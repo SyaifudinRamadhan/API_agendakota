@@ -872,7 +872,7 @@ class EventCtrl extends Controller
         return response()->json($data, 200);
     }
 
-    public function delete(Request $req, $orgId)
+    public function mainDelete(Request $req, $orgId, $forAdmin=false)
     {
         $eventObj = Event::where('id', $req->event_id)->where('org_id', $orgId)->where('deleted', 0);
         if (!$eventObj->first()) {
@@ -896,7 +896,7 @@ class EventCtrl extends Controller
             $deleted = $eventObj->delete();
         } else {
             if ((new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($eventObj->first()->end_date . ' ' . $eventObj->first()->end_time, new DateTimeZone('Asia/Jakarta'))) &&
-                ($eventObj->first()->category != 'Attraction' && $eventObj->first()->category != 'Daily Activities' && $eventObj->first()->category != 'Tour Travel (recurring)')
+                ($eventObj->first()->category != 'Attraction' && $eventObj->first()->category != 'Daily Activities' && $eventObj->first()->category != 'Tour Travel (recurring)') && !$forAdmin
             ) {
                 // if($eventObj->first()->is_publish == 1 || $eventObj->first()->is_publish == 2){
                 return response()->json(["error" => "Operation not allowed to your event. Your event still active"], 402);
@@ -905,6 +905,14 @@ class EventCtrl extends Controller
             $deleted = $eventObj->update(['deleted' => 1]);
         }
         return response()->json(["deleted" => $deleted], 202);
+    }
+
+    public function delete(Request $req, $orgId){
+        return $this->mainDelete($req, $orgId);
+    }
+
+    public function deleteForAdmin(Request $req, $orgId){
+        return $this->mainDelete( $req, $orgId, true);
     }
 
     public function setPublishState(Request $req, $orgId)
