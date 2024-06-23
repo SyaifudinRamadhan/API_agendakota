@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use App\Models\Organization;
 use App\Models\User;
 use App\Models\Team;
+use App\Models\Event;
+use App\Models\Ticket;
 use App\Mail\InviteTeam;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -136,6 +138,30 @@ class OrgCtrl extends Controller
     }
 
     // Delete organiztion (can access admin only)
+    private function partDelete($event_id, $orgId)
+    {
+        $eventObj = Event::where('id', $event_id)->where('org_id', $orgId)->where('deleted', 0);
+        $fixPurchases = 0;
+        foreach ($eventObj->first()->ticketsNonFilter()->get() as $ticket) {
+            foreach ($ticket->purchases()->get() as $purchase) {
+                if ($purchase->amount == 0 || $purchase->payment()->first()->pay_state != 'EXPIRED') {
+                    $fixPurchases += 1;
+                    break;
+                }
+            }
+            if ($fixPurchases > 0) {
+                break;
+            }
+        }
+        if ($fixPurchases == 0) {
+            Storage::delete('public/event_banners/' . explode('/', $eventObj->first()->logo)[3]);
+            $eventObj->delete();
+        } else {
+            Ticket::where('event_id', $eventObj->first()->id)->update(["deleted" => 1]);
+            $eventObj->update(['deleted' => 1]);
+        }
+    }
+
     public function delete(Request $req, $isAdmin = null)
     {
         $validator = Validator::make($req->all(), ["org_id" => 'required']);
@@ -179,6 +205,10 @@ class OrgCtrl extends Controller
         $deleted = null;
         if ($fixPurchaseInActiveEvent > 0) {
             $deleted = $orgObj->update(['deleted' => '1']);
+            $orgId = $orgObj->first()->id;
+            foreach ($orgObj->first()->events()->get() as $event){
+                $this->partDelete($event->id, $orgId);
+            }
         } else {
             foreach ($orgObj->first()->events()->get() as $event) {
                 Storage::delete('public/event_banners/' . explode('/', $event->logo)[3]);
