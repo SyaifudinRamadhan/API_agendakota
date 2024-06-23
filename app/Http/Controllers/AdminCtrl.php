@@ -1314,8 +1314,6 @@ class AdminCtrl extends Controller
         $events = Event::where('is_publish', '<', 3)->get();
         $fixEvents = [];
         for ($i = 0; $i < count($events); $i++) {
-            $org = $events[$i]->org()->first();
-            if($org){
                 $selectedIndex = $i;
                 $selectedValue = $this->countPurchases($events[$selectedIndex]);
                 for ($j = $i + 1; $j < count($events); $j++) {
@@ -1331,12 +1329,14 @@ class AdminCtrl extends Controller
                     $events[$selectedIndex] = $tmp;
                     $tmp = null;
                 }
-                $events[$i]->available_days = $events[$i]->availableDays()->get();
-                $events[$i]->org = $org;
-                $events[$i]->org->legality = $events[$i]->org->credibilityData()->first();
-                $events[$i]->tickets = $events[$i]->tickets()->orderBy('price', 'ASC')->get();
-                array_push($fixEvents, $events[$i]);
-            }
+                
+                $events[$i]->org = $events[$i]->org()->first();
+                if($events[$i]->org){
+                    $events[$i]->available_days = $events[$i]->availableDays()->get();
+                    $events[$i]->org->legality = $events[$i]->org->credibilityData()->first();
+                    $events[$i]->tickets = $events[$i]->tickets()->orderBy('price', 'ASC')->get();
+                    array_push($fixEvents, $events[$i]);
+                }
         }
         return response()->json(["events" => $fixEvents], 200);
     }

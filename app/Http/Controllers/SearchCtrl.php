@@ -24,25 +24,25 @@ class SearchCtrl extends Controller
     {
         $fixEvents = [];
         for ($i = 0; $i < count($events); $i++) {
-            $org = $events[$i]->org()->first();
-            if($org){
-                $selectedIndex = $i;
-                $selectedValue = $this->countPurchases($events[$selectedIndex]);
-                for ($j = $i + 1; $j < count($events); $j++) {
-                    $toCompare = $this->countPurchases($events[$j]);
-                    if ($selectedValue < $toCompare) {
-                        $selectedValue = $toCompare;
-                        $selectedIndex = $j;
-                    }
+            $selectedIndex = $i;
+            $selectedValue = $this->countPurchases($events[$selectedIndex]);
+            for ($j = $i + 1; $j < count($events); $j++) {
+                $toCompare = $this->countPurchases($events[$j]);
+                if ($selectedValue < $toCompare) {
+                    $selectedValue = $toCompare;
+                    $selectedIndex = $j;
                 }
-                if ($selectedIndex != $i) {
-                    $tmp = $events[$i];
-                    $events[$i] = $events[$selectedIndex];
-                    $events[$selectedIndex] = $tmp;
-                    $tmp = null;
-                }
+            }
+            if ($selectedIndex != $i) {
+                $tmp = $events[$i];
+                $events[$i] = $events[$selectedIndex];
+                $events[$selectedIndex] = $tmp;
+                $tmp = null;
+            }
+            
+            $events[$i]->org = $events[$i]->org()->first();
+            if($events[$i]->org){
                 $events[$i]->available_days = $events[$i]->availableDays()->get();
-                $events[$i]->org = $org;
                 $events[$i]->org->legality = $events[$i]->org->credibilityData()->first();
                 $events[$i]->tickets = $events[$i]->tickets()->orderBy('price', 'ASC')->get();
                 array_push($fixEvents, $events[$i]);
