@@ -62,6 +62,7 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
     Route::get('/pop-city-events', [\App\Http\Controllers\SearchCtrl::class, 'popularCityEvents']);
     Route::get('/search', [\App\Http\Controllers\SearchCtrl::class, 'searchEvents']);
     Route::get('/get-banks-code', [\App\Http\Controllers\WithdrawCtrl::class, 'getBanksCode']);
+    Route::get('/commision-price', [\App\Http\Controllers\AdminCtrl::class, 'getProfitSetting']);
     // ================= Route for test only ================
     // Route::post('/create-trx-pkg/{eventId}', [\App\Http\Controllers\PkgPayCtrl::class, 'createTrxEd']);
     // Route::get('/get-trx-pkg', [\App\Http\Controllers\PkgPayCtrl::class, 'getTrx']);
@@ -254,6 +255,12 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
             Route::get('/selected-activities', [\App\Http\Controllers\AdminCtrl::class, 'listSlctActivities']);
 
             // Primary admin route
+            Route::put('/commision-price/update', [\App\Http\Controllers\AdminCtrl::class, 'udpdateProfitSetting']);
+            Route::get('/refund-setting', [\App\Http\Controllers\AdminCtrl::class, 'refundSettings']);
+            Route::post('/refund-setting/create', [\App\Http\Controllers\AdminCtrl::class, 'createRefundSetting']);
+            Route::put('/refund-setting/update', [\App\Http\Controllers\AdminCtrl::class, 'updateRefundSetting']);
+            Route::delete('/refund-setting/delete', [\App\Http\Controllers\AdminCtrl::class, 'deleteRefundSetting']);
+            Route::get('/refund-ticket-manager', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'refundTicketManager']);
             Route::put('/user/update', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'updateProfileUser']);
             Route::put('/user/update-password', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'updatePasswordUser']);
             Route::get('/user/profile', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'userDetail']);
@@ -293,6 +300,7 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
                         Route::post('/ticket/create', [\App\Http\Controllers\TicketCtrl::class, 'create']);
                         Route::put('/ticket/update', [\App\Http\Controllers\TicketCtrl::class, 'update']);
                         Route::delete('/ticket/delete', [\App\Http\Controllers\TicketCtrl::class, 'delete']);
+                        Route::put('/ticket/rollback', [\App\Http\Controllers\TicketCtrl::class, 'rollbackTicket']);
                         Route::middleware('eventSessionData')->group(function () {
                             Route::put('/session/update', [\App\Http\Controllers\EvtSessionCtrl::class, 'update']);
                             Route::delete('/session/delete', [\App\Http\Controllers\EvtSessionCtrl::class, 'delete']);

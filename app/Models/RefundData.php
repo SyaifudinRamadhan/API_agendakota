@@ -22,9 +22,11 @@ class RefundData extends Model
         'phone_number',
         'percentage',
         'nominal',
+        'basic_nominal',
         'finish',
         'approve_org',
-        'approve_admin'
+        'approve_admin',
+        'mode'
     ];
 
     public function purchase(): BelongsTo

@@ -24,9 +24,11 @@ return new class extends Migration
             $table->text('message');
             $table->float('percentage')->default(100.0);
             $table->integer('nominal');
+            $table->integer('basic_nominal');
             $table->boolean('approve_org')->default(false);
             $table->boolean('approve_admin')->default(false);
             $table->boolean('finish')->default(false);
+            $table->string('mode')->default('auto');
             $table->timestamps();
         });
     }

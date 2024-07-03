@@ -359,21 +359,24 @@ class TicketCtrl extends Controller
         if (!$ticket->first()) {
             return response()->json(["error" => "Ticket data not found"], 404);
         }
+        $seatMap = $ticket->first()->seat_map;
         if (count($ticket->first()->purchases()->get()) <= 0) {
+            if ($seatMap != null || $seatMap != '') {
+                Storage::delete('public/seat_map_details/' . explode('/', $seatMap)[3]);
+            }
             $deleted = $ticket->delete();
         } else {
+            $isAdmin = $req->user ? $req->user->admin()->first() : null;
             if (
                 $ticket->first()->type_price == 1 &&
                 (new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($req->event->end_date . ' ' . $req->event->end_time, new DateTimeZone('Asia/Jakarta'))) &&
-                ($req->event->category != 'Attraction' && $req->event->category != 'Daily Activities' && $req->event->category != 'Tour Travel (recurring)')
+                ($req->event->category != 'Attraction' && $req->event->category != 'Daily Activities' && $req->event->category != 'Tour Travel (recurring)') &&
+                !$isAdmin
             ) {
                 return response()->json(["error" => "You can't remove this ticket. Because your event are in progress and this ticket have linked with selled active tickets"], 403);
             }
-            $seatMap = $ticket->first()->seat_map;
+            
             if ($ticket->first()->type_price == 1) {
-                if ($seatMap != null || $seatMap != '') {
-                    Storage::delete('public/seat_map_details/' . explode('/', $seatMap)[3]);
-                }
                 $deleted = $ticket->update(["deleted" => 1]);
             } else {
                 $fixPurchases = 0;
@@ -386,21 +389,36 @@ class TicketCtrl extends Controller
                 if (
                     $fixPurchases > 0 &&
                     (new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($req->event->end_date . ' ' . $req->event->end_time, new DateTimeZone('Asia/Jakarta'))) &&
-                    ($req->event->category != 'Attraction' && $req->event->category != 'Daily Activities' && $req->event->category != 'Tour Travel (recurring)')
+                    ($req->event->category != 'Attraction' && $req->event->category != 'Daily Activities' && $req->event->category != 'Tour Travel (recurring)') &&
+                    !$isAdmin
                 ) {
                     return response()->json(["error" => "You can't remove this ticket. Because your event are in progress and this ticket have linked with selled active tickets"], 403);
                 }
-                if ($seatMap != null || $seatMap != '') {
-                    Storage::delete('public/seat_map_details/' . explode('/', $seatMap)[3]);
-                }
+                
                 if ($fixPurchases > 0) {
                     $deleted = $ticket->update(["deleted" => 1]);
                 } else {
+                    if ($seatMap != null || $seatMap != '') {
+                        Storage::delete('public/seat_map_details/' . explode('/', $seatMap)[3]);
+                    }
                     $deleted = $ticket->delete();
                 }
             }
         }
         return response()->json(["deleted" => $deleted], 202);
+    }
+
+    public function rollbackTicket(Request $req) {
+        $isAdmin = $req->user ? $req->user->admin()->first() : null;
+        if(!$isAdmin){
+            return response()->json(["error" => "Action not allowed for another admin"], 403);
+        }
+        $ticket = Ticket::where('id', $req->ticket_id);
+        if(!$ticket->first()){
+            return response()->json(["error" => "Ticket not found !"], 404);    
+        }
+        $ticket->update(["deleted" => 0]);
+        return response()->json(["message" => "Rollback ticket success"], 202);
     }
 
     public function get(Request $req)

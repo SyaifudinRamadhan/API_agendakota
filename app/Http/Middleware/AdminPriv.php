@@ -22,6 +22,8 @@ class AdminPriv
         if (!$user->admin()->first()) {
             return response()->json(["error" => "You are not an admin of this system"], 403);
         }
+        $request->admin = true;
+        $request->user = $user;
         if ($request->route()->parameter('orgId')) {
             $org = Organization::where('id', $request->route()->parameter('orgId'))->first();
             if (!$org) {

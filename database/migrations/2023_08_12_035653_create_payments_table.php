@@ -18,6 +18,8 @@ return new class extends Migration
             $table->string('pay_state');
             $table->string('order_id');
             $table->string('price');
+            $table->integer('admin_fee');
+            $table->integer('platform_fee');
             $table->string('code_method')->nullable();
             $table->string('virtual_acc')->nullable();
             $table->string('qr_str')->nullable();

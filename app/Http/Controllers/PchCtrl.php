@@ -17,6 +17,8 @@ use App\Models\Ticket;
 use App\Models\ReservedSeat;
 use App\Models\Voucher;
 use App\Models\DisburstmentRefund;
+use App\Models\ProfitSetting;
+use App\Models\RefundSetting;
 use App\Models\User;
 use Xendit\Xendit;
 use DateTime;
@@ -28,7 +30,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 
 class PchCtrl extends Controller
 {
-    private function setTrxEWallet($payId, $code_method, $amount, $mobileNumber = null, $cashtag = null)
+    private function setTrxEWallet($payId, $code_method, $amount, $profitSetting, $mobileNumber = null, $cashtag = null)
     {
         $methods = config('payconfigs.methods');
         if (!$methods["e-wallet"][$code_method]) {
@@ -36,6 +38,8 @@ class PchCtrl extends Controller
         }
         Xendit::setApiKey(env('XENDIT_API_WRITE'));
         $orderId = uniqid("trx_ewallet", true);
+        $platformFee = $profitSetting->mul_pay_gate_fee * ($methods["e-wallet"][$code_method][2] * $amount);
+        $amount = $amount + $profitSetting->admin_fee_trx + $platformFee;
         $params = [
             'reference_id' => $orderId,
             'currency' => 'IDR',
@@ -80,22 +84,32 @@ class PchCtrl extends Controller
                 'pay_state' => $createEWalletCharge["status"],
                 'order_id' => $orderId,
                 'price' => $amount,
+                'admin_fee' => $profitSetting->admin_fee_trx,
+                'platform_fee' => $platformFee,
                 'code_method' => $code_method,
                 'pay_links' => $createEWalletCharge['actions']['desktop_web_checkout_url'] . '|' . $createEWalletCharge['actions']['mobile_web_checkout_url'] . '|' . $createEWalletCharge['actions']['mobile_deeplink_checkout_url'],
                 'expired' => $now->add(new DateInterval('PT2M'))->format('Y-m-d H:i:s')
             ]
         );
-        return ["payment" => $createEWalletCharge, "status" => 201];
+        return [
+            "payment" => $createEWalletCharge, 
+            "platform" => $platformFee,
+            "total" => $amount, 
+            "status" => 201
+        ];
     }
 
-    private function setTrxQris($payId, $code_method, $amount)
+    private function setTrxQris($payId, $code_method, $amount, $profitSetting,)
     {
-        if (!config('payconfigs.methods')["qris"][$code_method]) {
+        $methods = config('payconfigs.methods')["qris"][$code_method];
+        if (!$methods) {
             return response()->json(["error" => "Payment method not found"], 404);
         }
         $now24 = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         $orderId = uniqid("trx_qris", true);
         $curl = curl_init();
+        $platformFee = $profitSetting->mul_pay_gate_fee * ($methods[2] * $amount);
+        $amount = $amount + $profitSetting->admin_fee_trx + $platformFee;
         curl_setopt_array(
             $curl,
             [
@@ -134,15 +148,21 @@ class PchCtrl extends Controller
                 'pay_state' => "PENDING",
                 'order_id' => $orderId,
                 'price' => $amount,
+                'admin_fee' => $profitSetting->admin_fee_trx,
+                'platform_fee' => $platformFee,
                 'code_method' => $code_method,
                 'expired' => $now24->format('Y-m-d H:i:s'),
                 'qr_str' => $response->qr_string
             ]
         );
-        return ["payment" => $response, "status" => 201];
+        return [
+            "payment" => $response, 
+            "platform" => $platformFee,
+            "total" => $amount,
+            "status" => 201];
     }
 
-    private function setTrxVirAccount($payId, $code_method, $amount)
+    private function setTrxVirAccount($payId, $code_method, $amount, $profitSetting,)
     {
         $methods = config('payconfigs.methods');
         if (!$methods["VA"][$code_method]) {
@@ -152,6 +172,8 @@ class PchCtrl extends Controller
         $now24 = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         $orderId = uniqid("trx_va", true);
         Xendit::setApiKey(env('XENDIT_API_WRITE'));
+        $platformFee = $profitSetting->mul_pay_gate_fee * $methods["VA"][$code_method][2];
+        $amount = $amount + $profitSetting->admin_fee_trx + $platformFee;
         $createVA = \Xendit\VirtualAccounts::create(
             [
                 "external_id" => $orderId,
@@ -175,12 +197,18 @@ class PchCtrl extends Controller
                 'pay_state' => "PENDING",
                 'order_id' => $orderId,
                 'price' => $amount,
+                'admin_fee' => $profitSetting->admin_fee_trx,
+                'platform_fee' => $platformFee,
                 'code_method' => $code_method,
                 'expired' => $now24->format('Y-m-d H:i:s'),
                 'virtual_acc' => $createVA['account_number']
             ]
         );
-        return ["payment" => $createVA, "status" => 201];
+        return [
+            "payment" => $createVA,
+            "platform" => $platformFee,
+            "total" => $amount, 
+            "status" => 201];
     }
 
     public function loadTrxData()
@@ -746,7 +774,10 @@ class PchCtrl extends Controller
         //     "purchases" => $purchases
         // ];
         $totalPay = 0;
+        $netTotal = 0;
+        $taxTotal = 0;
         $purchases = [];
+        $profitSetting = ProfitSetting::first();
         foreach ($ticket_ids as $key => $value) {
             $ticketObj = Ticket::where('id', $key);
             for ($i = 0; $i < $value; $i++) {
@@ -764,13 +795,17 @@ class PchCtrl extends Controller
                 } else {
                     $amount = intval($priceTicket);
                 }
-                $totalPay += $amount;
+                $taxAmount = $amount * $profitSetting->tax_fee;
+                $totalPay += ($amount + $taxAmount);
+                $netTotal += $amount;
+                $taxTotal += $taxAmount;
                 $pch = Purchase::create(
                     [
                         'user_id' => Auth::user()->id,
                         'pay_id' => $payment->id,
                         'ticket_id' => $key,
                         'amount' => $amount,
+                        'tax_amount' => $taxAmount,
                         'code' => $voucherCode,
                         'is_mine' => true
                     ]
@@ -802,8 +837,11 @@ class PchCtrl extends Controller
             );
         }
         return [
+            "netTotal" => $netTotal,
+            "taxTotal" => $taxTotal,
             "totalPay" => $totalPay,
-            "purchases" => $purchases
+            "purchases" => $purchases,
+            "profitSetting" => $profitSetting
         ];
     }
 
@@ -874,13 +912,18 @@ class PchCtrl extends Controller
                 'token_trx' => '-',
                 'pay_state' => 'PENDING',
                 'order_id' => '-',
-                'price' => 0
+                'price' => 0,
+                'admin_fee' => 0,
+                'platform_fee' => 0
             ]
         );
         // return response()->json($this->basicCreateData($req, $ticket_ids, $visitDates, $customPrices, $seatNumbers, $voucher, $payment, $remainingVoucher));
         $mainCreateData = $this->basicCreateData($req, $ticket_ids, $visitDates, $customPrices, $seatNumbers, $voucher, $payment, $remainingVoucher);
         $totalPay = $mainCreateData["totalPay"];
+        $profitSetting = $mainCreateData["profitSetting"];
         $purchases = $mainCreateData["purchases"];
+        $netTotal = $mainCreateData["netTotal"];
+        $taxTotal = $mainCreateData["taxTotal"];
         if ($totalPay < 10000 && $totalPay > 0) {
             $this->rollbackPurchase($ticket_ids, $payment);
             return response()->json(["error" => "Sorry, minimal transaction (for non-free ticket) is IDR Rp. 10.000,-. Please remove the voucher code first"], 403);
@@ -901,13 +944,13 @@ class PchCtrl extends Controller
         } else {
             try {
                 if (intval($req->pay_method) >= 11 && intval($req->pay_method) <= 15) {
-                    $paymentXendit = $this->setTrxEWallet($payment->id, $req->pay_method, $totalPay, $req->mobile_number, $req->cashtag);
+                    $paymentXendit = $this->setTrxEWallet($payment->id, $req->pay_method, $totalPay, $profitSetting, $req->mobile_number, $req->cashtag);
                 } else if (intval($req->pay_method) >= 21 && intval($req->pay_method) <= 22) {
-                    $paymentXendit = $this->setTrxQris($payment->id, $req->pay_method, $totalPay);
+                    $paymentXendit = $this->setTrxQris($payment->id, $req->pay_method, $totalPay, $profitSetting);
                 } else if (intval($req->pay_method) >= 31 && intval($req->pay_method) <= 41) {
-                    $paymentXendit = $this->setTrxVirAccount($payment->id, $req->pay_method, $totalPay);
+                    $paymentXendit = $this->setTrxVirAccount($payment->id, $req->pay_method, $totalPay, $profitSetting);
                 } else {
-                    $paymentXendit = $this->setTrxVirAccount($payment->id, $req->pay_method, $totalPay);
+                    $paymentXendit = $this->setTrxVirAccount($payment->id, $req->pay_method, $totalPay, $profitSetting);
                 }
             } catch (\Throwable $th) {
                 $this->rollbackPurchase($ticket_ids, $payment);
@@ -918,7 +961,12 @@ class PchCtrl extends Controller
             [
                 "local_pay_id" => $payment->id,
                 "payment" => $paymentXendit["payment"],
-                "purchases" => $purchases
+                "purchases" => $purchases,
+                "netTotal" => $netTotal,
+                "taxTotal" => $taxTotal,
+                "adminFeeTrx" => $profitSetting->admin_fee_trx,
+                "platformFee" => array_key_exists("platform", $paymentXendit) ? $paymentXendit["platform"] : 0,
+                "total" => array_key_exists("total", $paymentXendit) ? $paymentXendit["total"] : 0
             ],
             201
         );
@@ -944,7 +992,7 @@ class PchCtrl extends Controller
         }
         $pchVisitDate = $purchase->visitDate()->first();
         $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-        if ($pchVisitDate) {
+        if ($pchVisitDate && $forRefund === false) {
             $visitDate = new DateTime($pchVisitDate->visit_date, new DateTimeZone('Asia/Jakarta'));
             $limitTime = $event->availableDays()->where('day', $visitDate->format('D'))->first();
             $limitChange = new DateTime($pchVisitDate->visit_date . ' ' . $limitTime->max_limit_time, new DateTimeZone('Asia/Jakarta'));
@@ -953,7 +1001,7 @@ class PchCtrl extends Controller
             }
         }
         $endEvent = new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta'));
-        if ($now > $endEvent && ($event->category != 'Attraction' && $event->category != 'Daily Activities' && $event->category != 'Tour Travel (recurring)')) {
+        if ($now > $endEvent && ($event->category != 'Attraction' && $event->category != 'Daily Activities' && $event->category != 'Tour Travel (recurring)') && $event->deleted === 0) {
             return ["error" => "You can't refund / reschedule if the event has ended", "code" => 403];
         }
         return [
@@ -1044,9 +1092,6 @@ class PchCtrl extends Controller
 
     public function submitRefund(Request $req)
     {
-        if (!is_array($req->purchase_ids)) {
-            return response()->json(["error" => "Purchase id field is an array type"], 403);
-        }
         if (!$req->message) {
             return response()->json(["error" => "Message field is required for admin consideration"], 403);
         }
@@ -1065,22 +1110,60 @@ class PchCtrl extends Controller
         if (!array_key_exists($req->bank_code, config('banks'))) {
             return response()->json(["error" => "Bank code not available"], 404);
         }
-        $pchs = [];
-        foreach ($req->purchase_ids as $purchaseId) {
-            $req->purchase_id = $purchaseId;
-            if (Purchase::where('id', $purchaseId)->first()->ticket()->first()->event()->first()->allow_refund == 0) {
-                return response()->json(["error" => "Event from this purchase purchase not allowed to create request refund"], 403);
-            }
-            if (RefundData::where('purchase_id', $purchaseId)->first()) {
-                return response()->json(["error" => "Purchase data can't duplicated on refund"], 403);
-            }
-            $resValidate = $this->validationPurchase($req, true);
-            if (array_key_exists("error", $resValidate)) {
-                return response()->json(["error" => $resValidate["error"]], $resValidate["code"]);
-            }
-            array_push($pchs, $resValidate);
+
+        $purchase = Purchase::where('id', $req->purchase_id)->first();
+        if(!$purchase){
+            return response()->json(["error" => "Purchase data not found"], 404);
         }
+
+        $pchs = [];
+        $event = $purchase->ticket()->first()->event()->first();
+
+        if($event->deleted === 0){
+            if($event->allow_refund == 1 && !RefundData::where('purchase_id', $purchase->id)->first()){
+                $resValidate = $this->validationPurchase($req, true);
+                if (!array_key_exists("error", $resValidate)) {
+                    array_push($pchs, $resValidate);
+                }
+            }
+        }else{
+            foreach ($purchase->payment()->first()->purchases()->get() as $purchaseInner) {
+                $req->purchase_id = $purchaseInner->id;
+                if($purchaseInner->event()->first()->allow_refund == 1 && !RefundData::where('purchase_id', $purchaseInner->id)->first()){
+                    $resValidate = $this->validationPurchase($req, true);
+                    if (!array_key_exists("error", $resValidate)) {
+                        array_push($pchs, $resValidate);
+                    }
+                }
+            }
+        }
+
         $user = Auth::user();
+        $refundPercentage = 0;
+        if($resValidate["event"]->deleted === 1){
+            $refundSettingDef = RefundSetting::where('day_before', -1)->first();
+            if($refundSettingDef){
+                $refundPercentage = $refundSettingDef->allow_refund;
+            }else{
+                $refundPercentage = 1;
+            }
+        }else{
+            $visitDate = $resValidate['purchase']->visitDate()->first();
+            $start = null;
+            $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+            if($visitDate){
+                $start = new DateTime($visitDate->visit_date, new DateTimeZone('Asia/Jakarta'));
+            }else{
+                $start = new DateTime($resValidate["event"]->start_date, new DateTimeZone('Asia/Jakarta'));
+            }
+            if($now > $start){
+                $refundPercentage = 0;
+            }else{
+                $diff = date_diff($start, $now)->days * 24 + date_diff($start, $now)->h;
+                $refundSetting = RefundSetting::where('day_before', '>=', $diff)->orderBy('day_before', 'ASC')->first();
+                $refundPercentage = $refundSetting ? $refundSetting->allow_refund : 1;
+            }
+        }
         foreach ($pchs as $pch) {
             RefundData::create(
                 [
@@ -1093,32 +1176,38 @@ class PchCtrl extends Controller
                     "bank_code" => $req->bank_code,
                     "account_name" => $req->account_name,
                     "account_number" => $req->account_number,
-                    "nominal" => $pch["purchase"]->amount,
+                    "percentage" => $refundPercentage,
+                    "nominal" => $pch["purchase"]->amount * $refundPercentage,
+                    "basic_nominal" => $pch["purchase"]->amount
                 ]
             );
         }
-        Mail::to(config('agendakota.admin_email'))->send(
-            new AdminRefundNotification(
-                $user->name,
-                $user->email,
-                $pchs[0]["event"]->name,
-                $pchs[0]["purchase"]->id,
-                $pchs[0]["ticket"]->name,
-                $pchs[0]["ticket"]->id,
-                $req->message
-            )
-        );
-        Mail::to($pchs[0]["event"]->org()->first()->user()->first()->email)->send(
-            new AdminRefundNotification(
-                $user->name,
-                $user->email,
-                $pchs[0]["event"]->name,
-                $pchs[0]["purchase"]->id,
-                $pchs[0]["ticket"]->name,
-                $pchs[0]["ticket"]->id,
-                $req->message
-            )
-        );
+        if(count($pchs) > 0){
+            Mail::to(config('agendakota.admin_email'))->send(
+                new AdminRefundNotification(
+                    $user->name,
+                    $user->email,
+                    $pchs[0]["event"]->name,
+                    $pchs[0]["purchase"]->id,
+                    $pchs[0]["ticket"]->name,
+                    $pchs[0]["ticket"]->id,
+                    $req->message
+                )
+            );
+            Mail::to($pchs[0]["event"]->org()->first()->user()->first()->email)->send(
+                new AdminRefundNotification(
+                    $user->name,
+                    $user->email,
+                    $pchs[0]["event"]->name,
+                    $pchs[0]["purchase"]->id,
+                    $pchs[0]["ticket"]->name,
+                    $pchs[0]["ticket"]->id,
+                    $req->message
+                )
+            );
+        }else{
+            return response()->json(["error" => "Haven't valid purchase for refund"], 404);
+        }
 
         // add notify emeil to organizer
         return response()->json(["message" => "Your refund requets have sent. Check you email, for view your refund status"], 201);
@@ -1188,123 +1277,135 @@ class PchCtrl extends Controller
         return json_decode($response);
     }
 
-    public function considerationRefundMain(Request $req, $refundIds, $refundPercentage, $ticketId, $admin = false)
+    public function considerationRefundMain(Request $req, $refundDatas = [], $admin = false, $setManualFinish = false)
     {
-        if (!is_array($refundIds)) {
-            return response()->json(["error" => "refund ids is an array"], 403);
-        }
-        $refundDatas = [];
-        $resOut = [];
-        foreach ($refundIds as $refundId) {
-            $refundData = $admin ? RefundData::where('id', $refundId)->where('ticket_id', $ticketId)->first() : RefundData::where('id', $refundId)->where('event_id', $req->event->id)->where('ticket_id', $ticketId)->first();
-            if (!$refundData) {
-                return response()->json(["error" => "Refund data not found"], 404);
-            }
-            // if (($admin && $refundData->approve_admin == true) || (!$admin && $refundData->approve_org == true)) {
-            //     return response()->json(["error" => "This request has approved"], 403);
-            // }
-            if ($refundData->approve_admin == true) {
-                return response()->json(["error" => "This request has approved"], 403);
-            }
-            if ($admin && $refundData->approve_org == false) {
-                return response()->json(["error" => "Admin can't canhge refund state berfore organizer chnage it first"], 403);
-            }
-            if (array_key_exists($refundData->user_id, $refundDatas)) {
-                array_push($refundDatas[$refundData->user_id], $refundData);
-            } else {
-                $refundDatas[$refundData->user_id] = [$refundData];
-            }
-        }
-        foreach ($refundDatas as $refundDataByUser) {
-            $resValidate = null;
+
+         /*
+            TERM CONDITION REFUND PERCENTAGE
+            1. If refund because canceling event, percentage refund follow parameter -1 in column 'day_before' on table refund_table, or five 100% if parameter -1 not found
+            2. If refund is personal by user, percentage depend by different day before event start / selected visit date. With different parameter in colum 'day_before' on table refund_table.
+        */
+
             $user = null;
-            $purchaseIds = [];
             $nominal = 0;
             $strRefundId = '';
-            foreach ($refundDataByUser as $refundData) {
+            $eventNames = ''; // for external_id disburstment
+            $ticketNames = ''; // for description disburstment
+            $ticketStrIds = ''; // for description disburstment
+            $errorMessages = [];
+            foreach ($refundDatas as $refundData) {
                 $user = $refundData->user()->first();
                 $req->purchase_id = $refundData->purchase_id;
-                array_push($purchaseIds, $req->purchase_id);
+                // array_push($purchaseIds, $req->purchase_id);
                 $resValidate = $this->validationPurchase($req, true, $user);
                 if (array_key_exists("error", $resValidate)) {
-                    return response()->json(["error" => $resValidate["error"]], $resValidate["code"]);
-                }
-                if (!$req->approved && $admin) {
-                    RefundData::where('id', $refundData->id)->delete();
-                } else if (!$req->approved) {
-                    RefundData::where('id', $refundData->id)->update(["approve_org" => false]);
-                } else {
-                    // if ($admin) {
-                    //     Purchase::where('id', $req->purchase_id)->delete();
-                    // }
-                    RefundData::where('id', $refundData->id)->update($admin ? [
-                        "approve_admin" => true
-                    ] : [
-                        "approve_org" => true,
-                        "percentage" => $refundPercentage ? $refundPercentage : 100.0
-                    ]);
+                    array_push($errorMessages, $resValidate["error"]);
+                }else{
+                    if (!$req->approved && $admin) {
+                        RefundData::where('id', $refundData->id)->delete();
+                    } else if (!$req->approved) {
+                        RefundData::where('id', $refundData->id)->update(["approve_org" => false]);
+                    } else {
+                        
+                        RefundData::where('id', $refundData->id)->update( $admin && $resValidate["event"]->deleted === 1 ? [
+                            "approve_admin" => true,
+                            "approve_org" => true,
+                            "mode" => $setManualFinish ? "manual" : "auto"
+                        ] : ($admin ? [
+                            "approve_admin" => true,
+                            "mode" => $setManualFinish ? "manual" : "auto"
+                        ] : [
+                            "approve_org" => true,
+                        ]));
+                        $nominal += RefundData::where('id', $refundData->id)->first()->nominal;
+                        if($setManualFinish && $admin){
+                            Purchase::where('id', $refundData->purchase_id)->delete();
+                        }
+                    }
                     $strRefundId .= $refundData->id . '~^&**&^~';
-                    $nominal += $refundData->nominal;
+                    $eventNames .= ($resValidate["event"]->name . ', '); // for external_id disburstment
+                    $ticketNames .= ($resValidate["ticket"]->name . ', '); // for description disburstment
+                    $ticketStrIds .= ($resValidate["ticket"]->id . ', '); // for description disburstment
                 }
             }
-
-            if (!$req->approved) {
+            $refundData = count($refundDatas) > 0 ? $refundDatas[count($refundDatas) - 1] : null; 
+            if (!$req->approved && $strRefundId !== '') {
                 Mail::to($user->email)->send(
                     new UserRefundNotification(
                         'Un Approved / Rejected',
-                        $resValidate["event"]->name,
-                        $purchaseIds[0],
-                        $resValidate["ticket"]->name,
-                        $resValidate["ticket"]->id,
-                        $refundDataByUser[0]->message
+                        $eventNames,
+                        $refundData->purchase_id,
+                        $ticketNames,
+                        $ticketStrIds,
+                        $refundData->message
                     )
                 );
-            } else if ($req->approved && $admin) {
-                $res = $this->createDisburstment([
-                    "external_id" => $resValidate["ticket"]->id,
-                    "amount" => ($nominal * ($refundDataByUser[0]->percentage / 100)),
-                    "bank_code" =>  $refundDataByUser[0]->bank_code,
-                    "account_holder_name" =>  $refundDataByUser[0]->account_name,
-                    "account_number" => $refundDataByUser[0]->account_number,
-                    "description" => "Refund payment from event (" . $resValidate["event"]->name . ") and ticket (" . $resValidate["ticket"]->name . ")",
+            } else if ($req->approved && $admin && $strRefundId !== '' && !$setManualFinish) {
+                $uniqueExternal  = uniqid('external_refund_', true);
+                $localDisburstment = DisburstmentRefund::create([
+                    'disburstment_id' => $uniqueExternal,
+                    'str_refund_ids' => $strRefundId
                 ]);
-                array_push($resOut, $res);
-                // info($res);
-                // return response()->json(["error" => $res], 404);
+                $res = $this->createDisburstment([
+                    "external_id" => $uniqueExternal,
+                    "amount" => ($nominal - intval(config('payconfigs.payout_fee'))),
+                    "bank_code" =>  $refundDatas[0]->bank_code,
+                    "account_holder_name" =>  $refundDatas[0]->account_name,
+                    "account_number" => $refundDatas[0]->account_number,
+                    "description" => "Refund payment from event (" . $eventNames . ") and ticket (" . $ticketNames . ")",
+                ]);
+                // array_push($resOut, $res);
                 if (isset($res->error_code)) {
-                    foreach ($refundDataByUser as $refundData) {
+                    foreach ($refundDatas as $refundData) {
                         RefundData::where('id', $refundData->id)->update([
                             "approve_admin" => false
                         ]);
                     }
-                    return response()->json([
-                        "error" => "Failed process in xendit API",
-                        "message" => $res->message
-                    ], $res->error_code);
+
+                    DisburstmentRefund::where('id', $localDisburstment->id)->delete();
+                    array_push($errorMessages, "Failed reach xendit server");
+                }else{
+                    Mail::to($user->email)->send(
+                        new UserRefundNotification(
+                            'Approved / Accepted',
+                            $eventNames,
+                            $refundData->purchase_id,
+                            $ticketNames,
+                            $ticketStrIds,
+                            $refundData->message
+                        )
+                    );
                 }
-                DisburstmentRefund::create([
-                    'disburstment_id' => $res->id,
-                    'str_refund_ids' => $strRefundId
-                ]);
+            } else if($req->approved && $admin && $strRefundId !== '' && $setManualFinish){
                 Mail::to($user->email)->send(
                     new UserRefundNotification(
                         'Approved / Accepted',
-                        $resValidate["event"]->name,
-                        $purchaseIds[0],
-                        $resValidate["ticket"]->name,
-                        $resValidate["ticket"]->id,
-                        $refundDataByUser[0]->message
+                        $eventNames,
+                        $refundData->purchase_id,
+                        $ticketNames,
+                        $ticketStrIds,
+                        $refundData->message
                     )
                 );
             }
-        }
 
-        return response()->json(["message" => "Status of refund data has updated", "data" => $resOut], 202);
+        return $errorMessages;
     }
 
-    public function considerationRefund(Request $req)
-    {
-        return $this->considerationRefundMain($req, $req->refund_ids, $req->refund_percentage, $req->ticket_id, false);
+    public function considerationRefund(Request $req){
+        $refundData = RefundData::where('id', $req->id)->first();
+        // Filter refund data
+        if(!$refundData){
+            return response()->json(["error" => "Data Refund tidak dapat ditemukan"], 404);
+        }
+        if ($refundData->approve_admin == true) {
+            return response()->json(["error" => "Data Refund sudah di approve oleh admin"], 403);
+        }
+        if ($refundData->event()->first()->deleted === 1) {
+            return response()->json(["error" => "Event telah dibatalkan, organizer tidak memiliki wewenang untuk mengatur data refund"], 403);
+        }
+        $errors = $this->considerationRefundMain($req, [$refundData]);
+        return response()->json(count($errors) === 0 ? ["message" => "Refund dari purchase ID " . $refundData->purchase_id . " berhasil diubah statusnya"] : ["message" => "Refund gagal dilakukan karena tiket sudah tidak valid atau sudah checkin"], count($errors) === 0 ? 202 : 403);
     }
 
     public function setFinishRefund($refundIds)
@@ -1330,99 +1431,6 @@ class PchCtrl extends Controller
         }
         return response()->json(["message" => "Refund data has set to fisnish transfer"], 202);
     }
-
-    // private function removePayment($orderId)
-    // {
-    //     $payment = Payment::where('order_id', $orderId);
-    //     if ($payment->first()->pay_state != 'EXPIRED' && $payment->first()->pay_state != 'SUCCEEDED') {
-    //         $purchases = $payment->first()->purchases()->get()->groupBy('ticket_id');
-    //         foreach ($purchases as $key => $value) {
-    //             Ticket::where('id', $key)->where('type_price', '!=', 1)->where('quantity', '!=', -1)->update(
-    //                 [
-    //                     'quantity' => intval($value[0]->ticket()->first()->quantity) + count($value)
-    //                 ]
-    //             );
-    //             foreach ($value as $pch) {
-    //                 if ($pch->amount != 0) {
-    //                     DailyTicket::where('purchase_id', $pch->id)->delete();
-    //                     ReservedSeat::where('pch_id', $pch->id)->delete();
-    //                     Purchase::where('id', $pch->id)->update(["code" => '-']);
-    //                 }
-    //             }
-    //         }
-    //         $payment->update(
-    //             [
-    //                 'pay_state' => "EXPIRED"
-    //             ]
-    //         );
-    //     }
-    // }
-
-    // private function getTrxEWallet($payment)
-    // {
-    //     Xendit::setApiKey(env('XENDIT_API_READ'));
-    //     $eWalletStatus = \Xendit\EWallets::getEWalletChargeStatus($payment->token_trx);
-    //     if ($eWalletStatus["status"] == 'FAILED' || $eWalletStatus["status"] == 'VOIDED') {
-    //         $this->removePayment($eWalletStatus['reference_id']);
-    //     }
-    //     return $eWalletStatus;
-    // }
-
-    // private function getTrxQris($payment)
-    // {
-    //     $curl = curl_init();
-    //     curl_setopt_array(
-    //         $curl,
-    //         [
-    //             CURLOPT_URL => 'https://api.xendit.co/qr_codes/' . $payment->token_trx,
-    //             CURLOPT_RETURNTRANSFER => true,
-    //             CURLOPT_ENCODING => '',
-    //             CURLOPT_MAXREDIRS => 10,
-    //             CURLOPT_TIMEOUT => 0,
-    //             CURLOPT_FOLLOWLOCATION => true,
-    //             CURLOPT_HTTP_VERSION => "CURL_HTTP_VERSION_1_1",
-    //             CURLOPT_CUSTOMREQUEST => 'GET',
-    //             CURLOPT_HTTPHEADER => array(
-    //                 'Content-Type: application/json',
-    //                 'api-version: 2022-07-31',
-    //                 'Authorization: ' . 'Basic ' . base64_encode(env('XENDIT_API_READ') . ':')
-    //             ),
-    //         ]
-    //     );
-    //     $response = curl_exec($curl);
-    //     curl_close($curl);
-    //     $response = json_decode($response);
-    //     if ($response->status == 'INACTIVE') {
-    //         $this->removePayment($response->reference_id);
-    //     }
-    //     return $response;
-    // }
-
-    // private function getTrxVirAccount($payment)
-    // {
-    //     Xendit::setApiKey(env('XENDIT_API_READ'));
-    //     $vaStatus = \Xendit\VirtualAccounts::retrieve($payment->token_trx);
-    //     return $vaStatus;
-    // }
-
-
-    // private function getTrx($paymentData)
-    // {
-    //     $payment = null;
-    //     if (preg_match('/trx_va/i', $paymentData->order_id)) {
-    //         $payment = $this->getTrxVirAccount($paymentData);
-    //         // $payment["status"] = $paymentData->pay_state;
-    //     } else if (preg_match('/trx_ewallet/i', $paymentData->order_id)) {
-    //         $payment = $this->getTrxEWallet($paymentData);
-    //     } else if (preg_match('/trx_qris/i', $paymentData->order_id)) {
-    //         $payment = $this->getTrxQris($paymentData);
-    //     } else {
-    //         $payment = $paymentData;
-    //         $payment->status = $payment->pay_state;
-    //     }
-    //     // Log::info($payment);
-    //     return $payment;
-    // }
 
     private function loadTrxValidation($paymentData)
     {
@@ -1570,6 +1578,7 @@ class PchCtrl extends Controller
             $end = new DateTime($event->end_date . " " . $event->end_time, new DateTimeZone('Asia/Jakarta'));
             $time = $start->format("H:i") . ' - ' . $end->format("H:i") . ' WIB';
         }
+        $seatNumber = $pch->seatNumber()->first();
         
         $org = $event->org()->first();
         $org->legality = $org->credibilityData()->first();
@@ -1584,7 +1593,8 @@ class PchCtrl extends Controller
             'ticket' => $ticket,
             'event' => $event,
             'org' => $org,
-            'type' => $req->type  // √
+            'type' => $req->type,  // √
+            'seat_number' => $seatNumber ? $seatNumber->seat_number : null
         ])->setPaper('a4', 'portrait');
         return $pdf->download();
     }

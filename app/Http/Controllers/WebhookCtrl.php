@@ -105,7 +105,7 @@ class WebhookCtrl extends Controller
 
     function receiveValidationRefund(Request $req)
     {
-        $disburstment = DisburstmentRefund::where('disburstment_id', $req->id)->first();
+        $disburstment = DisburstmentRefund::where('disburstment_id', $req->external_id)->first();
         if ($disburstment) {
             $refundIds = explode('~^&**&^~', $disburstment->str_refund_ids);
             if ($req->status === "FAILED") {
@@ -129,7 +129,7 @@ class WebhookCtrl extends Controller
                 }
             }
         } else {
-            $disburstment = DisburstmentWd::where('disburstment_id', $req->id)->first();
+            $disburstment = DisburstmentWd::where('disburstment_id', $req->external_id)->first();
             if ($req->status === "COMPLETED") {
                 Withdraw::where('id', $disburstment->withdraw_id)->update(['finish' => true]);
             }

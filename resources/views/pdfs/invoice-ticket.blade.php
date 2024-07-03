@@ -192,6 +192,16 @@
                                     {!! $event->location !!}
                                 </td>
                             </tr>
+                            @if ($seat_number !== null)
+                                <tr>
+                                    <td class="DescIcon">
+                                        Nomor Kursi
+                                    </td>
+                                    <td class="Desc">
+                                        {{ $seat_number }}
+                                    </td>
+                                </tr>
+                            @endif
                         </table>
                     </div>
                 </td>

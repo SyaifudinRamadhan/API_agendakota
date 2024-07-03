@@ -16,9 +16,12 @@ class Withdraw extends Model
         'org_id',
         'bill_acc_id',
         'nominal',
+        'commision',
+        'admin_fee_wd',
         'basic_nominal',
         'status',
-        'finish'
+        'finish',
+        'mode'
     ];
 
     public function event(): BelongsTo

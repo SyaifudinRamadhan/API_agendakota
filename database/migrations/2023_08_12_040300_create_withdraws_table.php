@@ -17,9 +17,12 @@ return new class extends Migration
             $table->foreignUuid('org_id')->references('id')->on('organizations')->onUpdate('cascade')->onDelete('cascade');
             $table->foreignUuid('bill_acc_id')->references('id')->on('bill_accounts')->onUpdate('cascade')->onDelete('cascade');
             $table->integer('nominal');
+            $table->integer('commision');
+            $table->integer('admin_fee_wd');
             $table->integer('basic_nominal');
             $table->integer('status')->default(0);
             $table->boolean('finish')->default(false);
+            $table->string('mode')->default('auto');
             $table->timestamps();
         });
     }

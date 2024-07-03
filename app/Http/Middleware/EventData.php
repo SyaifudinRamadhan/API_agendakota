@@ -22,7 +22,8 @@ class EventData
             $eventId = $request->event_id;
         }
         $orgId = $request->route()->parameter('orgId');
-        $event = Event::where('id', $eventId)->where('org_id', $orgId)->where('deleted', 0)->first();
+        $isAdmin = $request->user ? $request->user->admin()->first() : null;
+        $event = $isAdmin ? Event::where('id', $eventId)->where('org_id', $orgId)->first() : Event::where('id', $eventId)->where('org_id', $orgId)->where('deleted', 0)->first();
         if(!$event){
             return response()->json(["error" => "Event data not found"], 404);
         }

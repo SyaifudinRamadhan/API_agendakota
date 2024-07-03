@@ -7,6 +7,9 @@ use App\Models\User;
 use App\Models\Organization;
 use App\Models\Withdraw;
 use App\Models\BillAccount;
+use App\Models\Event;
+use App\Models\Payment;
+use App\Models\RefundData;
 
 class AdminPrimaryCtrl extends Controller
 {
@@ -178,12 +181,88 @@ class AdminPrimaryCtrl extends Controller
         return $pchCtrl->getRefund($req, $req->refund_id, true);
     }
 
-    public function considerationRefund(Request $req)
-    {
-        $pchCtrl = new PchCtrl();
-        return $pchCtrl->considerationRefundMain($req, $req->refund_ids, 0, $req->ticket_id, true);
+    public function refundTicketManager(){
+        $events = Event::orderBy('created_at', 'DESC')->get();
+        foreach ($events as $event) {
+            $widthdrawCtrl = new WithdrawCtrl();
+            $event->tickets = $event->ticketsNonFilter()->get();
+            $event->available_withdraw = $widthdrawCtrl->availableForWdCore($event)["total"];
+            $datas = [];
+            $refundDatas = RefundData::where('event_id', $event->id)->get();
+            $avlRefund = 0;
+            $manualRefunds = [];
+            foreach ($refundDatas as $refundData) {
+                $refundData->purchase = $refundData->purchase()->first();
+                if($refundData->purchase){
+                    $avlRefund += $refundData->nominal;
+                    $payId = $refundData->purchase->pay_id;
+                    if(array_key_exists($payId, $datas)){
+                        array_push($datas[$payId], [
+                            "transaction_id" => $payId,
+                            "refund_data" => $refundData
+                        ]);
+                    }else{
+                        $datas[$payId] = [[
+                            "transaction_id" => $payId,
+                            "refund_data" => $refundData
+                        ]];
+                    }
+                }else{
+                    $refundData->user = $refundData->user()->first();
+                    array_push($manualRefunds, $refundData);
+                }
+            }
+            $userTransactions = [];
+            foreach ($event->tickets as $ticket) {
+                foreach ($ticket->purchases()->get() as $purchase) {
+                    if(array_key_exists($purchase->user_id, $userTransactions)){
+                        $userTransactions[$purchase->user_id]["nominal"] += ($purchase->amount + $purchase->tax_amount);
+                    }else{
+                        $userTransactions[$purchase->user_id] = [
+                            "user" => $purchase->user()->first(),
+                            "nominal" => ($purchase->amount + $purchase->tax_amount)
+                        ];
+                    }
+                }
+            }
+            $event->user_trxs = $userTransactions;
+            $event->available_refund = $avlRefund;
+            $event->refund_datas = $datas;
+            $event->manual_refunds = $manualRefunds;
+        }
+        return response()->json(["events" => $events], count($events) === 0 ? 404 : 200);
     }
 
+    public function considerationRefund(Request $req){
+        $payment = Payment::where('id', $req->pay_id)->first();
+        if(!$payment){
+            return response()->json(["error", "Payment data not found"], 404);
+        }
+        $refundDatas = [];
+        $errorMessages = [];
+        // Filter refund data
+        foreach ($payment->purchases()->get() as $purchase) {
+            $refundData = RefundData::where('purchase_id', $purchase->id)->first();
+            if($refundData){
+                if ($refundData->approve_admin == true) {
+                    array_push($errorMessages, "Refund with id " . $refundData->id . "has approved by admin");
+                }else if ($refundData->approve_org == false && $refundData->event()->first()->deleted === 0) {
+                    array_push($errorMessages, "Admin can't change refund with ID" . $refundData->id . " state, berfore organizer chnage it first");
+                } else {
+                    array_push($refundDatas, $refundData);
+                }
+            }
+        }
+        if(count($refundDatas) === 0){
+            return response()->json(["error" => "Refund data not found or have no approved organizer refund data"], 404);
+        }
+        // Main refund process
+        $pchCtrl = new PchCtrl();
+        $errors = $pchCtrl->considerationRefundMain($req, $refundDatas, true, $req->set_finish ? ($req->set_finish == 1 ? true : false) : false);
+        return response()->json(count($errors) === 0 ? ["message" => ["All refund from payment ID " . $req->pay_id . " successfully changed"]] : ["message" => $errors], 202);
+    }
+
+    // *UN-USED FUNCCTION
     public function setFinishRefund(Request $req)
     {
         $pchCtrl = new PchCtrl();

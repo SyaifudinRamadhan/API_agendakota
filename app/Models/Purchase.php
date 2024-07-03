@@ -19,7 +19,8 @@ class Purchase extends Model
         'ticket_id',
         'code',
         'amount',
-        'is_mine'
+        'tax_amount',
+        'is_mine',
     ];
 
     public function user(): BelongsTo

@@ -17,6 +17,8 @@ use App\Models\Admin;
 use App\Models\Event;
 use App\Models\Purchase;
 use App\Models\Payment;
+use App\Models\ProfitSetting;
+use App\Models\RefundSetting;
 use App\Models\SelectedEvent;
 use App\Models\SelectedEventDatas;
 use App\Models\SpecialDay;
@@ -586,11 +588,11 @@ class AdminCtrl extends Controller
         foreach ($eventsTargets as $key => $evtTraget) {
             $event = $evtTraget->event()->first();
             if($event->deleted === 0){
+                $event->id_data = $evtTraget->id;
+                $event->available_days = $event->availableDays()->get();
+                $event->org = $event->org()->first();
+                $event->tickets = $event->tickets()->orderBy('price', 'ASC')->get();
                 $events[] = $event;
-                $events[$key]->id_data = $evtTraget->id;
-                $events[$key]->available_days = $events[$key]->availableDays()->get();
-                $events[$key]->org = $events[$key]->org()->first();
-                $events[$key]->tickets = $events[$key]->tickets()->orderBy('price', 'ASC')->get();
             }
         }
         return ["data" => $spotlight, "events" => $events, "status" => 200];
@@ -760,11 +762,11 @@ class AdminCtrl extends Controller
         foreach ($spcDayEvent->events()->get() as $key => $spcDayEvt) {
             $event = $spcDayEvt->event()->first();
             if($event->deleted === 0){
+                $event->id_data = $spcDayEvt->id;
+                $event->available_days = $event->availableDays()->get();
+                $event->org = $event->org()->first();
+                $event->tickets = $event->tickets()->orderBy('price', 'ASC')->get();
                 $events[] = $event;
-                $events[$key]->id_data = $spcDayEvt->id;
-                $events[$key]->available_days = $events[$key]->availableDays()->get();
-                $events[$key]->org = $events[$key]->org()->first();
-                $events[$key]->tickets = $events[$key]->tickets()->orderBy('price', 'ASC')->get();
             }
         }
         return ["data" => $spcDayEvent, "events" => $events, "status" => 200];
@@ -939,11 +941,11 @@ class AdminCtrl extends Controller
         foreach ($slcEvent->events()->get() as $key => $slcDayEvtData) {
             $event = $slcDayEvtData->event()->first();
             if($event->deleted === 0){
+                $event->id_data = $slcDayEvtData->id;
+                $event->available_days = $event->availableDays()->get();
+                $event->org = $event->org()->first();
+                $event->tickets = $event->tickets()->orderBy('price', 'ASC')->get();
                 $events[] = $event;
-                $events[$key]->id_data = $slcDayEvtData->id;
-                $events[$key]->available_days = $events[$key]->availableDays()->get();
-                $events[$key]->org = $events[$key]->org()->first();
-                $events[$key]->tickets = $events[$key]->tickets()->orderBy('price', 'ASC')->get();
             }
         }
         return ["data" => $slcEvent, "events" => $events, "status" => 200];
@@ -1118,11 +1120,11 @@ class AdminCtrl extends Controller
         foreach ($slcActivity->events()->get() as $key => $slcActivityEventData) {
             $event = $slcActivityEventData->event()->first();
             if($event->deleted === 0){
+                $event->id_data = $slcActivityEventData->id;
+                $event->available_days = $event->availableDays()->get();
+                $event->org = $event->org()->first();
+                $event->tickets = $event->tickets()->orderBy('price', 'ASC')->get();
                 $events[] = $event;
-                $events[$key]->id_data = $slcActivityEventData->id;
-                $events[$key]->available_days = $events[$key]->availableDays()->get();
-                $events[$key]->org = $events[$key]->org()->first();
-                $events[$key]->tickets = $events[$key]->tickets()->orderBy('price', 'ASC')->get();
             }
         }
         return ["data" => $slcActivity, "events" => $events, "status" => 200];
@@ -1309,6 +1311,86 @@ class AdminCtrl extends Controller
         return $total;
     }
 
+    // =============================================================================================
+
+    public function udpdateProfitSetting(Request $req){
+        $validator = Validator::make($req->all(), [
+            'ticket_commision' => 'required|numeric',
+            'admin_fee_trx' => 'required|numeric',
+            'admin_fee_wd' => 'required|numeric',
+            'mul_pay_gate_fee' => 'required|numeric',
+            'tax_fee' => 'required|numeric',
+        ]);
+        if($validator->fails()){
+            return response()->json(["error" => $validator->errors()], 403);
+        }
+        ProfitSetting::where('id', 1)->update([
+            'ticket_commision' => $req->ticket_commision,
+            'admin_fee_trx' => $req->admin_fee_trx,
+            'admin_fee_wd' => $req->admin_fee_wd,
+            'mul_pay_gate_fee' => $req->mul_pay_gate_fee,
+            'tax_fee' => $req->tax_fee,
+        ]);
+        return response()->json(["profit_setting" => ProfitSetting::first()], 200);
+    }
+
+    public function getProfitSetting(){
+        return response()->json(["profit_setting" => ProfitSetting::first(), "pg_config" => config('payconfigs')], 200);
+    }
+
+    // ===============================================================================================
+
+    public function createRefundSetting (Request $req) {
+        $validator = Validator::make($req->all(), [
+            'day_before' => "required|numeric",
+            'allow_refund' =>  "required|numeric"
+        ]);
+        if($validator->fails()){
+            return response()->json(["error" => $validator->errors()], 403);
+        }
+        if($req->day_before == -1 && RefundSetting::where('day_before', -1)->first()){
+            return response()->json(["eeror" => "There can only be one refund rule for event cancellation"], 403);
+        }
+        $refundSetting = RefundSetting::create([
+            'day_before' => $req->day_before,
+            'allow_refund' => $req->allow_refund,
+        ]);
+        return response()->json(["refund_setting" => $refundSetting], 201);
+    }
+
+    public function updateRefundSetting (Request $req) {
+        $validator = Validator::make($req->all(), [
+            'day_before' => "required|numeric",
+            'allow_refund' =>  "required|numeric"
+        ]);
+        if($validator->fails()){
+            return response()->json(["error" => $validator->errors()], 403);
+        }
+        $obj = RefundSetting::where('id', $req->id);
+        if(!$obj->first()){
+            return response()->json(["error" => "Data not found"], 404);
+        }   
+        $obj->update([
+            'day_before' => $req->day_before,
+            'allow_refund' => $req->allow_refund,
+        ]);
+        return response()->json(["refund_setting" => $obj->first()], 202);
+    }
+
+    public function deleteRefundSetting (Request $req)  {
+        $obj = RefundSetting::where('id', $req->id);
+        if(!$obj->first()){
+            return response()->json(["error" => "Data not found"], 404);
+        }   
+        $obj->delete();
+        return response()->json(["message" => "Data deleted successfully"], 202);
+    }
+
+    public function refundSettings ()  {
+        return response()->json(["refund_settings" => RefundSetting::orderBy('day_before', 'DESC')->get()], 200);
+    }
+
+    // ================================================================================================
 
     public function events(Request $req) {
         $events = Event::where('is_publish', '<', 3)->get();

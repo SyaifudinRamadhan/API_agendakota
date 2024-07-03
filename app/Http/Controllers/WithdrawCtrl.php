@@ -13,11 +13,14 @@ use App\Models\Purchase;
 use App\Models\BillAccount;
 use App\Models\DisburstmentWd;
 use App\Models\Otp;
+use App\Models\ProfitSetting;
+use App\Models\RefundData;
 use App\Models\Ticket;
 use DateTime;
 use DateTimeZone;
 use DateInterval;
 use Illuminate\Support\Facades\Mail;
+use Xendit\Disbursements;
 
 class WithdrawCtrl extends Controller
 {
@@ -171,12 +174,19 @@ class WithdrawCtrl extends Controller
                 "is_publish" => intval($eventData->is_publish) + 3
             ]);
         }
-        $wdNominalBasic = ($basicAmount - ($basicAmount * (floatval(config('agendakota.commission')))));
+        $refundDatas = RefundData::where('event_id', $eventData->id)->where('approve_admin', true)->get();
+        foreach ($refundDatas as $refundData) {
+            $basicAmount += ($refundData->basic_nominal - $refundData->nominal);
+        }
+        $profitSetting = ProfitSetting::first();
+        $nominal = ($basicAmount - ($basicAmount * $profitSetting->ticket_commision));
         $wd = Withdraw::create([
             'event_id' => $eventData->id,
             'org_id' => $req->org->id,
             'bill_acc_id' => $bankAcc->id,
-            'nominal' => ($wdNominalBasic <= 10000 ? $wdNominalBasic : ($wdNominalBasic - intval(config('agendakota.profit_plus')))),
+            'nominal' => ($nominal <= 10000 ? $nominal : ($nominal - $profitSetting->admin_fee_wd)),
+            'commision' => $basicAmount * $profitSetting->ticket_commision,
+            'admin_fee_wd' => ($nominal <= 10000 ? 0 : $profitSetting->admin_fee_wd),
             'basic_nominal' => $basicAmount,
             'status' => 0
         ]);
@@ -186,7 +196,7 @@ class WithdrawCtrl extends Controller
             $eventData->id,
             $req->org->name,
             $req->org->id,
-            ($wdNominalBasic <= 10000 ? $wdNominalBasic : ($wdNominalBasic - intval(config('agendakota.profit_plus')))),
+            ($nominal <= 10000 ? $nominal : ($nominal - $profitSetting->admin_fee_wd)),
             // (($basicAmount - ($basicAmount * (floatval(config('agendakota.commission'))))) - intval(config('agendakota.profit_plus'))),
             $bankAcc->acc_number,
             $user->name,
@@ -284,14 +294,7 @@ class WithdrawCtrl extends Controller
         return $this->wds($req, false);
     }
 
-    public function availableForWd(Request $req)
-    {
-        $events = [];
-        $totalAmount = 0;
-        foreach (Event::where('org_id', $req->org->id)->where(function($query){
-            $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-            $query->where('is_publish', '<', 3)->where('end_date', '<', $now->format('Y-m-d'))->orWhere('category', 'Attraction')->orWhere('category', 'Daily Activities')->orWhere('category', 'Tour Travel (recurring)');
-        })->get() as $event) {
+    public function availableForWdCore($event){
             $tickets = Ticket::where('event_id', $event->id)->where('type_price', '!=', 1)->get();
             $amount = 0;
             foreach ($tickets as $ticket) {
@@ -308,19 +311,38 @@ class WithdrawCtrl extends Controller
                 }
                 $amount -= $hasWithdrawn;
             }
-            $orginAmount = $amount;
-            $amount -= (intval($amount) * (floatval(config('agendakota.commission'))));
-            if ($amount > 10000) {
-                $amount -= intval(config('agendakota.profit_plus'));
+            $refundDatas = RefundData::where('event_id', $event->id)->where('approve_admin', true)->get();
+            foreach ($refundDatas as $refundData) {
+                $amount += ($refundData->basic_nominal - $refundData->nominal);
             }
-            $totalAmount += $amount;
-            $events[] = [
+            $profitSetting = ProfitSetting::first();
+            $orginAmount = $amount;
+            $amount -= (intval($amount) * $profitSetting->ticket_commision);
+            if ($amount > 10000) {
+                $amount -= $profitSetting->admin_fee_wd;
+            }
+            $totalAmount = $amount;
+            $events = [
                 "event" => $event,
                 "amount" => $amount,
                 "origin_amount" => $orginAmount,
-                "commision" => intval($orginAmount) * (floatval(config('agendakota.commission'))),
-                "admin_fee" => intval(config('agendakota.profit_plus'))
+                "commision" => intval($orginAmount) * $profitSetting->ticket_commision,
+                "admin_fee" => $amount <= 10000 ? 0 : $profitSetting->admin_fee_wd
             ];
+            return ["total" => $totalAmount, "events" => $events];
+    }
+
+    public function availableForWd(Request $req)
+    {
+        $events = [];
+        $totalAmount = 0;
+        foreach (Event::where('org_id', $req->org->id)->where(function($query){
+            $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+            $query->where('is_publish', '<', 3)->where('end_date', '<', $now->format('Y-m-d'))->orWhere('category', 'Attraction')->orWhere('category', 'Daily Activities')->orWhere('category', 'Tour Travel (recurring)');
+        })->get() as $event) {
+            $data = $this->availableForWdCore($event);
+            $events[] = $data["events"];
+            $totalAmount += $data["total"];
         }
         return response()->json(["data" => $events, "total_amount" => $totalAmount], 200);
     }
@@ -367,6 +389,7 @@ class WithdrawCtrl extends Controller
         // 0 => Pending
         // -1 => Reject
         // NB : State withdraw can't rollback
+        $manual = $req->set_finish ? ($req->set_finish == 1 ? true : false) : false;
         if ($req->state != 1 && $req->state != 0 && $req->state != -1) {
             return response()->json(["error" => "State code is not recognized"], 403);
         }
@@ -384,24 +407,28 @@ class WithdrawCtrl extends Controller
             } else if ($legality->status == false) {
                 return response()->json(["error" => "Please check and approve / accept legality data of this organization"], 403);
             }
-            $res = $this->createDisburstment([
-                "external_id" => $wd->id,
-                "amount" => $wd->nominal,
-                "bank_code" =>  $bank->bank_name,
-                "account_holder_name" =>  $bank->acc_name,
-                "account_number" => $bank->acc_number,
-                "description" => "Withdraw payment from event (" . $wd->event()->first()->name . " - " . $wd->event()->first()->id . ") and organizer (" . $org->name . " - " . $org->id . ")",
-            ]);
-            if (isset($res->error_code)) {
-                return response()->json([
-                    "error" => "Failed process in xendit API",
-                    "message" => $res->message
-                ], 403);
+            if(!$manual){
+                $uniqueExternal  = uniqid('external_wd_', true);
+                $localDisburstment = DisburstmentWd::create([
+                    'disburstment_id' => $uniqueExternal,
+                    'withdraw_id' => $wd->id
+                ]);
+                $res = $this->createDisburstment([
+                    "external_id" => $uniqueExternal,
+                    "amount" => $wd->nominal,
+                    "bank_code" =>  $bank->bank_name,
+                    "account_holder_name" =>  $bank->acc_name,
+                    "account_number" => $bank->acc_number,
+                    "description" => "Withdraw payment from event (" . $wd->event()->first()->name . " - " . $wd->event()->first()->id . ") and organizer (" . $org->name . " - " . $org->id . ")",
+                ]);
+                if (isset($res->error_code)) {
+                    Disbursements::where('id', $localDisburstment->id)->delete();
+                    return response()->json([
+                        "error" => "Failed process in xendit API",
+                        "message" => $res->message
+                    ], 403);
+                }
             }
-            DisburstmentWd::create([
-                'disburstment_id' => $res->id,
-                'withdraw_id' => $wd->id
-            ]);
         }
         $eventObj = $wdObj->first()->event();
         if (
@@ -419,7 +446,7 @@ class WithdrawCtrl extends Controller
                 "is_publish" => intval($eventObj->first()->is_publish) - 3
             ]);
         }
-        $updated = $wdObj->update(["status" => $req->state]);
+        $updated = $wdObj->update($manual && $req->state === 1 ? ["status" => $req->state, 'finish' => true, "mode" => "manual"] : ["status" => $req->state]);
         return response()->json(["updated" => $updated], 202);
     }
 }

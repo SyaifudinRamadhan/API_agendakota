@@ -18,6 +18,8 @@ class Payment extends Model
         'pay_state',
         'order_id',
         'price',
+        'admin_fee',
+        'platform_fee',
         'code_method',
         'virtual_acc',
         'qr_str',
