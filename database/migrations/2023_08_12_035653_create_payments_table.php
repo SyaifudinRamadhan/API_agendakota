@@ -21,9 +21,9 @@ return new class extends Migration
             $table->integer('admin_fee');
             $table->integer('platform_fee');
             $table->string('code_method')->nullable();
-            $table->string('virtual_acc')->nullable();
-            $table->string('qr_str')->nullable();
-            $table->string('pay_links')->nullable();
+            $table->text('virtual_acc')->nullable();
+            $table->text('qr_str')->nullable();
+            $table->text('pay_links')->nullable();
             $table->dateTime('expired')->nullable();
             $table->timestamps();
         });

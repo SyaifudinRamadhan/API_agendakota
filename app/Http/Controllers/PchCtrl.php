@@ -9,7 +9,6 @@ use App\Models\DailyTicket;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Log;
 use App\Models\Purchase;
 use App\Models\Payment;
 use App\Models\RefundData;
@@ -19,27 +18,25 @@ use App\Models\Voucher;
 use App\Models\DisburstmentRefund;
 use App\Models\ProfitSetting;
 use App\Models\RefundSetting;
-use App\Models\User;
-use Xendit\Xendit;
 use DateTime;
 use DateTimeZone;
 use DateInterval;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Support\Facades\Log;
 
 class PchCtrl extends Controller
 {
-    private function setTrxEWallet($payId, $code_method, $amount, $profitSetting, $mobileNumber = null, $cashtag = null)
+    private function setTrxEWallet($payId, $code_method, $amount, $taxTotal, $profitSetting, $mobileNumber = null, $cashtag = null)
     {
         $methods = config('payconfigs.methods');
         if (!$methods["e-wallet"][$code_method]) {
             return response()->json(["error" => "Payment method not found"], 404);
         }
-        Xendit::setApiKey(env('XENDIT_API_WRITE'));
         $orderId = uniqid("trx_ewallet", true);
-        $platformFee = $profitSetting->mul_pay_gate_fee * ($methods["e-wallet"][$code_method][2] * $amount);
-        $amount = $amount + $profitSetting->admin_fee_trx + $platformFee;
+        $platformFee = $profitSetting->mul_pay_gate_fee * ($methods["e-wallet"][$code_method][2] * ($amount - $taxTotal));
+        $amount = ceil($amount + $profitSetting->admin_fee_trx + $platformFee);
         $params = [
             'reference_id' => $orderId,
             'currency' => 'IDR',
@@ -76,18 +73,38 @@ class PchCtrl extends Controller
             ];
         }
 
-        $createEWalletCharge = \Xendit\EWallets::createEWalletCharge($params);
+        $curl = curl_init();
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://api.xendit.co/ewallets/charges',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS => json_encode($params),
+            CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/json',
+                'Authorization: ' . 'Basic ' . base64_encode(env('XENDIT_API_WRITE') . ':')
+            ),
+        ));
+
+        $createEWalletCharge = curl_exec($curl);
+        curl_close($curl);
+        $createEWalletCharge = json_decode($createEWalletCharge);
         $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         Payment::where('id', $payId)->update(
             [
-                'token_trx' => $createEWalletCharge["id"],
-                'pay_state' => $createEWalletCharge["status"],
+                'token_trx' => $createEWalletCharge->id,
+                'pay_state' => $createEWalletCharge->status,
                 'order_id' => $orderId,
                 'price' => $amount,
                 'admin_fee' => $profitSetting->admin_fee_trx,
                 'platform_fee' => $platformFee,
                 'code_method' => $code_method,
-                'pay_links' => $createEWalletCharge['actions']['desktop_web_checkout_url'] . '|' . $createEWalletCharge['actions']['mobile_web_checkout_url'] . '|' . $createEWalletCharge['actions']['mobile_deeplink_checkout_url'],
+                'pay_links' => $createEWalletCharge->actions ? ($createEWalletCharge->actions->desktop_web_checkout_url ? $createEWalletCharge->actions->desktop_web_checkout_url : ($createEWalletCharge->actions->mobile_web_checkout_url ? $createEWalletCharge->actions->mobile_web_checkout_url : $createEWalletCharge->actions->mobile_deeplink_checkout_url)) : '',
                 'expired' => $now->add(new DateInterval('PT2M'))->format('Y-m-d H:i:s')
             ]
         );
@@ -99,7 +116,7 @@ class PchCtrl extends Controller
         ];
     }
 
-    private function setTrxQris($payId, $code_method, $amount, $profitSetting,)
+    private function setTrxQris($payId, $code_method, $amount, $taxTotal, $profitSetting,)
     {
         $methods = config('payconfigs.methods')["qris"][$code_method];
         if (!$methods) {
@@ -108,8 +125,8 @@ class PchCtrl extends Controller
         $now24 = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         $orderId = uniqid("trx_qris", true);
         $curl = curl_init();
-        $platformFee = $profitSetting->mul_pay_gate_fee * ($methods[2] * $amount);
-        $amount = $amount + $profitSetting->admin_fee_trx + $platformFee;
+        $platformFee = $profitSetting->mul_pay_gate_fee * ($methods[2] * ($amount - $taxTotal));
+        $amount = ceil($amount + $profitSetting->admin_fee_trx + $platformFee);
         curl_setopt_array(
             $curl,
             [
@@ -171,29 +188,50 @@ class PchCtrl extends Controller
         $payment = Payment::where('id', $payId);
         $now24 = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         $orderId = uniqid("trx_va", true);
-        Xendit::setApiKey(env('XENDIT_API_WRITE'));
+        
         $platformFee = $profitSetting->mul_pay_gate_fee * $methods["VA"][$code_method][2];
-        $amount = $amount + $profitSetting->admin_fee_trx + $platformFee;
-        $createVA = \Xendit\VirtualAccounts::create(
-            [
-                "external_id" => $orderId,
-                "bank_code" => $methods["VA"][$code_method][0],
-                "name" => $payment->first()
-                    ->purchases()->get()[0]
-                    ->ticket()->first()
-                    ->event()->first()
-                    ->name,
-                "is_single_use" => true,
-                "is_closed" => true,
-                "expected_amount" => $amount,
-                "expiration_date" => str_replace(' ', 'T', $now24->add(new DateInterval('PT15M'))->format('Y-m-d H:i:s')) . 'Z',
-                // "expiration_date" => str_replace(' ', 'T', $now24->add(new DateInterval('PT7H'))->format('Y-m-d H:i:s')) . 'Z',
-            ]
-        );
+        $amount = ceil($amount + $profitSetting->admin_fee_trx + $platformFee);
+        $params = [
+            "external_id" => $orderId,
+            "bank_code" => $methods["VA"][$code_method][0],
+            "name" => $payment->first()
+                ->purchases()->get()[0]
+                ->ticket()->first()
+                ->event()->first()
+                ->name,
+            "is_single_use" => true,
+            "is_closed" => true,
+            "expected_amount" => $amount,
+            "expiration_date" => str_replace(' ', 'T', $now24->add(new DateInterval('PT15M'))->format('Y-m-d H:i:s')) . 'Z',
+            // "expiration_date" => str_replace(' ', 'T', $now24->add(new DateInterval('PT7H'))->format('Y-m-d H:i:s')) . 'Z',
+        ];
+
+        $curl = curl_init();
+
+        curl_setopt_array($curl, array(
+            CURLOPT_URL => 'https://api.xendit.co/callback_virtual_accounts',
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_ENCODING => '',
+            CURLOPT_MAXREDIRS => 10,
+            CURLOPT_TIMEOUT => 0,
+            CURLOPT_FOLLOWLOCATION => true,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST => 'POST',
+            CURLOPT_POSTFIELDS =>json_encode($params),
+            CURLOPT_HTTPHEADER => array(
+                'Content-Type: application/json',
+                'Authorization: ' . 'Basic ' . base64_encode(env('XENDIT_API_WRITE') . ':')
+            ),
+        ));
+
+        $createVA = curl_exec($curl);
+        curl_close($curl);
+        Log::info($createVA);
+        $createVA = json_decode($createVA);
 
         $payment->update(
             [
-                'token_trx' => $createVA["id"],
+                'token_trx' => $createVA->id,
                 'pay_state' => "PENDING",
                 'order_id' => $orderId,
                 'price' => $amount,
@@ -201,7 +239,7 @@ class PchCtrl extends Controller
                 'platform_fee' => $platformFee,
                 'code_method' => $code_method,
                 'expired' => $now24->format('Y-m-d H:i:s'),
-                'virtual_acc' => $createVA['account_number']
+                'virtual_acc' => $createVA->account_number
             ]
         );
         return [
@@ -944,9 +982,9 @@ class PchCtrl extends Controller
         } else {
             try {
                 if (intval($req->pay_method) >= 11 && intval($req->pay_method) <= 15) {
-                    $paymentXendit = $this->setTrxEWallet($payment->id, $req->pay_method, $totalPay, $profitSetting, $req->mobile_number, $req->cashtag);
+                    $paymentXendit = $this->setTrxEWallet($payment->id, $req->pay_method, $totalPay, $taxTotal, $profitSetting, $req->mobile_number, $req->cashtag);
                 } else if (intval($req->pay_method) >= 21 && intval($req->pay_method) <= 22) {
-                    $paymentXendit = $this->setTrxQris($payment->id, $req->pay_method, $totalPay, $profitSetting);
+                    $paymentXendit = $this->setTrxQris($payment->id, $req->pay_method, $totalPay, $taxTotal, $profitSetting);
                 } else if (intval($req->pay_method) >= 31 && intval($req->pay_method) <= 41) {
                     $paymentXendit = $this->setTrxVirAccount($payment->id, $req->pay_method, $totalPay, $profitSetting);
                 } else {
@@ -954,6 +992,7 @@ class PchCtrl extends Controller
                 }
             } catch (\Throwable $th) {
                 $this->rollbackPurchase($ticket_ids, $payment);
+                Log::info($th);
                 return response()->json(["error" => "Server error. Failed reach xendit server", "msg" => $th], 500);
             }
         }
@@ -1177,7 +1216,7 @@ class PchCtrl extends Controller
                     "account_name" => $req->account_name,
                     "account_number" => $req->account_number,
                     "percentage" => $refundPercentage,
-                    "nominal" => $pch["purchase"]->amount * $refundPercentage,
+                    "nominal" => ceil($pch["purchase"]->amount * $refundPercentage),
                     "basic_nominal" => $pch["purchase"]->amount
                 ]
             );

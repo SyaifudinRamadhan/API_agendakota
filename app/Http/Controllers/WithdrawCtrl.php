@@ -179,7 +179,7 @@ class WithdrawCtrl extends Controller
             $basicAmount += ($refundData->basic_nominal - $refundData->nominal);
         }
         $profitSetting = ProfitSetting::first();
-        $nominal = ($basicAmount - ($basicAmount * $profitSetting->ticket_commision));
+        $nominal = ceil($basicAmount - ($basicAmount * $profitSetting->ticket_commision));
         $wd = Withdraw::create([
             'event_id' => $eventData->id,
             'org_id' => $req->org->id,
@@ -317,7 +317,7 @@ class WithdrawCtrl extends Controller
             }
             $profitSetting = ProfitSetting::first();
             $orginAmount = $amount;
-            $amount -= (intval($amount) * $profitSetting->ticket_commision);
+            $amount = ceil($amount - (intval($amount) * $profitSetting->ticket_commision));
             if ($amount > 10000) {
                 $amount -= $profitSetting->admin_fee_wd;
             }
