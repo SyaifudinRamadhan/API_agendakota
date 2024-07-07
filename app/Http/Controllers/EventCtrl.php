@@ -903,7 +903,7 @@ class EventCtrl extends Controller
                 return response()->json(["error" => "Operation not allowed to your event. Your event still active"], 402);
             }
             Ticket::where('event_id', $eventObj->first()->id)->update(["deleted" => 1]);
-            $deleted = $eventObj->update(['deleted' => 1]);
+            $deleted = $eventObj->update(['deleted' => 1, "allow_refund" => 1]);
         }
         return response()->json(["deleted" => $deleted], 202);
     }
