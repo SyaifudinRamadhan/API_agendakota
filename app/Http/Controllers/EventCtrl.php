@@ -954,6 +954,7 @@ class EventCtrl extends Controller
         $pdf = Pdf::loadView('pdfs.unique-qr-download', [
             'myData' => Auth::user(),
             'event' => $event,
+            'urlEvent' => env('FRONTEND_URL') . '/self-checkin/' . $event->id,
             'organizationID' => $orgId,
             'organization' => $org,
             'isManageEvent' => 1,

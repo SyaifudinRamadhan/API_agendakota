@@ -44,8 +44,7 @@
 
             </div>
             <div class="col-12 text-center" style="margin-top: 10px;">
-                <img width="45%"
-                    src="data:image/png;base64,{{ BarCode2::getBarcodePNG($event->id, 'QRCODE', 8, 8) }}"
+                <img width="45%" src="data:image/png;base64,{{ BarCode2::getBarcodePNG($urlEvent, 'QRCODE', 8, 8) }}"
                     class="img-qrcode" alt="barcode" />
             </div>
             <div class="col-12">
