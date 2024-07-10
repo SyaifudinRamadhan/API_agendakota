@@ -198,7 +198,7 @@ class PchCtrl extends Controller
                 ->purchases()->get()[0]
                 ->ticket()->first()
                 ->event()->first()
-                ->name,
+                ->slug,
             "is_single_use" => true,
             "is_closed" => true,
             "expected_amount" => $amount,
@@ -816,15 +816,22 @@ class PchCtrl extends Controller
         $taxTotal = 0;
         $purchases = [];
         $profitSetting = ProfitSetting::first();
+        $vcTickets = $voucher->forTickets()->get();
         foreach ($ticket_ids as $key => $value) {
             $ticketObj = Ticket::where('id', $key);
+            $spcVc = false;
+            foreach ($vcTickets as $vcTicket) {
+                if($vcTicket->ticket_id === $key){
+                    $spcVc = true;
+                }
+            }
             for ($i = 0; $i < $value; $i++) {
                 $amount = 0;
                 $voucherCode = '-';
                 $priceTicket = $ticketObj->first()->type_price == 3 ? $customPrices[$key][$i] : $ticketObj->first()->price;
                 if ($req->voucher_code) {
-                    if ($voucher->event_id == $ticketObj->first()->event_id && $remainingVoucher > 0) {
-                        $amount = (intval($priceTicket) - (intval($priceTicket) * (intval($voucher->discount) / 100)));
+                    if ($voucher->event_id == $ticketObj->first()->event_id && $remainingVoucher > 0 && (count($vcTickets) == 0 || ($spcVc))) {
+                        $amount = (intval($priceTicket) - ($voucher->discount > 1 ? (intval($priceTicket) - intval($voucher->discount)) : (intval($priceTicket) * intval($voucher->discount))));
                         $voucherCode = $req->voucher_code;
                         $remainingVoucher -= 1;
                     } else {

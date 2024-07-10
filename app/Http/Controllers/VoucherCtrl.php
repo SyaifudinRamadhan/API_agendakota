@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Voucher;
+use App\Models\VoucherTiket;
 use DateTime;
 use DateTimeZone;
+use Hamcrest\Arrays\IsArray;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -38,6 +40,18 @@ class VoucherCtrl extends Controller
             'start' => $start->format('Y-m-d'),
             'end' => $end->format('Y-m-d'),
         ]);
+        $forTickets = [];
+        if($req->ticket_ids && is_array($req->ticket_ids)){
+            foreach ($req->ticket_ids as $ticket_id) {
+                $vcTicket = VoucherTiket::create([
+                    'voucher_id' => $voucher->id,
+                    'ticket_id' => $ticket_id
+                ]);
+                $vcTicket->ticket = $vcTicket->ticket()->first();
+                array_push($forTickets, $vcTicket);
+            }   
+        }
+        $voucher->for_tickets = $forTickets;
         return response()->json(["voucher" => $voucher], 201);
     }
 
@@ -64,7 +78,7 @@ class VoucherCtrl extends Controller
         if (!$voucher->first()) {
             return response()->json(["error" => "Voucher data not found"], 404);
         }
-        $updated = $voucher->update([
+        $voucher->update([
             'name' => $req->name,
             'code' => $voucher->first()->code,
             'discount' => abs($req->discount),
@@ -72,7 +86,21 @@ class VoucherCtrl extends Controller
             'start' => $start->format('Y-m-d'),
             'end' => $end->format('Y-m-d'),
         ]);
-        return response()->json(["updated" => $updated], 200);
+        $forTickets = [];
+        VoucherTiket::where('voucher_id', $req->voucher_id)->delete();
+        if($req->ticket_ids && is_array($req->ticket_ids)){
+            foreach ($req->ticket_ids as $ticket_id) {
+                $vcTicket = VoucherTiket::create([
+                    'voucher_id' => $req->voucher_id,
+                    'ticket_id' => $ticket_id
+                ]);
+                $vcTicket->ticket = $vcTicket->ticket()->first();
+                array_push($forTickets, $vcTicket);
+            }   
+        }
+        $voucher = $voucher->first();
+        $voucher->for_tickets = $forTickets;
+        return response()->json(["voucher" => $voucher], 200);
     }
 
     public function delete(Request $req)
@@ -87,6 +115,11 @@ class VoucherCtrl extends Controller
         if (!$voucher) {
             return response()->json(["error" => "Voucher not found"], 404);
         }
+        $forTickets = $voucher->forTickets()->get();
+        foreach ($forTickets as $forTicket) {
+            $forTicket->ticket = $forTicket->ticket()->first();
+        }
+        $voucher->for_tickets = $forTickets;
         return response()->json(["voucher" => $voucher], 200);
     }
 
@@ -95,6 +128,13 @@ class VoucherCtrl extends Controller
         $eventId = $req->event_id;
         $eventId == null ? $eventId = $req->event->id : null;
         $vouchers = Voucher::where('event_id', $eventId)->get();
+        foreach ($vouchers as $voucher) {
+            $forTickets = $voucher->forTickets()->get();
+            foreach ($forTickets as $forTicket) {
+                $forTicket->ticket = $forTicket->ticket()->first();
+            }
+            $voucher->for_tickets = $forTickets;
+        }
         return response()->json(["vouchers" => $vouchers], count($vouchers) == 0 ? 404 : 200);
     }
 }
