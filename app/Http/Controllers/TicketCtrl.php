@@ -284,7 +284,7 @@ class TicketCtrl extends Controller
                 return response()->json(["error" => "Invalid format input date or time"], 400);
             }
             $endEvent = new DateTime($req->event->end_date . ' ' . $req->event->end_time, new DateTimeZone('Asia/Jakarta'));
-            if ($start > $end || $start >= $endEvent || $end >= $endEvent) {
+            if ($start > $end || $start > $endEvent || $end > $endEvent) {
                 return response()->json(["error" => "Start date must be lower than end date or end date of the event"], 403);
             }
         } else {
