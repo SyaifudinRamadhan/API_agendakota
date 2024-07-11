@@ -816,7 +816,7 @@ class PchCtrl extends Controller
         $taxTotal = 0;
         $purchases = [];
         $profitSetting = ProfitSetting::first();
-        $vcTickets = $voucher->forTickets()->get();
+        $vcTickets = $req->voucher_code ? $voucher->forTickets()->get() : [];
         foreach ($ticket_ids as $key => $value) {
             $ticketObj = Ticket::where('id', $key);
             $spcVc = false;
