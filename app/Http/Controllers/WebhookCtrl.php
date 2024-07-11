@@ -58,7 +58,7 @@ class WebhookCtrl extends Controller
             //         "pay_state" => "SUCCEEDED"
             //     ]);
             // }
-            $payment = Payment::where('token_trx', $req->id);
+            $payment = Payment::where('token_trx', $req->callback_virtual_account_id);
             $payment->update([
                 "pay_state" => "SUCCEEDED"
             ]);
