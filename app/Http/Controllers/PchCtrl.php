@@ -51,7 +51,7 @@ class PchCtrl extends Controller
             }
             $params += [
                 'channel_properties' => [
-                    'mobile_number' => '+62' . substr($mobileNumber, 2),
+                    'mobile_number' => str_split($mobileNumber)[0] == '0' ? ('+62' . substr($mobileNumber, 1)) : ('+' . $mobileNumber),
                 ],
             ];
         } else if ($code_method == "015") {
@@ -194,11 +194,11 @@ class PchCtrl extends Controller
         $params = [
             "external_id" => $orderId,
             "bank_code" => $methods["VA"][$code_method][0],
-            "name" => $payment->first()
+            "name" => str_replace('-', ' ', $payment->first()
                 ->purchases()->get()[0]
                 ->ticket()->first()
                 ->event()->first()
-                ->name,
+                ->slug),
             "is_single_use" => true,
             "is_closed" => true,
             "expected_amount" => $amount,
