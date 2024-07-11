@@ -198,7 +198,7 @@ class PchCtrl extends Controller
                 ->purchases()->get()[0]
                 ->ticket()->first()
                 ->event()->first()
-                ->slug,
+                ->name,
             "is_single_use" => true,
             "is_closed" => true,
             "expected_amount" => $amount,
