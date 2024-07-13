@@ -16,7 +16,18 @@ class UserCtrl extends Controller
     {
         $validator = Validator::make(
             $req->all(),
-            [
+            $userId ? [
+                'f_name' => 'required|string',
+                'l_name' => 'required|string',
+                'name' => 'required|string',
+                'email' => 'required|string',
+                'photo' => 'image|max:2048',
+                'phone' => 'required|string',
+                'linkedin' => 'required|string',
+                'instagram' => 'required|string',
+                'twitter' => 'required|string',
+                'whatsapp' => 'required|string',
+            ] : [
                 'f_name' => 'required|string',
                 'l_name' => 'required|string',
                 'name' => 'required|string',
@@ -56,16 +67,29 @@ class UserCtrl extends Controller
             }
         }
         $interest = '';
-        foreach ($req->interest as $value) {
-            if ($interest === '') {
-                $interest = $value;
-            } else {
-                $interest .= '~^|-|^~' . $value;
+        if(!$userId){
+            foreach ($req->interest as $value) {
+                if ($interest === '') {
+                    $interest = $value;
+                } else {
+                    $interest .= '~^|-|^~' . $value;
+                }
             }
         }
 
         $updated = User::where('id', $user->id)->update(
-            [
+            $userId ? [
+                'f_name' => $req->f_name,
+                'l_name' => $req->l_name,
+                'name' => $req->name,
+                'email' => $req->email,
+                'photo' => $namePhoto,
+                'phone' => $req->phone,
+                'linkedin' => $req->linkedin,
+                'instagram' => $req->instagram,
+                'twitter' => $req->twitter,
+                'whatsapp' => $req->whatsapp,
+            ] : [
                 'f_name' => $req->f_name,
                 'l_name' => $req->l_name,
                 'name' => $req->name,

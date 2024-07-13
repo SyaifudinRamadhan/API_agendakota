@@ -105,7 +105,7 @@ class PchCtrl extends Controller
                 'platform_fee' => $platformFee,
                 'code_method' => $code_method,
                 'pay_links' => $createEWalletCharge->actions ? ($createEWalletCharge->actions->desktop_web_checkout_url ? $createEWalletCharge->actions->desktop_web_checkout_url : ($createEWalletCharge->actions->mobile_web_checkout_url ? $createEWalletCharge->actions->mobile_web_checkout_url : $createEWalletCharge->actions->mobile_deeplink_checkout_url)) : '',
-                'expired' => $now->add(new DateInterval('PT2M'))->format('Y-m-d H:i:s')
+                'expired' => $now->add(new DateInterval('PT30M'))->format('Y-m-d H:i:s')
             ]
         );
         return [
@@ -145,7 +145,7 @@ class PchCtrl extends Controller
                         "currency" => "IDR",
                         "amount" => $amount,
                         "channel_code" => config('payconfigs.methods')["qris"][$code_method][0],
-                        "expires_at" => str_replace(' ', 'T', $now24->add(new DateInterval('PT15M'))->format('Y-m-d H:i:s')) . 'Z',
+                        "expires_at" => str_replace(' ', 'T', $now24->add(new DateInterval('PT30M'))->format('Y-m-d H:i:s')) . 'Z',
                         // "expires_at" => str_replace(' ', 'T', $now24->add(new DateInterval('PT7H'))->format('Y-m-d H:i:s')) . 'Z',
                     ]
                 ),
@@ -202,7 +202,7 @@ class PchCtrl extends Controller
             "is_single_use" => true,
             "is_closed" => true,
             "expected_amount" => $amount,
-            "expiration_date" => str_replace(' ', 'T', $now24->add(new DateInterval('PT15M'))->format('Y-m-d H:i:s')) . 'Z',
+            "expiration_date" => str_replace(' ', 'T', $now24->add(new DateInterval('PT30M'))->format('Y-m-d H:i:s')) . 'Z',
             // "expiration_date" => str_replace(' ', 'T', $now24->add(new DateInterval('PT7H'))->format('Y-m-d H:i:s')) . 'Z',
         ];
 
@@ -257,7 +257,7 @@ class PchCtrl extends Controller
         // $test = [];
         foreach ($payments as $payment) {
             $datePayCreate = new DateTime($payment->expired, new DateTimeZone('Asia/Jakarta'));
-            $datePayCreate = $datePayCreate->add(new DateInterval('PT1M'));
+            $datePayCreate = $datePayCreate->add(new DateInterval('PT5M'));
             // array_push($test, [$datePayCreate, $now]);
             if ($datePayCreate < $now) {
                 $purchases = $payment->purchases()->get()->groupBy('ticket_id');
