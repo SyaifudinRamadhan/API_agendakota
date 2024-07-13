@@ -105,7 +105,7 @@ class PchCtrl extends Controller
                 'platform_fee' => $platformFee,
                 'code_method' => $code_method,
                 'pay_links' => $createEWalletCharge->actions ? ($createEWalletCharge->actions->desktop_web_checkout_url ? $createEWalletCharge->actions->desktop_web_checkout_url : ($createEWalletCharge->actions->mobile_web_checkout_url ? $createEWalletCharge->actions->mobile_web_checkout_url : $createEWalletCharge->actions->mobile_deeplink_checkout_url)) : '',
-                'expired' => $now->add(new DateInterval('PT30M'))->format('Y-m-d H:i:s')
+                'expired' => $now->add(new DateInterval($code_method == "014" ? 'PT1M' : 'PT30M'))->format('Y-m-d H:i:s')
             ]
         );
         return [
