@@ -139,6 +139,8 @@ class InvitationCtrl extends Controller
             'qr_str' => $lastInvoice->qr_str,
             'pay_links' => $lastInvoice->pay_links,
             'expired' => $lastInvoice->expired,
+            'admin_fee' => $lastInvoice->admin_fee,
+            'platform_fee' => $lastInvoice->platform_fee
         ]);
         Payment::where('id', $lastInvoice->id)->update([
             'price' => (int)$lastInvoice->price - (int)$pchObj->first()->amount
