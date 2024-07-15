@@ -15,8 +15,8 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('user_id')->references('id')->on('users')->onUpdate('cascade')->onDelete('cascade');
             $table->foreignUuid('event_id')->references('id')->on('events')->onDelete('cascade')->onUpdate('cascade');
-            $table->string("question_str");
-            $table->string('survey_datas');
+            $table->text("question_str");
+            $table->text('survey_datas');
             $table->timestamps();
         });
     }
