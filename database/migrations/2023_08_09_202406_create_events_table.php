@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('events', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->foreignUuid('org_id')->references('id')->on('organizations')->onDelete('cascade')->onUpdate('cascade');
-            $table->string('slug');
-            $table->string('name');
+            $table->text('slug');
+            $table->text('name');
             $table->string('category');
             $table->string('topics');
             $table->string('logo');

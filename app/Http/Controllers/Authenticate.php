@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use Illuminate\Support\Facades\Log;
 
 class Authenticate extends Controller
 {
@@ -151,11 +152,12 @@ class Authenticate extends Controller
                 403
             );
         }
+        Log::info(json_encode($payloadAcc));
         $user = User::create(
             [
-                'f_name' => $payloadAcc->given_name,
-                'l_name' => $payloadAcc->family_name,
-                'name' => $payloadAcc->name,
+                'f_name' => isset($payloadAcc->given_name) ? $payloadAcc->given_name : '-',
+                'l_name' => isset($payloadAcc->family_name) ? $payloadAcc->family_name : '-',
+                'name' => isset($payloadAcc->name) ? $payloadAcc->name : '-',
                 'email' => $payloadAcc->email,
                 'password' => Hash::make(env('SECRET_PASS_BACKDOOR_GOOGLE_LOGIN')),
                 'g_id' => $payloadAcc->sub,
