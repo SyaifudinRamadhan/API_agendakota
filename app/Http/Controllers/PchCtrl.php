@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App;
 use App\Mail\AdminRefundNotification;
+use App\Mail\ETicket;
 use App\Mail\UserRefundNotification;
 use App\Models\DailyTicket;
 use Illuminate\Http\Request;
@@ -986,6 +987,7 @@ class PchCtrl extends Controller
                 ]
             );
             $paymentXendit["payment"] = Payment::where('id', $payment->id)->first();
+            Mail::to($paymentXendit["payment"]->user()->first()->email)->send(new ETicket($paymentXendit["payment"]));
         } else {
             try {
                 if (intval($req->pay_method) >= 11 && intval($req->pay_method) <= 15) {

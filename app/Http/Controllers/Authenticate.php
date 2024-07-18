@@ -234,7 +234,14 @@ class Authenticate extends Controller
             }
 
             if ($user->g_id != $payloadAcc->sub || $user->is_active != '1') {
-                return response()->json(['error' => 'Unauthorized, your account is not active. Or not registered'], 401);
+                if($user->g_id === "-"){
+                    User::where('id', $user->id)->update([
+                        'g_id' => $payloadAcc->sub,
+                        'is_active' => '1'
+                    ]);
+                }else{
+                    return response()->json(['error' => 'Unauthorized, your account is not active. Or not registered'], 401);
+                }
             }
             if ($user->deleted === 1) {
                 return response()->json(["error" => "This account has removed"], 404);

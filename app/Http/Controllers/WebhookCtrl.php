@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Mail\ETicket;
 use App\Mail\OrganizerTicketNotiffication;
 use App\Models\DailyTicket;
 use App\Models\DisburstmentRefund;
@@ -65,6 +66,7 @@ class WebhookCtrl extends Controller
             $payment = $payment->first();
             if($payment){
                 Mail::to($payment->purchases()->get()[0]->ticket()->first()->event()->first()->org()->first()->user()->first()->email)->send(new OrganizerTicketNotiffication($payment->id));
+                Mail::to($payment->user()->first()->email)->send(new ETicket($payment));
             }
         } else {
             // $pkgPay = PkgPayment::where('order_id', $req->data["reference_id"]);
@@ -86,6 +88,7 @@ class WebhookCtrl extends Controller
                 $payment = $payment->first();
                 if($payment){
                     Mail::to($payment->purchases()->get()[0]->ticket()->first()->event()->first()->org()->first()->user()->first()->email)->send(new OrganizerTicketNotiffication($payment->id));
+                    Mail::to($payment->user()->first()->email)->send(new ETicket($payment));
                 }
             } else {
                 if ($req->event == 'ewallet.capture' && ($req->data["status"] == "FAILED" || $req->data["status"] == "VOIDED")) {
