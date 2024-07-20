@@ -15,4 +15,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
     return view('welcome');
-});
+})->name('welcome');
+Route::get('/no-login', function () {
+    return response(["messsage" => "Unauthenticated"], 401);
+})->name('welcome-no-login');
