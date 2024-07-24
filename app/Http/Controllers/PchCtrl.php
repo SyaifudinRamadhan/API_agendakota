@@ -470,7 +470,12 @@ class PchCtrl extends Controller
         if ($req->voucher_code) {
             $start = new DateTime($voucher->start, new DateTimeZone('Asia/Jakarta'));
             $end = new DateTime($voucher->end, new DateTimeZone('Asia/Jakarta'));
-            $purchasesVc = Purchase::where('code', $req->voucher_code)->get();
+            $purchasesVc = [];
+            foreach (Purchase::where('code', $req->voucher_code)->get() as $pch) {
+                if($pch->payment()->first()->pay_state !== "EXPIRED"){
+                    array_push($purchasesVc, $pch);
+                }
+            }
             if (intval($voucher->quantity) <= count($purchasesVc) || $now < $start || $now > $end) {
                 return ["error" => "This voucher is no longer available", "code" => 404];
             }
@@ -832,7 +837,7 @@ class PchCtrl extends Controller
                 $priceTicket = $ticketObj->first()->type_price == 3 ? $customPrices[$key][$i] : $ticketObj->first()->price;
                 if ($req->voucher_code) {
                     if ($voucher->event_id == $ticketObj->first()->event_id && $remainingVoucher > 0 && (count($vcTickets) == 0 || ($spcVc))) {
-                        $amount = (intval($priceTicket) - ($voucher->discount > 1 ? (intval($priceTicket) - intval($voucher->discount)) : (intval($priceTicket) * intval($voucher->discount))));
+                        $amount = (intval($priceTicket) - ($voucher->discount > 1 ? intval($voucher->discount) : (intval($priceTicket) * floatval($voucher->discount))));
                         $voucherCode = $req->voucher_code;
                         $remainingVoucher -= 1;
                     } else {

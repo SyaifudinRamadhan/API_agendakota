@@ -8,7 +8,9 @@ use App\Models\Event;
 use App\Models\Breakdown;
 use App\Models\LimitReschedule;
 use App\Models\Organization;
+use App\Models\Purchase;
 use App\Models\Ticket;
+use App\Models\Voucher;
 use DateInterval;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
@@ -696,6 +698,26 @@ class EventCtrl extends Controller
         return response()->json(["tickets" => $returnData], 200);
     }
 
+    private function getVouchers($eventId)
+    {
+        $vouchers = Voucher::where('event_id', $eventId)->get();
+        foreach ($vouchers as $voucher) {
+            $purchaseVc = [];
+            foreach (Purchase::where('code', $voucher->code)->get() as $pch) {
+                if($pch->payment()->first()->pay_state !== "EXPIRED"){
+                    array_push($purchaseVc, $pch);
+                }
+            }
+            $forTickets = $voucher->forTickets()->get();
+            foreach ($forTickets as $forTicket) {
+                $forTicket->ticket = $forTicket->ticket()->first();
+            }
+            $voucher->for_tickets = $forTickets;
+            $voucher->avl_qty = floatval($voucher->quantity) - count($purchaseVc);
+        }
+        return $vouchers;
+    }
+
     public function getAvailableSeatNumberDailyTicket(Request $req, $eventId)
     {
         $pchCtrl = new PchCtrl();
@@ -740,7 +762,7 @@ class EventCtrl extends Controller
             "handbooks" => $event->handbooks()->get(),
             "receptionists" => $event->receptionists()->get(),
             "organization" => $org,
-            "vouchers" => new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta')) ? $event->vouchers()->get() : [],
+            "vouchers" => $this->getVouchers($event->id),
         ], 200);
     }
 
@@ -781,7 +803,7 @@ class EventCtrl extends Controller
             "handbooks" => $event->handbooks()->get(),
             "receptionists" => $event->receptionists()->get(),
             "organization" => $org,
-            "vouchers" => new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta')) ? $event->vouchers()->get() : [],
+            "vouchers" => $this->getVouchers($event->id),
         ], 200);
     }
 
@@ -821,7 +843,7 @@ class EventCtrl extends Controller
             "handbooks" => $event->handbooks()->get(),
             "receptionists" => $event->receptionists()->get(),
             "organization" => $org,
-            "vouchers" => new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta')) ? $event->vouchers()->get() : [],
+            "vouchers" => $this->getVouchers($event->id),
         ], 200);
     }
 
@@ -866,7 +888,7 @@ class EventCtrl extends Controller
                 "handbooks" => $event->handbooks()->get(),
                 "receptionists" => $event->receptionists()->get(),
                 "organization" => $org,
-                "vouchers" => new DateTime('now', new DateTimeZone('Asia/Jakarta')) < new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta')) ? $event->vouchers()->get() : [],
+                "vouchers" => $this->getVouchers($event->id),
             ];
         }
         return response()->json($data, 200);

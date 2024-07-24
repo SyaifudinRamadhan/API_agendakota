@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Purchase;
 use App\Models\Voucher;
 use App\Models\VoucherTiket;
 use DateTime;
@@ -12,6 +13,17 @@ use Illuminate\Support\Facades\Validator;
 
 class VoucherCtrl extends Controller
 {
+    private function avlQty($voucher)
+    {
+        $purchaseVc = [];
+        foreach (Purchase::where('code', $voucher->code)->get() as $pch) {
+            if($pch->payment()->first()->pay_state !== "EXPIRED"){
+                array_push($purchaseVc, $pch);
+            }
+        }
+        return floatval($voucher->quantity) - count($purchaseVc);
+    }
+
     public function create(Request $req)
     {
         $validator = Validator::make($req->all(), [
@@ -28,7 +40,7 @@ class VoucherCtrl extends Controller
         $start = new DateTime($req->start, new DateTimeZone('Asia/Jakarta'));
         $end = new DateTime($req->end, new DateTimeZone('Asia/Jakarta'));
         $endEvent = new DateTime($req->event->end_date, new DateTimeZone('Asia/Jakarta'));
-        if ($start > $end || $start > $endEvent || $end >= $endEvent) {
+        if ($start > $end || $start > $endEvent || $end > $endEvent) {
             return response()->json(["error" => "Start time can't greater than end time"], 403);
         }
         $voucher = Voucher::create([
@@ -52,6 +64,7 @@ class VoucherCtrl extends Controller
             }   
         }
         $voucher->for_tickets = $forTickets;
+        $voucher->avl_qty = $this->avlQty($voucher);
         return response()->json(["voucher" => $voucher], 201);
     }
 
@@ -71,7 +84,7 @@ class VoucherCtrl extends Controller
         $start = new DateTime($req->start, new DateTimeZone('Asia/Jakarta'));
         $end = new DateTime($req->end, new DateTimeZone('Asia/Jakarta'));
         $endEvent = new DateTime($req->event->end_date, new DateTimeZone('Asia/Jakarta'));
-        if ($start > $end || $start > $endEvent || $end >= $endEvent) {
+        if ($start > $end || $start > $endEvent || $end > $endEvent) {
             return response()->json(["error" => "Start time can't greater than end time"], 403);
         }
         $voucher = Voucher::where('id', $req->voucher_id)->where('event_id', $req->event->id);
@@ -100,6 +113,7 @@ class VoucherCtrl extends Controller
         }
         $voucher = $voucher->first();
         $voucher->for_tickets = $forTickets;
+        $voucher->avl_qty = $this->avlQty($voucher);
         return response()->json(["voucher" => $voucher], 200);
     }
 
@@ -120,6 +134,7 @@ class VoucherCtrl extends Controller
             $forTicket->ticket = $forTicket->ticket()->first();
         }
         $voucher->for_tickets = $forTickets;
+        $voucher->avl_qty = $this->avlQty($voucher);
         return response()->json(["voucher" => $voucher], 200);
     }
 
@@ -134,6 +149,7 @@ class VoucherCtrl extends Controller
                 $forTicket->ticket = $forTicket->ticket()->first();
             }
             $voucher->for_tickets = $forTickets;
+            $voucher->avl_qty = $this->avlQty($voucher);
         }
         return response()->json(["vouchers" => $vouchers], count($vouchers) == 0 ? 404 : 200);
     }
