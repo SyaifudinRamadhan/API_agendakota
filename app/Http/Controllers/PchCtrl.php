@@ -469,7 +469,7 @@ class PchCtrl extends Controller
         $remainingVoucher = 0;
         if ($req->voucher_code) {
             $start = new DateTime($voucher->start, new DateTimeZone('Asia/Jakarta'));
-            $end = new DateTime($voucher->end, new DateTimeZone('Asia/Jakarta'));
+            $end = new DateTime(explode(' ', $voucher->end)[0]." 23:59:59", new DateTimeZone('Asia/Jakarta'));
             $purchasesVc = [];
             foreach (Purchase::where('code', $req->voucher_code)->get() as $pch) {
                 if($pch->payment()->first()->pay_state !== "EXPIRED"){
