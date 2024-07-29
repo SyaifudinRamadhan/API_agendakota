@@ -58,6 +58,10 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
     Route::get('/special-day', [\App\Http\Controllers\AdminCtrl::class, 'getSpcDay']);
     Route::get('/selected-event', [\App\Http\Controllers\AdminCtrl::class, 'getSlctEvent']);
     Route::get('/selected-activity', [\App\Http\Controllers\AdminCtrl::class, 'getSlctActivity']);
+    Route::get('/active-spotlights', [\App\Http\Controllers\AdminCtrl::class, 'getActiveSpotlights']);
+    Route::get('/active-special-days', [\App\Http\Controllers\AdminCtrl::class, 'getActiveSpcDays']);
+    Route::get('/active-selected-events', [\App\Http\Controllers\AdminCtrl::class, 'getActiveSlctEvents']);
+    Route::get('/active-selected-activities', [\App\Http\Controllers\AdminCtrl::class, 'getActiveSlctActivities']);
     Route::get('/pop-events', [\App\Http\Controllers\SearchCtrl::class, 'popularEvents']);
     Route::get('/pop-city-events', [\App\Http\Controllers\SearchCtrl::class, 'popularCityEvents']);
     Route::get('/search', [\App\Http\Controllers\SearchCtrl::class, 'searchEvents']);

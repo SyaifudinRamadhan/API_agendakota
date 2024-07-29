@@ -3,6 +3,8 @@
 namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
+
+use App\Notifications\ResetPasssword;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -10,6 +12,7 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\Log;
 
 class User extends Authenticatable
 {
@@ -102,5 +105,11 @@ class User extends Authenticatable
     public function otp(): HasOne
     {
         return $this->hasOne(Otp::class, 'user_id');
+    }
+
+    public function sendPasswordResetNotification($token)
+    {
+        $url = env('FRONTEND_URL') . '/reset-password/'. $token;
+        $this->notify(new ResetPasssword($this->name, $url));
     }
 }

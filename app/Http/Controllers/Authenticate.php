@@ -14,7 +14,10 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
 
 class Authenticate extends Controller
 {
@@ -462,17 +465,8 @@ class Authenticate extends Controller
         if (!$user) {
             return response()->json(['error' => 'email account not found'], 404);
         }
-        $tokenReset = JWT::encode(['sub' => $user->id], env('JWT_SECRET'), env('JWT_ALG'));
-
-        // Mail handler to send email reset confirm
-        Mail::to($user->email)->send(new ResetPassword($user->name, $tokenReset));
-
-        return response()->json(
-            [
-                'message' => 'We have send confirmation email to reset your password'
-            ],
-            200
-        );
+        $status = Password::sendResetLink($req->only('email'));
+        return response()->json(["data" => __($status)], $status === Password::RESET_LINK_SENT ? 202 : 403);
     }
 
     //reset password
@@ -481,37 +475,30 @@ class Authenticate extends Controller
         $validator = Validator::make(
             $req->all(),
             [
-                'token_reset' => 'required',
-                'new_password' => 'required',
-                'confirm_new_pass' => 'required'
+                'token' => 'required',
+                'email' => "required",
+                'password' => 'required|min:8|confirmed',
             ]
         );
 
         if ($validator->fails()) {
             return response()->json($validator->fails(), 403);
         }
-        if ($req->new_password != $req->confirm_new_pass) {
+        if ($req->password != $req->password_confirmation) {
             return response()->json(['error' => 'Please check your new password and confirm new password again'], 403);
         }
 
-        $payload = '';
-        try {
-            $payload = JWT::decode($req->token_reset, new Key(env('JWT_SECRET'), env('JWT_ALG')));
-        } catch (\Throwable $th) {
-            //throw $th;
-            return response()->json(['error' => 'Invalid signature'], 403);
-        }
-        $user = User::where('id', $payload->sub)->update(
-            [
-                'password' => Hash::make($req->new_password)
-            ]
+        $status = Password::reset(
+            $req->only(['email', 'password', 'password_confirmation', 'token']),
+            function (User $user, string $password){
+                $user->forceFill([
+                    'password' => Hash::make($password)
+                ])->setRememberToken(Str::random(60));
+                $user->save();
+                event(new PasswordReset($user));
+            }
         );
 
-        return response()->json(
-            [
-                'message' => $user == 0 ? 'Failed update password / user not found' : 'Your password has been updated'
-            ],
-            $user == 0 ? 404 : 200
-        );
+        return response()->json(["data" => __($status)], $status === Password::PASSWORD_RESET ? 202 : 403);
     }
 }

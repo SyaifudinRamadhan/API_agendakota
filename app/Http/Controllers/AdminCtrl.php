@@ -426,9 +426,9 @@ class AdminCtrl extends Controller
         $nameBanner = BasicFunctional::randomStr(5) . '_' . time() . '.' . $req->file('banner')->getClientOriginalExtension();
         $req->file('banner')->storeAs('public/spotlight_banners', $nameBanner);
         $nameBanner = '/storage/spotlight_banners/' . $nameBanner;
-        if ($req->view) {
-            DB::table('spotlights')->update(['view' => false]);
-        }
+        // if ($req->view) {
+        //     DB::table('spotlights')->update(['view' => false]);
+        // }
         $spotlight = Spotlight::create([
             'title' => $req->title,
             'sub_title' => $req->sub_title,
@@ -474,8 +474,8 @@ class AdminCtrl extends Controller
         if (!$spotlight->first()) {
             return response()->json(["error" => "Spotlight data not found"], 404);
         }
-        DB::table('spotlights')->update(['view' => false]);
-        $updated = $spotlight->update(['view' => true]);
+        // DB::table('spotlights')->update(['view' => false]);
+        $updated = $spotlight->update(['view' => $spotlight->first()->view == true ? false : true]);
         return response()->json(["updated" => $updated], 202);
     }
 
@@ -506,7 +506,7 @@ class AdminCtrl extends Controller
         }
         $data = [];
         foreach ($req->event_id as $eventId) {
-            $event = Event::where('id', $eventId)->where('is_publish', 2)->where('visibility', true)->where('deleted', 0);
+            $event = Event::where('id', $eventId)->where('is_publish', 2)->where('visibility', true)->where('deleted', 0)->where('end_date', '>=', new DateTime('now', new DateTimeZone('Asia/Jakarta')));
             if (!$event->first()) {
                 return response()->json(["error" => "Event data not found"], 404);
             }
@@ -587,10 +587,11 @@ class AdminCtrl extends Controller
         $events = [];
         foreach ($eventsTargets as $key => $evtTraget) {
             $event = $evtTraget->event()->first();
-            if($event->deleted === 0){
+            if($event->deleted === 0 && $event->is_publish === 2 && $event->visibility == 1 && new DateTime($event->end_date, new DateTimeZone('Asia/Jakarta')) >= new DateTime('now', new DateTimeZone('Asia/Jakarta'))){
                 $event->id_data = $evtTraget->id;
                 $event->available_days = $event->availableDays()->get();
                 $event->org = $event->org()->first();
+                $event->org->legality = $event->org->credibilityData()->first();
                 $event->tickets = $event->tickets()->orderBy('price', 'ASC')->get();
                 $events[] = $event;
             }
@@ -605,6 +606,15 @@ class AdminCtrl extends Controller
             return response()->json(["error" => $data["error"]], $data["status"]);
         }
         return response()->json(["spotlight" => ["data" => $data["data"], "events" => $data["events"]]], $data["status"]);
+    }
+
+    public function getActiveSpotlights(){
+        $spotlights = Spotlight::where('view', true)->get();
+        $data = [];
+        foreach ($spotlights as $spotlight) {
+            $data[] = $this->spotlightData($spotlight->id);
+        }
+        return response()->json(["spotlights" => $data], 200);   
     }
 
     public function listSpotlights()
@@ -653,8 +663,8 @@ class AdminCtrl extends Controller
         if (!$specialDay->first()) {
             return response()->json(["error" => "Data not found"], 404);
         }
-        DB::table('special_days')->update(['view' => false]);
-        $updated = $specialDay->update(['view' => true]);
+        // DB::table('special_days')->update(['view' => false]);
+        $updated = $specialDay->update(['view' => $specialDay->first()->view == true ? false : true]);
         return response()->json(["updated" => $updated], 202);
     }
 
@@ -684,7 +694,7 @@ class AdminCtrl extends Controller
         }
         $data = [];
         foreach ($req->event_id as $eventId) {
-            $event = Event::where('id', $eventId)->where('is_publish', 2)->where('visibility', true)->where('deleted', 0)->first();
+            $event = Event::where('id', $eventId)->where('is_publish', 2)->where('visibility', true)->where('deleted', 0)->where('end_date', '>=', new DateTime('now', new DateTimeZone('Asia/Jakarta')))->first();
             if (!$event) {
                 return response()->json(["error" => "Event data not found"], 404);
             }
@@ -761,10 +771,11 @@ class AdminCtrl extends Controller
         $events = [];
         foreach ($spcDayEvent->events()->get() as $key => $spcDayEvt) {
             $event = $spcDayEvt->event()->first();
-            if($event->deleted === 0){
+            if($event->deleted === 0 && $event->is_publish === 2 && $event->visibility == 1 && new DateTime($event->end_date, new DateTimeZone('Asia/Jakarta')) >= new DateTime('now', new DateTimeZone('Asia/Jakarta'))){
                 $event->id_data = $spcDayEvt->id;
                 $event->available_days = $event->availableDays()->get();
                 $event->org = $event->org()->first();
+                $event->org->legality = $event->org->credibilityData()->first();
                 $event->tickets = $event->tickets()->orderBy('price', 'ASC')->get();
                 $events[] = $event;
             }
@@ -780,6 +791,15 @@ class AdminCtrl extends Controller
             return response()->json(["error" => $data["error"]], $data["status"]);
         }
         return response()->json(["special_day" => ["data" => $data["data"], "events" => $data["events"]]], 200);
+    }
+
+    public function getActiveSpcDays(){
+        $spcDays = SpecialDay::where('view', true)->get();
+        $data = [];
+        foreach ($spcDays as $spcDay) {
+            $data[] = $this->detailSpcDay($spcDay->id);
+        }
+        return response()->json(["special_days" => $data], 200);
     }
 
     public function listSpcDays()
@@ -828,8 +848,8 @@ class AdminCtrl extends Controller
         if (!$selectedEvent->first()) {
             return response()->json(["error" => "Data not found"], 404);
         }
-        DB::table('selected_events')->update(['view' => false]);
-        $updated = $selectedEvent->update(['view' => true]);
+        // DB::table('selected_events')->update(['view' => false]);
+        $updated = $selectedEvent->update(['view' => $selectedEvent->first()->view == true ? false : true]);
         return response()->json(["updated" => $updated], 202);
     }
 
@@ -859,7 +879,7 @@ class AdminCtrl extends Controller
         }
         $data = [];
         foreach ($req->event_id as $eventId) {
-            $event = Event::where('id', $eventId)->where('is_publish', 2)->where('visibility', true)->where('deleted', 0)->first();
+            $event = Event::where('id', $eventId)->where('is_publish', 2)->where('visibility', true)->where('deleted', 0)->where('end_date', '>=', new DateTime('now', new DateTimeZone('Asia/Jakarta')))->first();
             if (!$event) {
                 return response()->json(["error" => "Event data not found"], 404);
             }
@@ -940,10 +960,11 @@ class AdminCtrl extends Controller
         $events = [];
         foreach ($slcEvent->events()->get() as $key => $slcDayEvtData) {
             $event = $slcDayEvtData->event()->first();
-            if($event->deleted === 0){
+            if($event->deleted === 0 && $event->is_publish === 2 && $event->visibility == 1 && new DateTime($event->end_date, new DateTimeZone('Asia/Jakarta')) >= new DateTime('now', new DateTimeZone('Asia/Jakarta'))){
                 $event->id_data = $slcDayEvtData->id;
                 $event->available_days = $event->availableDays()->get();
                 $event->org = $event->org()->first();
+                $event->org->legality = $event->org->credibilityData()->first();
                 $event->tickets = $event->tickets()->orderBy('price', 'ASC')->get();
                 $events[] = $event;
             }
@@ -959,6 +980,15 @@ class AdminCtrl extends Controller
             return response()->json(["error" => $data["error"]], $data["status"]);
         }
         return response()->json(["selected_event" => ["data" => $data["data"], "events" => $data["events"]]], $data["status"]);
+    }
+
+    public function getActiveSlctEvents(){
+        $slcEvents = SelectedEvent::where('view', true)->get();
+        $data = [];
+        foreach ($slcEvents as $slcEvent) {
+            $data[] = $this->detailSelectedEvent($slcEvent->id);
+        }
+        return response()->json(["selected_events" => $data], 200);
     }
 
     public function listSlctEvents()
@@ -1007,8 +1037,8 @@ class AdminCtrl extends Controller
         if (!$selectedActivity->first()) {
             return response()->json(["error" => "Data not found"], 404);
         }
-        DB::table('selected_activities')->update(['view' => false]);
-        $updated = $selectedActivity->update(['view' => true]);
+        // DB::table('selected_activities')->update(['view' => false]);
+        $updated = $selectedActivity->update(['view' => $selectedActivity->first()->view == true ? false : true]);
         return response()->json(["updated" => $updated], 202);
     }
 
@@ -1038,7 +1068,7 @@ class AdminCtrl extends Controller
         }
         $data = [];
         foreach ($req->event_id as $eventId) {
-            $event = Event::where('id', $eventId)->where('is_publish', 2)->where('visibility', true)->where('deleted', 0)->first();
+            $event = Event::where('id', $eventId)->where('is_publish', 2)->where('visibility', true)->where('deleted', 0)->where('end_date', '>=', new DateTime('now', new DateTimeZone('Asia/Jakarta')))->first();
             if (!$event) {
                 return response()->json(["error" => "Event data not found"], 404);
             }
@@ -1119,10 +1149,11 @@ class AdminCtrl extends Controller
         $events = [];
         foreach ($slcActivity->events()->get() as $key => $slcActivityEventData) {
             $event = $slcActivityEventData->event()->first();
-            if($event->deleted === 0){
+            if($event->deleted === 0 && $event->is_publish === 2 && $event->visibility == 1 && new DateTime($event->end_date, new DateTimeZone('Asia/Jakarta')) >= new DateTime('now', new DateTimeZone('Asia/Jakarta'))){
                 $event->id_data = $slcActivityEventData->id;
                 $event->available_days = $event->availableDays()->get();
                 $event->org = $event->org()->first();
+                $event->org->legality = $event->org->credibilityData()->first();
                 $event->tickets = $event->tickets()->orderBy('price', 'ASC')->get();
                 $events[] = $event;
             }
@@ -1138,6 +1169,15 @@ class AdminCtrl extends Controller
             return response()->json(["error" => $data["error"]], $data["status"]);
         }
         return response()->json(["selected_activity" => ["data" => $data["data"], "events" => $data["events"]]], $data["status"]);
+    }
+
+    public function getActiveSlctActivities(){
+        $slcActivites = SelectedActivity::where('view', true)->get();
+        $data = [];
+        foreach ($slcActivites as $slcActivity) {
+            $data[] = $this->detailSelectedActivity($slcActivity->id);
+        }
+        return response()->json(["selected_activities" => $data], 200);
     }
 
     public function listSlctActivities()

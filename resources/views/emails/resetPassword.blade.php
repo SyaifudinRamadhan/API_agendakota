@@ -223,7 +223,7 @@
                                                                     style="mso-text-raise: 6px;display: inline;color: #82899a;">{{ $name }}</span>
                                                                 <img src="{{ $message->embed(public_path('storage') . '/images/mail-send-img/person-24-light.png') }}"
                                                                     width="24" height="24" alt=""
-                                                                    style="max-width: 24px;-ms-interpolation-mode: bicubic;vertical-align: middle;border: 0;line-height: 100%;height: auto;outline: none;text-decoration: none;"></a>
+                                                                    style="max-width: 24px;-ms-interpohttp://localhost:3000/reset-password?token=lation-mode: bicubic;vertical-align: middle;border: 0;line-height: 100%;height: auto;outline: none;text-decoration: none;"></a>
                                                         </td>
                                                     </tr>
                                                 </tbody>
@@ -330,7 +330,9 @@
                                     style="font-family: Helvetica, Arial, sans-serif;margin-top: 0px;margin-bottom: 0px;font-size: 16px;line-height: 24px;background-color: #ffffff;color: #424651;padding-left: 24px;padding-right: 24px;padding-top: 16px;padding-bottom: 16px;">
                                     <p style="margin-top: 0px;margin-bottom: 0px;">
                                         Untuk me-reset password akunmu, dibutuhkan verifkadi email kamu. Klik tombol
-                                        verifikasi untuk memverfikasi email.</p>
+                                        verifikasi untuk memverfikasi email. (Link / URL ini akan kadaluwarsa dalam 3
+                                        menit
+                                        setelah request reset password dirim)</p>
                                 </td>
                             </tr>
                         </tbody>
@@ -362,7 +364,7 @@
                                                     style="font-family: Helvetica, Arial, sans-serif;font-weight: bold;margin-top: 0px;margin-bottom: 0px;font-size: 16px;line-height: 24px;mso-padding-alt: 12px 24px;background-color: #e59312;border-radius: 4px;">
                                                     <a class="o_text-white" href="{{ $url }}"
                                                         style="text-decoration: none;outline: none;color: #ffffff;display: block;padding: 12px 24px;mso-text-raise: 3px;">Reset
-                                                        Verifikasi</a>
+                                                        Reset Password</a>
                                                 </td>
                                             </tr>
                                         </tbody>
