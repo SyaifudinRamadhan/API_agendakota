@@ -1,6 +1,7 @@
 <?php
 
-use App\Mail\OrganizerTicketNotiffication;
+use App\Mail\ETicket;
+use App\Mail\TrxNotification;
 use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -17,7 +18,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 // Route::get('/test-mail', function(){
-//     Mail::to(Payment::where('id', '9beba6ae-0891-4266-8de3-132227346e3b')->first()->purchases()->get()[0]->ticket()->first()->event()->first()->org()->first()->user()->first()->email)->send(new OrganizerTicketNotiffication('9beba6ae-0891-4266-8de3-132227346e3b'));
+//     Mail::to('rionadewanda@gmail.com')->send(new ETicket(Payment::where('id', '9c8767d2-6976-44db-a32c-a15bf12a48b3')->first()));
 // });
 // Route::get('/download-ticket', [\App\Http\Controllers\PchCtrl::class, 'downloadTicket']);
 Route::get('/verify/{subId}', [\App\Http\Controllers\Authenticate::class, 'verify'])->name('verify');
@@ -257,6 +258,13 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
             Route::post('/selected-activity/event/set-prio-min', [\App\Http\Controllers\AdminCtrl::class, 'minPrioEventSlctActivity']);
             Route::get('/selected-activity', [\App\Http\Controllers\AdminCtrl::class, 'getSlctActivity']);
             Route::get('/selected-activities', [\App\Http\Controllers\AdminCtrl::class, 'listSlctActivities']);
+
+            Route::get('/resend-e-ticket/{email}/{paymentId}', function($email, $paymentId){
+                Mail::to($email)->send(new ETicket(Payment::where('id', $paymentId)->first()));
+            });
+            Route::get('/resend-trx-notification/{email}/{paymentId}', function($email, $paymentId){
+                Mail::to($email)->send(new TrxNotification(Payment::where('id', $paymentId)->first()));
+            });
 
             // Primary admin route
             Route::put('/commision-price/update', [\App\Http\Controllers\AdminCtrl::class, 'udpdateProfitSetting']);

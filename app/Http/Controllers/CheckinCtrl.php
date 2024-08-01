@@ -124,9 +124,9 @@ class CheckinCtrl extends Controller
             }
         }
         if (($req->event->category != 'Attraction' && $req->event->category != 'Daily Activities' && $req->event->category != 'Tour Travel (recurring)')
-            && $now > $endEvent && $now < $startEvent
+            && ($now > $endEvent || $now < $startEvent)
         ) {
-            return response()->json(["error" => "The ticket has expired"], 403);
+            return response()->json(["error" => $now > $endEvent ? "The ticket has expired" : "Checkin can only be done when the event has started"], 403);
         }
         $checkin = Checkin::where('pch_id', $purchase->id)->first();
         if ($checkin) {

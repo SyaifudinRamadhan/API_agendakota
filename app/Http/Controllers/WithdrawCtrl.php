@@ -142,9 +142,9 @@ class WithdrawCtrl extends Controller
             return response()->json(["error" => "You are not allowed to create withdraw before ypur legality approved"], 403);
         }
         
-        $event = Event::where('id', $req->event_id)->where('org_id', $req->org->id)->where(function($query){
+        $event = Event::where('id', $req->event_id)->where('org_id', $req->org->id)->where('deleted', 0)->where(function($query){
             $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-            $query->where('is_publish', "<", 3)->where('end_date', "<", $now->format('Y-m-d'))->orWhere('category', 'Attraction')->orWhere('category', 'Daily Activities')->orWhere('category', 'Tour Travel (recurring)');
+            $query->where('is_publish', "<", 3)->where('end_date', "<=", $now->format('Y-m-d'))->where('end_time', '<', $now->format('H:i:s'))->orWhere('category', 'Attraction')->orWhere('category', 'Daily Activities')->orWhere('category', 'Tour Travel (recurring)');
         });
         $eventData = $event->first();
         if (!$eventData) {
@@ -336,9 +336,9 @@ class WithdrawCtrl extends Controller
     {
         $events = [];
         $totalAmount = 0;
-        foreach (Event::where('org_id', $req->org->id)->where(function($query){
+        foreach (Event::where('org_id', $req->org->id)->where('deleted', 0)->where(function($query){
             $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-            $query->where('is_publish', '<', 3)->where('end_date', '<', $now->format('Y-m-d'))->orWhere('category', 'Attraction')->orWhere('category', 'Daily Activities')->orWhere('category', 'Tour Travel (recurring)');
+            $query->where('is_publish', '<', 3)->where('end_date', '<=', $now->format('Y-m-d'))->where('end_time', '<', $now->format('H:i:s'))->orWhere('category', 'Attraction')->orWhere('category', 'Daily Activities')->orWhere('category', 'Tour Travel (recurring)');
         })->get() as $event) {
             $data = $this->availableForWdCore($event);
             $events[] = $data["events"];

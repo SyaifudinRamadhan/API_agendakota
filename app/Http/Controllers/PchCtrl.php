@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App;
 use App\Mail\AdminRefundNotification;
 use App\Mail\ETicket;
+use App\Mail\TrxNotification;
 use App\Mail\UserRefundNotification;
 use App\Models\DailyTicket;
 use Illuminate\Http\Request;
@@ -1004,6 +1005,7 @@ class PchCtrl extends Controller
                 } else {
                     $paymentXendit = $this->setTrxVirAccount($payment->id, $req->pay_method, $totalPay, $profitSetting);
                 }
+                Mail::to(Auth::user()->email)->send(new TrxNotification(Payment::where('id', $payment->id)->first()));
             } catch (\Throwable $th) {
                 $this->rollbackPurchase($ticket_ids, $payment);
                 Log::info($th);
