@@ -407,8 +407,8 @@ class PchCtrl extends Controller
                 return ["error" => "This has not been published yet or is still in draft form", "code" => 403];
             }
 
-            $startTicket = new DateTime($ticket->start_date, new DateTimeZone('Asia/Jakarta'));
-            $endTicket = new DateTime($ticket->end_date === $event->end_date ? ($ticket->end_date.' '.$event->end_time) : ($ticket->end_date.' 23:59'), new DateTimeZone('Asia/Jakarta'));
+            $startTicket = new DateTime($ticket->start_date. ' 00:00:00', new DateTimeZone('Asia/Jakarta'));
+            $endTicket = new DateTime($ticket->end_date === $event->end_date ? ($ticket->end_date.' '.$event->end_time) : ($ticket->end_date.' 23:59:00'), new DateTimeZone('Asia/Jakarta'));
 
             $purchases = $ticket->purchases()->where('user_id', Auth::user()->id)->get();
 
