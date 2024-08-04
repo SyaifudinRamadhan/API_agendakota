@@ -33,7 +33,7 @@ class CheckinCtrl extends Controller
         $checkined = 0;
         $unPaid = 0;
         $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-        $startEvent = new DateTime($event->start_date . ' ' . $event->start_time, new DateTimeZone('Asia/Jakarta'));
+        $startEvent = new DateTime($event->start_date . ' 00:00:00', new DateTimeZone('Asia/Jakarta'));
         $eventEnd = new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta'));
         foreach ($purchases as $purchase) {
             $skip = false;
@@ -111,7 +111,7 @@ class CheckinCtrl extends Controller
             return response()->json(["error" => "This purchased ticket event not match"], 404);
         }
         $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-        $startEvent = new DateTime($req->event->start_date . ' ' . $req->event->start_time, new DateTimeZone('Asia/Jakarta'));
+        $startEvent = new DateTime($req->event->start_date . ' 00:00:00', new DateTimeZone('Asia/Jakarta'));
         $endEvent = new DateTime($req->event->end_date . ' ' . $req->event->end_time, new DateTimeZone('Asia/Jakarta'));
         if ($req->event->category == 'Attraction' || $req->event->category == 'Daily Activities' || $req->event->category == 'Tour Travel (recurring)') {
             $visitDateObj = $purchase->visitDate()->first();

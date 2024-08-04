@@ -16,6 +16,6 @@ class VoucherTiket extends Model
     ];
 
     public function ticket(): BelongsTo{
-        return $this->BelongsTo(Ticket::class, 'ticket_id');
+        return $this->belongsTo(Ticket::class, 'ticket_id');
     }
 }
