@@ -9,6 +9,8 @@ use App\Models\Checkin;
 use App\Models\Purchase;
 use App\Models\Ticket;
 use App\Models\Event;
+use App\Models\Invitation;
+use DateInterval;
 use DateTime;
 use DateTimeZone;
 
@@ -33,7 +35,8 @@ class CheckinCtrl extends Controller
         $checkined = 0;
         $unPaid = 0;
         $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-        $startEvent = new DateTime($event->start_date . ' 00:00:00', new DateTimeZone('Asia/Jakarta'));
+        $startEvent = new DateTime($event->start_date . ' ' . $event->start_time, new DateTimeZone('Asia/Jakarta'));
+        $startEvent->sub(new DateInterval('PT2H'));
         $eventEnd = new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta'));
         foreach ($purchases as $purchase) {
             $skip = false;
@@ -100,7 +103,7 @@ class CheckinCtrl extends Controller
             return response()->json($validator->errors(), 403);
         }
         $qrStr = explode("*~^|-|^~*", $req->qr_str);
-        $purchase = Purchase::where('id', $qrStr[0])->where('user_id', $qrStr[1])->where('is_mine', true)->first();
+        $purchase = Purchase::where('id', $qrStr[0])->where('user_id', $qrStr[1])->first();
         if (!$purchase) {
             return response()->json(["error" => "Purchase data not found in this event"], 404);
         }
@@ -111,7 +114,8 @@ class CheckinCtrl extends Controller
             return response()->json(["error" => "This purchased ticket event not match"], 404);
         }
         $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-        $startEvent = new DateTime($req->event->start_date . ' 00:00:00', new DateTimeZone('Asia/Jakarta'));
+        $startEvent = new DateTime($req->event->start_date . ' ' . $req->event->start_time, new DateTimeZone('Asia/Jakarta'));
+        $startEvent->sub(new DateInterval('PT2H'));
         $endEvent = new DateTime($req->event->end_date . ' ' . $req->event->end_time, new DateTimeZone('Asia/Jakarta'));
         if ($req->event->category == 'Attraction' || $req->event->category == 'Daily Activities' || $req->event->category == 'Tour Travel (recurring)') {
             $visitDateObj = $purchase->visitDate()->first();
@@ -128,9 +132,25 @@ class CheckinCtrl extends Controller
         ) {
             return response()->json(["error" => $now > $endEvent ? "The ticket has expired" : "Checkin can only be done when the event has started"], 403);
         }
+        if($purchase->is_mine == 0){
+            Invitation::where('pch_id', $purchase->id)->delete();
+            Purchase::where('id', $purchase->id)->update([
+                'is_mine' => true
+            ]);
+        }
         $checkin = Checkin::where('pch_id', $purchase->id)->first();
         if ($checkin) {
-            return response()->json(["error" => "This purchase had checkined"], 403);
+            return response()->json(
+                [
+                    "checkin" => $checkin,
+                    "purchase" => $purchase,
+                    "user" => $purchase->user()->first(),
+                    "ticket" => $purchase->ticket()->first(),
+                    "event" => $req->event,
+                    "status" => 2
+                ],
+                201
+            );
         }
         $checkin = Checkin::create(
             [
@@ -145,7 +165,8 @@ class CheckinCtrl extends Controller
                 "purchase" => $purchase,
                 "user" => $purchase->user()->first(),
                 "ticket" => $purchase->ticket()->first(),
-                "event" => $req->event
+                "event" => $req->event,
+                "status" => 1
             ],
             201
         );

@@ -587,7 +587,7 @@ class AdminCtrl extends Controller
         $events = [];
         foreach ($eventsTargets as $key => $evtTraget) {
             $event = $evtTraget->event()->first();
-            if($event->deleted === 0 && $event->is_publish === 2 && $event->visibility == 1 && new DateTime($event->end_date, new DateTimeZone('Asia/Jakarta')) >= new DateTime('now', new DateTimeZone('Asia/Jakarta'))){
+            if($event->deleted === 0 && $event->is_publish === 2 && $event->visibility == 1 && new DateTime($event->end_date . " " . $event->end_time, new DateTimeZone('Asia/Jakarta')) >= new DateTime('now', new DateTimeZone('Asia/Jakarta'))){
                 $event->id_data = $evtTraget->id;
                 $event->available_days = $event->availableDays()->get();
                 $event->org = $event->org()->first();
@@ -771,7 +771,7 @@ class AdminCtrl extends Controller
         $events = [];
         foreach ($spcDayEvent->events()->get() as $key => $spcDayEvt) {
             $event = $spcDayEvt->event()->first();
-            if($event->deleted === 0 && $event->is_publish === 2 && $event->visibility == 1 && new DateTime($event->end_date, new DateTimeZone('Asia/Jakarta')) >= new DateTime('now', new DateTimeZone('Asia/Jakarta'))){
+            if($event->deleted === 0 && $event->is_publish === 2 && $event->visibility == 1 && new DateTime($event->end_date . " " . $event->end_time, new DateTimeZone('Asia/Jakarta')) >= new DateTime('now', new DateTimeZone('Asia/Jakarta'))){
                 $event->id_data = $spcDayEvt->id;
                 $event->available_days = $event->availableDays()->get();
                 $event->org = $event->org()->first();
@@ -960,7 +960,7 @@ class AdminCtrl extends Controller
         $events = [];
         foreach ($slcEvent->events()->get() as $key => $slcDayEvtData) {
             $event = $slcDayEvtData->event()->first();
-            if($event->deleted === 0 && $event->is_publish === 2 && $event->visibility == 1 && new DateTime($event->end_date, new DateTimeZone('Asia/Jakarta')) >= new DateTime('now', new DateTimeZone('Asia/Jakarta'))){
+            if($event->deleted === 0 && $event->is_publish === 2 && $event->visibility == 1 && new DateTime($event->end_date . " " . $event->end_time, new DateTimeZone('Asia/Jakarta')) >= new DateTime('now', new DateTimeZone('Asia/Jakarta'))){
                 $event->id_data = $slcDayEvtData->id;
                 $event->available_days = $event->availableDays()->get();
                 $event->org = $event->org()->first();
@@ -1149,7 +1149,7 @@ class AdminCtrl extends Controller
         $events = [];
         foreach ($slcActivity->events()->get() as $key => $slcActivityEventData) {
             $event = $slcActivityEventData->event()->first();
-            if($event->deleted === 0 && $event->is_publish === 2 && $event->visibility == 1 && new DateTime($event->end_date, new DateTimeZone('Asia/Jakarta')) >= new DateTime('now', new DateTimeZone('Asia/Jakarta'))){
+            if($event->deleted === 0 && $event->is_publish === 2 && $event->visibility == 1 && new DateTime($event->end_date . " " . $event->end_time, new DateTimeZone('Asia/Jakarta')) >= new DateTime('now', new DateTimeZone('Asia/Jakarta'))){
                 $event->id_data = $slcActivityEventData->id;
                 $event->available_days = $event->availableDays()->get();
                 $event->org = $event->org()->first();

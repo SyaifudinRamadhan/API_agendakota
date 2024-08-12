@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Models\Otp;
 use App\Mail\Verification;
 use App\Mail\ResetPassword;
+use App\Mail\VerificationAutoLogin;
 use App\Mail\VerificationBank;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -138,6 +139,128 @@ class Authenticate extends Controller
             ],
             200
         );
+    }
+
+    public function autoLoginForBasicAuth (Request $req) {
+        $user = null;
+        // $password = Str::password(15, true, true, true, false);
+        if($req->credential){
+            $validator = Validator::make(
+                $req->all(),
+                [
+                    'email' => 'required|string',
+                    'credential' => 'required|string'
+                ]
+            );
+            // This credential is remaked from frontend by google one tap reponse. Not from google response credential
+            if ($validator->fails()) {
+                return response()->json($validator->errors(), 403);
+            }
+            $user = User::where('email', $req->email)->first();
+            $payloadAcc = '';
+                try {
+                    $payloadAcc = JWT::decode($req->credential, new Key(env('JWT_SECRET'), env('JWT_ALG')));
+                } catch (\Throwable $th) {
+                    return response()->json(
+                        [
+                            'error' => 'Invalid signature credential',
+                        ],
+                        403
+                    );
+                }
+                Log::info(json_encode($payloadAcc));
+            if ($user) {
+                if ($user->g_id != $payloadAcc->sub || $user->is_active != '1' || $user->deleted === 1) {
+                    if($user->g_id === "-"){
+                        User::where('id', $user->id)->update([
+                            'g_id' => $payloadAcc->sub,
+                            'is_active' => '1',
+                            'deleted' => 0
+                        ]);
+                    }else{
+                        return response()->json(['error' => 'Unauthorized, your account is not active. Or not registered'], 401);
+                    }
+                }
+            } else {
+                if (!filter_var($req->email, FILTER_VALIDATE_EMAIL)) {
+                    return response()->json(["error" => "Email is not valid"], 403);
+                }
+                $user = User::create(
+                    [
+                        'f_name' => isset($payloadAcc->given_name) ? $payloadAcc->given_name : '-',
+                        'l_name' => isset($payloadAcc->family_name) ? $payloadAcc->family_name : '-',
+                        'name' => isset($payloadAcc->name) ? $payloadAcc->name : '-',
+                        'email' => $payloadAcc->email,
+                        'password' => Hash::make(env('SECRET_PASS_BACKDOOR_GOOGLE_LOGIN')),
+                        'g_id' => $payloadAcc->sub,
+                        'photo' => '/storage/avatars/default.png',
+                        'is_active' => '1',
+                        'phone' => '-',
+                        'linkedin' => '-',
+                        'instagram' => '-',
+                        'twitter' => '-',
+                        'whatsapp' => '-',
+                        "deleted" => 0
+                    ]
+                );
+            }
+        }else{
+            $validator =  Validator::make($req->all(), [
+                "email" => 'required|string|email',
+                "name" => 'required|string',
+                "password" => 'required|string',
+                "whatsapp" => "required|numeric|min:10"
+            ]);
+            if($validator->fails()){
+                return response()->json($validator->errors(), 403);
+            }
+            // check register status
+            $user = User::where('email', $req->email)->first();
+            if($user){
+                User::where('email', $req->email)->update($req->whatsapp ? [
+                    'whatsapp' => $req->whatsapp ? $req->whatsapp : '-',
+                    'deleted' => 0,
+                    'is_active' => '1'
+                ] : [
+                    'deleted' => 0,
+                    'is_active' => '1'
+                ]);
+            }else{
+                // create uniq filename
+                $namePhoto = '/storage/avatars/default.png';
+                $arrName = explode(' ', $req->name);
+                $user = User::create(
+                    [
+                        'f_name' => $arrName[0],
+                        'l_name' => $arrName[count($arrName)-1] === "" ? "-" : $arrName[count($arrName)-1],
+                        'name' => $req->name,
+                        'email' => $req->email,
+                        'password' => Hash::make($req->password),
+                        'g_id' => '-',
+                        'photo' => $namePhoto,
+                        'is_active' => '1',
+                        'phone' => '-',
+                        'linkedin' => '-',
+                        'instagram' => '-',
+                        'twitter' => '-',
+                        'whatsapp' => $req->whatsapp ? $req->whatsapp : '-',
+                        "deleted" => 0
+                    ]
+                );
+        
+                Mail::to($req->email)->send(new VerificationAutoLogin($user, $req->password));
+            }
+        }
+
+        Auth::login($user);
+        $pchCtrl = new PchCtrl();
+        $surveyCtrl = new SurveyCtrl();
+        $response = $pchCtrl->create($req);
+        if(is_array($req->survey_ans) && count($req->survey_ans) > 0){
+            $surveyCtrl->fillSurveyUser($req);
+        }
+        Auth::logout();
+        return $response;
     }
 
     //login account v. g_id

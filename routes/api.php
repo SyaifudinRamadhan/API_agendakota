@@ -2,7 +2,9 @@
 
 use App\Mail\ETicket;
 use App\Mail\TrxNotification;
+use App\Mail\VerificationAutoLogin;
 use App\Models\Payment;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
@@ -18,7 +20,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 // Route::get('/test-mail', function(){
-//     Mail::to('rionadewanda@gmail.com')->send(new ETicket(Payment::where('id', '9c8767d2-6976-44db-a32c-a15bf12a48b3')->first()));
+//     Mail::to('syaifudinramadhan@gmail.com')->send(new VerificationAutoLogin(User::where('email', "syaifudinramadhan@gmail.com")->first() ,"Syaifudin_1012"));
 // });
 // Route::get('/download-ticket', [\App\Http\Controllers\PchCtrl::class, 'downloadTicket']);
 Route::get('/verify/{subId}', [\App\Http\Controllers\Authenticate::class, 'verify'])->name('verify');
@@ -30,6 +32,7 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
     // Register route
     Route::post('/register', [\App\Http\Controllers\Authenticate::class, 'register']);
     Route::post('/login', [\App\Http\Controllers\Authenticate::class, 'login']);
+    Route::post('/auto-login-trx', [\App\Http\Controllers\Authenticate::class, 'autoLoginForBasicAuth']);
     Route::post('/login-w-google', [\App\Http\Controllers\Authenticate::class, 'loginGoogle']);
     Route::post('/login-w-otp', [\App\Http\Controllers\Authenticate::class, 'loginWithOtp']);
     Route::post('/verify-otp', [\App\Http\Controllers\Authenticate::class, 'verifyOtp']);
@@ -39,6 +42,7 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
     // Public route
     Route::get('/org-profile/{orgId}', [\App\Http\Controllers\OrgCtrl::class, 'getOrg']);
     Route::get('/event/{eventId}', [\App\Http\Controllers\EventCtrl::class, 'getById']);
+    Route::get('/ecs/{strKey}', [\App\Http\Controllers\CustomUrlCtrl::class, 'getEvent']);
     Route::get('/event-daily-refresh-date/{eventId}', [\App\Http\Controllers\EventCtrl::class, 'getAvailableSeatNumberDailyTicket']);
     Route::get('/ticket-reschedule', [\App\Http\Controllers\EventCtrl::class, 'getRescheduleAvailableData']);
     Route::get('/event-slug/{slug}', [\App\Http\Controllers\EventCtrl::class, 'getBySlug']);
@@ -146,6 +150,8 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
                     // Route::get('/get-trx-pkg', [\App\Http\Controllers\PkgPayCtrl::class, 'getTrx']);
                     // Route::post('/renew-trx-pkg', [\App\Http\Controllers\PkgPayCtrl::class, 'renewTransaction']);
                     Route::prefix("{eventId}/manage")->group(function () {
+                        Route::get('/custom-url', [\App\Http\Controllers\CustomUrlCtrl::class, 'get']);
+                        Route::post('/custom-url/create', [\App\Http\Controllers\CustomUrlCtrl::class, 'createUpdate']);
                         Route::get('/rundowns', [\App\Http\Controllers\RundownCtrl::class, 'getRundowns']);
                         Route::post('/session/create', [\App\Http\Controllers\EvtSessionCtrl::class, 'create']);
                         Route::get('/session', [\App\Http\Controllers\EvtSessionCtrl::class, 'get']);
@@ -303,6 +309,8 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
                 Route::put('/event/rollback', [\App\Http\Controllers\EventCtrl::class, 'rollbackEvent']);
                 Route::prefix('/event/{eventId}/manage')->group(function () {
                     Route::middleware('eventData')->group(function () {
+                        Route::get('/custom-url', [\App\Http\Controllers\CustomUrlCtrl::class, 'get']);
+                        Route::post('/custom-url/create', [\App\Http\Controllers\CustomUrlCtrl::class, 'createUpdate']);
                         Route::get('/rundowns', [\App\Http\Controllers\RundownCtrl::class, 'getRundowns']);
                         Route::post('/session/create', [\App\Http\Controllers\EvtSessionCtrl::class, 'create']);
                         Route::get('/session', [\App\Http\Controllers\EvtSessionCtrl::class, 'get']);
@@ -332,7 +340,7 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
             Route::get('/refunds', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'getRefunds']);
             Route::get('/refund', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'getRefund']);
             Route::post('/refund/change-state', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'considerationRefund']);
-            // Route::post('/refund/set-finish', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'setFinishRefund']);
+            Route::post('/refund/set-finish', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'setFinishRefund']);
         });
     });
 });
