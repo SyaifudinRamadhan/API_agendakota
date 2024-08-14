@@ -336,11 +336,11 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
             Route::get('/withdraws', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'listWithdraw']);
             Route::get('/withdraw/detail', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'withdrawDetail']);
             Route::delete('/withdraw/delete', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'deleteWithdraw']);
-            Route::put('/withdraw/change-state', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'updateWithdrawStatus']);
+            // Route::put('/withdraw/change-state', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'updateWithdrawStatus']);
             Route::get('/refunds', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'getRefunds']);
             Route::get('/refund', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'getRefund']);
-            Route::post('/refund/change-state', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'considerationRefund']);
-            Route::post('/refund/set-finish', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'setFinishRefund']);
+            // Route::post('/refund/change-state', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'considerationRefund']);
+            // Route::post('/refund/set-finish', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'setFinishRefund']);
         });
     });
 });
