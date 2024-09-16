@@ -149,6 +149,13 @@ class UserCtrl extends Controller
         return response()->json(["updated" => $updated], $updated == 0 ? 404 : 202);
     }
 
+    public function setTwoFactor(Request $req)
+    {
+        $user = Auth::user();
+        User::where('id', $user->id)->update(['two_factor' =>  $req->enable_two_factor == true ? 1 : 0]);
+        return response()->json(["messsage" => "Two Factor Auth has " . $req->enable_two_factor == true ? "enabled" : "disabled"], 202);
+    }
+
     public function getUser($userId = null)
     {
         $user = '';

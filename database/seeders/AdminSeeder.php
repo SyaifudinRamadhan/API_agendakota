@@ -28,7 +28,8 @@ class AdminSeeder extends Seeder
             'instagram' => "",
             'twitter' => "",
             'whatsapp' => "",
-            "deleted" => 0
+            "deleted" => 0,
+            'two_factor' => true
         ];
         $userData = User::create($admin);
         Admin::create([

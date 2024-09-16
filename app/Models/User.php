@@ -39,6 +39,7 @@ class User extends Authenticatable
         'instagram',
         'twitter',
         'whatsapp',
+        'two_factor',
         "deleted"
     ];
 

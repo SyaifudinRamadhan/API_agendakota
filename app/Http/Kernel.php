@@ -9,6 +9,7 @@ use App\Http\Middleware\EventSessionData;
 use App\Http\Middleware\AdminPriv;
 use App\Http\Middleware\ApiToken;
 use App\Http\Middleware\AuthOrganizer;
+use App\Http\Middleware\TwoFactorAuth;
 
 class Kernel extends HttpKernel
 {
@@ -62,6 +63,7 @@ class Kernel extends HttpKernel
         'auth' => \App\Http\Middleware\Authenticate::class,
         'auth.basic' => \Illuminate\Auth\Middleware\AuthenticateWithBasicAuth::class,
         'auth.session' => \Illuminate\Session\Middleware\AuthenticateSession::class,
+        'auth.twoFactor' => TwoFactorAuth::class,
         'cache.headers' => \Illuminate\Http\Middleware\SetCacheHeaders::class,
         'can' => \Illuminate\Auth\Middleware\Authorize::class,
         'guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,
