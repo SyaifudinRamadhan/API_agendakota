@@ -90,6 +90,7 @@ class TwoFactorAuth
                 ]);
                 return $next($request);
             }else if(new DateTime('now', new DateTimeZone('Asia/Jakarta')) > new DateTime($userSession->exp_to_verify, new DateTimeZone('Asia/Jakarta'))){
+                Log::info('Re-generate OTP on IF Condition '.$user->id.' '.$request->url());
                 return $this->generateOtp($request, $user);
             }else{
                 return response()->json(["message" => "Kode autentikasi salah. Coba periksa kembali"], 405);
@@ -97,6 +98,7 @@ class TwoFactorAuth
         }else if($userSession && new DateTime('now', new DateTimeZone('Asia/Jakarta')) <= new DateTime($userSession->exp_to_verify, new DateTimeZone('Asia/Jakarta'))){
             return response()->json(["message" => "Mohon maaf. Kode OTP bisa didapatkan kembali minimal 2 menit dari permintaan terakhir."], 405);
         }else{
+            Log::info('Re-generate OTP on ELSE '.$user->id. ' '. $request->url());
             return $this->generateOtp($request, $user);
         }
     }
