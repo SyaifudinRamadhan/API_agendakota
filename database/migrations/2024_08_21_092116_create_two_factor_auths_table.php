@@ -26,7 +26,7 @@ return new class extends Migration
     {
         Schema::create('two_factor_auths', function (Blueprint $table) {
             $table->id();
-            $table->foreignUuid('user_id')->references('id')->on('users')->onDelete('cascade')->onUpdate('cascade');
+            $table->foreignUuid('user_id')->unique()->references('id')->on('users')->onDelete('cascade')->onUpdate('cascade');
             $table->string('token');
             $table->string('ip_address');
             $table->string('otp_code');

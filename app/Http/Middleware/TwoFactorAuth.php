@@ -37,29 +37,6 @@ class TwoFactorAuth
         ]
      */
 
-    private function generateOtp(Request $req, User $user) {
-        $last = ModelsTwoFactorAuth::where('user_id', $user->id)->first();
-        Log::info("remove-session-data", $last ? (Array)($last) : []);
-        if($last){
-            ModelsTwoFactorAuth::where('user_id', $user->id)->delete();
-        }
-        $OTP = Str::password(8, true, true, false);
-        $exp = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-        $exp->add(new DateInterval($last && $last->state == 0 ? 'PT10M' : 'PT2M'));
-        $data = [
-            "user_id" => $user->id,
-            "token" => $req->header("Authorization"),
-            "ip_address" => "",
-            "otp_code" => $OTP,
-            "state" => false,
-            "exp_to_verify" => $exp
-        ];
-        ModelsTwoFactorAuth::create($data);
-        Log::info("new-session-data", $data);
-        Mail::to($user->email)->send(new TwoFactorNoitication($user, $OTP));
-        return response()->json(["message" => "Mohon lakukan verifikasi kembali. Kode OTP telah dikirimkan ke email anda"], 405);
-    }
-
     private function renewSession(String $key, Array $newData) {
         ModelsTwoFactorAuth::where('user_id', $key)->update($newData);
         Log::info("update-session-data", (Array) ModelsTwoFactorAuth::where('user_id', $key)->first());
@@ -90,16 +67,16 @@ class TwoFactorAuth
                 ]);
                 return $next($request);
             }else if(new DateTime('now', new DateTimeZone('Asia/Jakarta')) > new DateTime($userSession->exp_to_verify, new DateTimeZone('Asia/Jakarta'))){
-                Log::info('Re-generate OTP on IF Condition '.$user->id.' '.$request->url());
-                return $this->generateOtp($request, $user);
+                Log::info('Re-generate OTP on IF Condition GET-Check '.$user->id.' '.$request->url());
+                return response()->json(["message" => "Kode autentikasi akan dikirim otomatis"], 405);
             }else{
                 return response()->json(["message" => "Kode autentikasi salah. Coba periksa kembali"], 405);
             }
         }else if($userSession && new DateTime('now', new DateTimeZone('Asia/Jakarta')) <= new DateTime($userSession->exp_to_verify, new DateTimeZone('Asia/Jakarta'))){
             return response()->json(["message" => "Mohon maaf. Kode OTP bisa didapatkan kembali minimal 2 menit dari permintaan terakhir."], 405);
         }else{
-            Log::info('Re-generate OTP on ELSE '.$user->id. ' '. $request->url());
-            return $this->generateOtp($request, $user);
+            Log::info('Re-generate OTP on ELSE GET-Check '.$user->id. ' '. $request->url());
+            return response()->json(["message" => "Kode autentikasi akan dikirim otomatis"], 405);
         }
     }
 }

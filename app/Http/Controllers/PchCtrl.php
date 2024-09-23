@@ -412,18 +412,20 @@ class PchCtrl extends Controller
 
             $purchases = $ticket->purchases()->where('user_id', Auth::user()->id)->get();
 
-            if ($event->single_trx == 1) {
-                $hasPayments = false;
-                foreach ($purchases as $pch) {
-                    if ($pch->payment()->first()->pay_state != 'EXPIRED' && $pch->payment()->first()->user_id == Auth::user()->id) {
-                        $hasPayments = true;
-                        break;
-                    }
-                }
-                if ($hasPayments) {
-                    return ["error" => "The event of this ticket accepted single transaction only", "code" => 403];
+            $hasPayments = false;
+            foreach ($purchases as $pch) {
+                if ($event->single_trx == 1 && $pch->payment()->first()->pay_state != 'EXPIRED' && $pch->payment()->first()->user_id == Auth::user()->id) {
+                    $hasPayments = true;
+                    break;
+                } else if ($pch->payment()->first()->pay_state === 'PENDING' && $pch->payment()->first()->user_id == Auth::user()->id){
+                    $hasPayments = true;
+                    break;
                 }
             }
+            if ($hasPayments) {
+                return ["error" => $event->single_trx == 1 ? "The event of this ticket accepted single transaction only" : "Please complete your last transaction first before create new transaction", "code" => 403];
+            }
+
             if ($now > new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta'))) {
                 return ["error" => "This event or event ticket has been expired", "code" => 403];
             }

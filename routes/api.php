@@ -90,6 +90,7 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
         Route::post('/logout', [\App\Http\Controllers\Authenticate::class, 'logout']);
         Route::post('/buy-ticket', [\App\Http\Controllers\PchCtrl::class, 'create']);
         Route::post('/fill-survey', [\App\Http\Controllers\SurveyCtrl::class, 'fillSurveyUser']);
+        Route::post("/request-two-factor", [\App\Http\Controllers\TwoFactorCtrl::class, 'requestOTP']);
         // Two factor routes
         Route::middleware('auth.twoFactor')->group(function () {
             Route::put('/update', [\App\Http\Controllers\UserCtrl::class, 'updateProfile']);

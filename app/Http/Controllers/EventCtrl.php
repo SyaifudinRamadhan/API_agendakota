@@ -772,7 +772,7 @@ class EventCtrl extends Controller
         $pchCtrl->loadTrxData();
         $event = null;
         if ($req->org) {
-            $event = Event::where('id', $req->event_id)->where('is_publish', '<', 3)->where('deleted', 0)->first();
+            $event = Event::where('id', $req->event_id)->where('deleted', 0)->first();
         } else {
             $event = Event::where('id', $eventId)->where('is_publish', 2)->where('deleted', 0)->first();
         }
@@ -856,7 +856,7 @@ class EventCtrl extends Controller
         }
         $events = null;
         if ($req->org) {
-            $events = Event::where('org_id', $orgId)->where('is_publish', '<', 3)->where('deleted', 0)->get();
+            $events = Event::where('org_id', $orgId)->where('deleted', 0)->get();
         } else {
             $events = Event::where('org_id', $orgId)->where('is_publish', 2)->where('deleted', 0)->get();
         }
