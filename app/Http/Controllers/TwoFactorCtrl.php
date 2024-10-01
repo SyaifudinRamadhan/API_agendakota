@@ -48,7 +48,7 @@ class TwoFactorCtrl extends Controller
         $userSession = TwoFactorAuth::where('user_id', $user->id)->first();
         
         $userIp = explode(".",$req->ip());
-        $userIp = count($userIp) === 4 ? $userIp[0].$userIp[1].$userIp[2] : "";
+        $userIp = count($userIp) === 4 ? $userIp[0].".".$userIp[1].".".$userIp[2] : "";
 
         if($userSession && $userSession->ip_address === $userIp && $userSession->state == 1 && $userSession->token === $token){
             return response()->json(["message" => "Mohon maaf. Kode OTP bisa didapatkan kembali minimal 2 menit dari permintaan terakhir."], 405);

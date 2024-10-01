@@ -52,7 +52,7 @@ class TwoFactorAuth
         $userSession = ModelsTwoFactorAuth::where('user_id', $user->id)->first();
 
         $userIp = explode(".",$request->ip());
-        $userIp = count($userIp) === 4 ? $userIp[0].$userIp[1].$userIp[2] : "";
+        $userIp = count($userIp) === 4 ? $userIp[0].".".$userIp[1].".".$userIp[2] : "";
 
         if($userSession && $userSession->ip_address === $userIp && $userSession->state == 1 && $userSession->token === $token){
             return $next($request);
