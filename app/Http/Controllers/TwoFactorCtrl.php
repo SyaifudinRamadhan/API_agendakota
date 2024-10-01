@@ -46,7 +46,9 @@ class TwoFactorCtrl extends Controller
             return response()->json(["error" => "Mohon maaf. Permintaan kode OTP hanya untuk yang mengaktifkan saja"]);
         }
         $userSession = TwoFactorAuth::where('user_id', $user->id)->first();
-        $userIp = $req->ip();
+        
+        $userIp = explode(".",$req->ip());
+        $userIp = count($userIp) === 4 ? $userIp[0].$userIp[1].$userIp[2] : "";
 
         if($userSession && $userSession->ip_address === $userIp && $userSession->state == 1 && $userSession->token === $token){
             return response()->json(["message" => "Mohon maaf. Kode OTP bisa didapatkan kembali minimal 2 menit dari permintaan terakhir."], 405);
