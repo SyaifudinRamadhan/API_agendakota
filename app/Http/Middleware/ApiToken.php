@@ -82,7 +82,7 @@ class ApiToken
         ]));
 
         if(property_exists($decrypt, "email_user") && $decrypt->email_user !== "" && $auth && $request->method() !== "GET"){
-            $access = AccessHistory::where('client_id', $decrypt->client_id)->where('email', $decrypt->email_user)->where('timestamp_access', '>=', intval($decrypt->timestamp))->first();
+            $access = AccessHistory::where('client_id', $decrypt->client_id)->where('email', $decrypt->email_user)->where('timestamp_access', intval($decrypt->timestamp))->first();
             Log::info( "API access Stage III access auth data : " . json_encode([
                 "same_access" => $access
             ]));
