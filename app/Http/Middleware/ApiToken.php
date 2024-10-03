@@ -69,7 +69,7 @@ class ApiToken
             return response()->json(["error" => "Denied unauthentication client"], 403);
         }
 
-        Log::info( "API access Stage I Decrypt data : " . json_encode($decrypt));
+        Log::info( "API access Stage I Decrypt data : " . json_encode($decrypt). " IP Address : ".$request->ip());
        
         if(!property_exists($decrypt, "client_id") || !property_exists($decrypt, "timestamp") || $decrypt->client_id === "" || $decrypt->timestamp === ""){
             return response()->json(["error" => "Denied unauthentication client"], 403);
