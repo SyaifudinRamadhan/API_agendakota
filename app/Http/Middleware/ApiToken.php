@@ -65,7 +65,7 @@ class ApiToken
             $decrypt = JWT::decode($apiToken, new Key(env('SECRET_SIGNATURE'), 'HS256'));
         } catch (\Throwable $th) {
             //throw $th;
-            Log::error($th);
+            Log::info("Error decrypt API Key from ".$request->ip()." with url access is : ".$request->url());
             return response()->json(["error" => "Denied unauthentication client"], 403);
         }
 
