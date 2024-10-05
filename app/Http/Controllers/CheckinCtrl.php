@@ -13,6 +13,7 @@ use App\Models\Invitation;
 use DateInterval;
 use DateTime;
 use DateTimeZone;
+use Illuminate\Support\Facades\Log;
 
 class CheckinCtrl extends Controller
 {
@@ -103,6 +104,10 @@ class CheckinCtrl extends Controller
             return response()->json($validator->errors(), 403);
         }
         $qrStr = explode("*~^|-|^~*", $req->qr_str);
+        if(count($qrStr) < 2){
+            Log::info("Error scan QR organizer. QR Code is : ".$req->qr_str);
+            return response()->json(["error" => "Purchase data not found in this event"], 404);
+        }
         $purchase = Purchase::where('id', $qrStr[0])->where('user_id', $qrStr[1])->first();
         if (!$purchase) {
             return response()->json(["error" => "Purchase data not found in this event"], 404);
