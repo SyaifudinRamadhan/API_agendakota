@@ -35,9 +35,9 @@ class SurveyCtrl extends Controller
         if ($validator->fails()) {
             return response()->json($validator->errors());
         }
-        if (CustomFieldSurvey::where('user_id', $user->id)->where('event_id', $req->event_id)->first()) {
-            return response()->json(["message" => "Thank you for filling out the survey"], 201);
-        }
+        // if (CustomFieldSurvey::where('user_id', $user->id)->where('event_id', $req->event_id)->first()) {
+        //     return response()->json(["message" => "Thank you for filling out the survey"], 201);
+        // }
         $event = Event::where('id', $req->event_id)->where('is_publish', 2)->where('deleted', 0)->first();
         if (!$event) {
             return response()->json(["error" => "Event data not found"], 404);
