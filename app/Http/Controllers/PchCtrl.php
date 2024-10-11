@@ -995,7 +995,13 @@ class PchCtrl extends Controller
                 ]
             );
             $paymentXendit["payment"] = Payment::where('id', $payment->id)->first();
-            Mail::to($paymentXendit["payment"]->user()->first()->email)->send(new ETicket($paymentXendit["payment"]));
+            try {
+                Mail::to($paymentXendit["payment"]->user()->first()->email)->send(new ETicket($paymentXendit["payment"]));
+            } catch (\Throwable $th) {
+                $this->rollbackPurchase($ticket_ids, $payment);
+                Log::info($th);
+                return response()->json(["error" => "Server error. Failed reach xendit server", "msg" => $th], 500);
+            }
         } else {
             try {
                 if (intval($req->pay_method) >= 11 && intval($req->pay_method) <= 15) {
