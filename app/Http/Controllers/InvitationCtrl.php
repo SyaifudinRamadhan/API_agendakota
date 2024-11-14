@@ -79,7 +79,7 @@ class InvitationCtrl extends Controller
                 'is_mine' => false
             ]
         );
-        Invitation::create(
+        $inv = Invitation::create(
             [
                 'user_id' => $sender->id,
                 'target_user_id' => $user->id,
@@ -87,27 +87,44 @@ class InvitationCtrl extends Controller
                 'response' => 'WAITING'
             ]
         );
+        $failedSent = false;
         if (!$newUser) {
-            Mail::to($user->email)->send(
-                new InviteEvent(
-                    $user->name,
-                    $sender->email,
-                    $purchase->ticket()->first()->event()->first()->name,
-                    $purchase->ticket()->first()->name
-                )
-            );
+           try {
+                Mail::to($user->email)->send(
+                    new InviteEvent(
+                        $user->name,
+                        $sender->email,
+                        $purchase->ticket()->first()->event()->first()->name,
+                        $purchase->ticket()->first()->name
+                    )
+                );
+           } catch (\Throwable $th) {
+                $failedSent = true;
+           }
         } else {
-            Mail::to($user->email)->send(
-                new InviteEvent(
-                    $user->email,
-                    $sender->email,
-                    $purchase->ticket()->first()->event()->first()->name,
-                    $purchase->ticket()->first()->name,
-                    $tokenVerify,
-                    $userPass
-                )
-            );
+            try {
+                Mail::to($user->email)->send(
+                    new InviteEvent(
+                        $user->email,
+                        $sender->email,
+                        $purchase->ticket()->first()->event()->first()->name,
+                        $purchase->ticket()->first()->name,
+                        $tokenVerify,
+                        $userPass
+                    )
+                );
+            } catch (\Throwable $th) {
+                $failedSent = true;
+            }
         }
+        if($failedSent){
+            Invitation::where('id', $inv->id)->delete();
+            if($newUser){
+                User::where('id', $user->id)->delete();
+            }
+            return response()->json(["error" => "Mail server error. Try again later"], 500);
+        }
+
         return response()->json(["message" => "invitation has created and sent to target email"], 201);
     }
 
