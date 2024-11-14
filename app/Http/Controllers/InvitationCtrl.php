@@ -119,6 +119,11 @@ class InvitationCtrl extends Controller
         }
         if($failedSent){
             Invitation::where('id', $inv->id)->delete();
+            Purchase::where('id', $purchase->id)->update(
+                [
+                    'is_mine' => true
+                ]
+            );
             if($newUser){
                 User::where('id', $user->id)->delete();
             }
