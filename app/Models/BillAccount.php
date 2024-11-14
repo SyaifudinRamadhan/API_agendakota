@@ -18,6 +18,8 @@ class BillAccount extends Model
         'acc_name',
         'acc_number',
         'status',
+        'otp',
+        'exp_to_verify',
         'deleted'
     ];
 

@@ -2,6 +2,7 @@
 
 namespace App\Mail;
 
+use App\Models\Payment;
 use DateTime;
 use DateTimeZone;
 use Illuminate\Bus\Queueable;
@@ -18,8 +19,9 @@ class TrxNotification extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct($payment)
+    public function __construct($paymentId)
     {
+        $payment = Payment::where('id', $paymentId)->first();
         $pch = $payment->purchases()->first();
         $user = $payment->user()->first();
         $this->email = $user ? $user->email : null;

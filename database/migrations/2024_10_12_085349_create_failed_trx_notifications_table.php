@@ -11,11 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('otps', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->foreignUuid('user_id')->references('id')->on('users')->onUpdate('cascade')->onDelete('cascade');
-            $table->string('otp_code');
-            $table->dateTime("exp_to_verify");
+        Schema::create('failed_trx_notifications', function (Blueprint $table) {
+            $table->id();
+            $table->string('mail_target');
+            $table->string('mail_sec_target')->nullable();
+            $table->text('fn_path');
+            $table->string('type');
+            $table->longText('str_data');
             $table->timestamps();
         });
     }
@@ -25,6 +27,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('otps');
+        Schema::dropIfExists('failed_trx_notifications');
     }
 };

@@ -65,8 +65,12 @@ class WebhookCtrl extends Controller
             ]);
             $payment = $payment->first();
             if($payment){
-                Mail::to($payment->purchases()->get()[0]->ticket()->first()->event()->first()->org()->first()->user()->first()->email)->send(new OrganizerTicketNotiffication($payment->id));
-                Mail::to($payment->user()->first()->email)->send(new ETicket($payment));
+                try {
+                    Mail::to($payment->purchases()->get()[0]->ticket()->first()->event()->first()->org()->first()->user()->first()->email)->send(new OrganizerTicketNotiffication($payment->id));
+                    Mail::to($payment->user()->first()->email)->send(new ETicket($payment->id));
+                } catch (\Throwable $th) {
+                    ResendTrxNotification::writeErrorLog('App\Mail\ETicket', 'PAYMENT', [$payment->id], $payment->user()->first()->email, $payment->purchases()->get()[0]->ticket()->first()->event()->first()->org()->first()->user()->first()->email);
+                }
             }
         } else {
             // $pkgPay = PkgPayment::where('order_id', $req->data["reference_id"]);
@@ -87,8 +91,12 @@ class WebhookCtrl extends Controller
                 ]);
                 $payment = $payment->first();
                 if($payment){
-                    Mail::to($payment->purchases()->get()[0]->ticket()->first()->event()->first()->org()->first()->user()->first()->email)->send(new OrganizerTicketNotiffication($payment->id));
-                    Mail::to($payment->user()->first()->email)->send(new ETicket($payment));
+                    try {
+                        Mail::to($payment->purchases()->get()[0]->ticket()->first()->event()->first()->org()->first()->user()->first()->email)->send(new OrganizerTicketNotiffication($payment->id));
+                        Mail::to($payment->user()->first()->email)->send(new ETicket($payment->id));
+                    } catch (\Throwable $th) {
+                        ResendTrxNotification::writeErrorLog('App\Mail\ETicket', 'PAYMENT', [$payment->id], $payment->user()->first()->email, $payment->purchases()->get()[0]->ticket()->first()->event()->first()->org()->first()->user()->first()->email);
+                    }
                 }
             } else {
                 if ($req->event == 'ewallet.capture' && ($req->data["status"] == "FAILED" || $req->data["status"] == "VOIDED")) {

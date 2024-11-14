@@ -9,6 +9,9 @@ use App\Mail\Verification;
 use App\Mail\ResetPassword;
 use App\Mail\VerificationAutoLogin;
 use App\Mail\VerificationBank;
+use DateInterval;
+use DateTime;
+use DateTimeZone;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -81,12 +84,17 @@ class Authenticate extends Controller
                 "deleted" => 0
             ]
         );
-
+        $mail_status = true;
         if (!$req->for_admin || $req->for_admin == false) {
             $tokenVerify = JWT::encode(['sub' => $user->id], env('JWT_SECRET'), env('JWT_ALG'));
 
             // Mail handler to verify
-            Mail::to($req->email)->send(new Verification($user->name, $tokenVerify));
+            try {
+                Mail::to($req->email)->send(new Verification($user->name, $tokenVerify));
+            } catch (\Throwable $th) {
+                ResendTrxNotification::writeErrorLog('App\Mail\Verification', 'verification', [$user->name, $tokenVerify], $req->email);
+                $mail_status = false;
+            }
         }
         $token = null;
         if ($req->is_mobile ==  true) {
@@ -101,7 +109,8 @@ class Authenticate extends Controller
                 'data' => $user,
                 'admin' => $user->admin()->first(),
                 'access_token' => $token,
-                'token_type' => 'Bearer'
+                'token_type' => 'Bearer',
+                'mail_status' => $mail_status
             ],
             201
         );
@@ -248,7 +257,13 @@ class Authenticate extends Controller
                     ]
                 );
         
-                Mail::to($req->email)->send(new VerificationAutoLogin($user, $req->password));
+                try {
+                    Mail::to($req->email)->send(new VerificationAutoLogin($user->name, $user->email, $req->password));
+                } catch (\Throwable $th) {
+                    User::where('id', $user->id)->delete();
+                    Log::info("Error With Mail Server : Failed send mail transaction. Transaction reset");
+                    return response()->json(["error" => "Mail server error. Please try again later"], 500);
+                }
             }
         }
 
@@ -424,17 +439,16 @@ class Authenticate extends Controller
 
     public function generateOtp($email, $forLogin = true, $data = null)
     {
-        $otp = "";
-        for ($i = 0; $i < 6; $i++) {
-            $otp = $otp . rand(0, 9);
-        }
+        $otp = Str::password(8, true, true, false);
         $user = User::where('email', $email)->first();
         if (!$user) {
             $user = $this->registerWithOtp($email, $otp);
         } else {
+            $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
             $updated = Otp::where('user_id', $user->id)->update(
                 [
-                    'otp_code' => $otp
+                    'otp_code' => $otp,
+                    'exp_to_verify' => $now->add(new DateInterval('PT2M')),
                 ]
             );
             if ($updated == 0) {
@@ -442,15 +456,24 @@ class Authenticate extends Controller
                     [
                         'user_id' => $user->id,
                         'otp_code' => $otp,
+                        'exp_to_verify' => $now->add(new DateInterval('PT2M')),
                     ]
                 );
             }
         }
         if ($forLogin) {
-            Mail::to($email)->send(new Verification($email, $otp, true));
+            try {
+                Mail::to($email)->send(new Verification($email, $otp, true));
+            } catch (\Throwable $th) {
+                ResendTrxNotification::writeErrorLog('App\Mail\Verification', "verification", [$email, $otp, true], $email);
+            }
             return ["message" => "check your email to get the OTP code"];
         } else {
-            Mail::to($email)->send(new VerificationBank($data["code_bank"], $data["acc_number"], $otp));
+            try {
+                Mail::to($email)->send(new VerificationBank($data["code_bank"], $data["acc_number"], $otp));
+            } catch (\Throwable $th) {
+                ResendTrxNotification::writeErrorLog('App\Mail\VerificationBank', "bank verification", [$data["code_bank"], $data["acc_number"], $otp], $email);
+            }
             return ["message" => "check your email to get the OTP code"];
         }
     }
@@ -498,6 +521,12 @@ class Authenticate extends Controller
         }
         if ($otp->otp_code != $req->otp_code) {
             return response()->json(["error" => "OTP code is not valid"]);
+        }
+        $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+        $exp = new DateTime($otp->exp_to_verify, new DateTimeZone('Asia/Jakarta'));
+        if($now > $exp){
+            $this->generateOtp($req->email);
+            return response()->json(["message" => "Your OTP has expired. You will receive new OTP for login"], 403);
         }
         $user->update(
             [

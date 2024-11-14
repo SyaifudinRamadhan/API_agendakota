@@ -996,11 +996,11 @@ class PchCtrl extends Controller
             );
             $paymentXendit["payment"] = Payment::where('id', $payment->id)->first();
             try {
-                Mail::to($paymentXendit["payment"]->user()->first()->email)->send(new ETicket($paymentXendit["payment"]));
+                Mail::to($paymentXendit["payment"]->user()->first()->email)->send(new ETicket($payment->id));
             } catch (\Throwable $th) {
                 $this->rollbackPurchase($ticket_ids, $payment);
-                Log::info($th);
-                return response()->json(["error" => "Server error. Failed reach xendit server", "msg" => $th], 500);
+                Log::info("Error With Mail Server : Failed send mail transaction. Transaction reset");
+                return response()->json(["error" => "Mail server error. Please try again later"], 500);
             }
         } else {
             try {
@@ -1013,11 +1013,17 @@ class PchCtrl extends Controller
                 } else {
                     $paymentXendit = $this->setTrxVirAccount($payment->id, $req->pay_method, $totalPay, $profitSetting);
                 }
-                Mail::to(Auth::user()->email)->send(new TrxNotification(Payment::where('id', $payment->id)->first()));
             } catch (\Throwable $th) {
                 $this->rollbackPurchase($ticket_ids, $payment);
                 Log::info($th);
                 return response()->json(["error" => "Server error. Failed reach xendit server", "msg" => $th], 500);
+            }
+            try {
+                Mail::to(Auth::user()->email)->send(new TrxNotification($payment->id));
+            } catch (\Throwable $th) {
+                $this->rollbackPurchase($ticket_ids, $payment);
+                Log::info("Error With Mail Server : Failed send mail transaction. Transaction reset");
+                return response()->json(["error" => "Mail server error. Please try again later"], 500);
             }
         }
         return response()->json(
@@ -1029,7 +1035,7 @@ class PchCtrl extends Controller
                 "taxTotal" => $taxTotal,
                 "adminFeeTrx" => $profitSetting->admin_fee_trx,
                 "platformFee" => array_key_exists("platform", $paymentXendit) ? $paymentXendit["platform"] : 0,
-                "total" => array_key_exists("total", $paymentXendit) ? $paymentXendit["total"] : 0
+                "total" => array_key_exists("total", $paymentXendit) ? $paymentXendit["total"] : 0,
             ],
             201
         );
@@ -1245,9 +1251,33 @@ class PchCtrl extends Controller
                 ]
             );
         }
+        $mail_status = true;
         if(count($pchs) > 0){
-            Mail::to(config('agendakota.admin_email'))->send(
-                new AdminRefundNotification(
+            try {
+                Mail::to(config('agendakota.admin_email'))->send(
+                    new AdminRefundNotification(
+                        $user->name,
+                        $user->email,
+                        $pchs[0]["event"]->name,
+                        $pchs[0]["purchase"]->id,
+                        $pchs[0]["ticket"]->name,
+                        $pchs[0]["ticket"]->id,
+                        $req->message
+                    )
+                );
+                Mail::to($pchs[0]["event"]->org()->first()->user()->first()->email)->send(
+                    new AdminRefundNotification(
+                        $user->name,
+                        $user->email,
+                        $pchs[0]["event"]->name,
+                        $pchs[0]["purchase"]->id,
+                        $pchs[0]["ticket"]->name,
+                        $pchs[0]["ticket"]->id,
+                        $req->message
+                    )
+                );
+            } catch (\Throwable $th) {
+                ResendTrxNotification::writeErrorLog('App\Mail\AdminRefundNotification', "Refund Notification", [
                     $user->name,
                     $user->email,
                     $pchs[0]["event"]->name,
@@ -1255,25 +1285,15 @@ class PchCtrl extends Controller
                     $pchs[0]["ticket"]->name,
                     $pchs[0]["ticket"]->id,
                     $req->message
-                )
-            );
-            Mail::to($pchs[0]["event"]->org()->first()->user()->first()->email)->send(
-                new AdminRefundNotification(
-                    $user->name,
-                    $user->email,
-                    $pchs[0]["event"]->name,
-                    $pchs[0]["purchase"]->id,
-                    $pchs[0]["ticket"]->name,
-                    $pchs[0]["ticket"]->id,
-                    $req->message
-                )
-            );
+                ], config('agendakota.admin_email'), $pchs[0]["event"]->org()->first()->user()->first()->email);
+                $mail_status = false;
+            }
         }else{
             return response()->json(["error" => "Haven't valid purchase for refund"], 404);
         }
 
         // add notify emeil to organizer
-        return response()->json(["message" => "Your refund requets have sent. Check you email, for view your refund status"], 201);
+        return response()->json(["message" => "Your refund requets have sent. Check you email, for view your refund status", "mail_status" => $mail_status], 201);
     }
 
     public function getRefunds(Request $req, $admin = false)
@@ -1392,17 +1412,30 @@ class PchCtrl extends Controller
                 }
             }
             $refundData = count($refundDatas) > 0 ? $refundDatas[count($refundDatas) - 1] : null; 
+            $mail_status = true;
             if (!$req->approved && $strRefundId !== '') {
-                Mail::to($user->email)->send(
-                    new UserRefundNotification(
+                try {
+                    Mail::to($user->email)->send(
+                        new UserRefundNotification(
+                            'Un Approved / Rejected',
+                            $eventNames,
+                            $refundData->purchase_id,
+                            $ticketNames,
+                            $ticketStrIds,
+                            $refundData->message
+                        )
+                    );
+                } catch (\Throwable $th) {
+                    ResendTrxNotification::writeErrorLog('App\Mail\UserRefundNotification', "User Refund Notification", [
                         'Un Approved / Rejected',
                         $eventNames,
                         $refundData->purchase_id,
                         $ticketNames,
                         $ticketStrIds,
                         $refundData->message
-                    )
-                );
+                    ], $user->email);
+                    $mail_status = false;
+                }
             } else if ($req->approved && $admin && $strRefundId !== '' && !$setManualFinish) {
                 $uniqueExternal  = uniqid('external_refund_', true);
                 $localDisburstment = DisburstmentRefund::create([
@@ -1428,6 +1461,31 @@ class PchCtrl extends Controller
                     DisburstmentRefund::where('id', $localDisburstment->id)->delete();
                     array_push($errorMessages, "Failed reach xendit server");
                 }else{
+                    try {
+                        Mail::to($user->email)->send(
+                            new UserRefundNotification(
+                                'Approved / Accepted',
+                                $eventNames,
+                                $refundData->purchase_id,
+                                $ticketNames,
+                                $ticketStrIds,
+                                $refundData->message
+                            )
+                        );
+                    } catch (\Throwable $th) {
+                        ResendTrxNotification::writeErrorLog('App\Mail\UserRefundNotification', "User Refund Notification", [
+                            'Approved / Accepted',
+                            $eventNames,
+                            $refundData->purchase_id,
+                            $ticketNames,
+                            $ticketStrIds,
+                            $refundData->message
+                        ], $user->email);
+                        $mail_status = false;
+                    }
+                }
+            } else if($req->approved && $admin && $strRefundId !== '' && $setManualFinish){
+                try {
                     Mail::to($user->email)->send(
                         new UserRefundNotification(
                             'Approved / Accepted',
@@ -1438,21 +1496,20 @@ class PchCtrl extends Controller
                             $refundData->message
                         )
                     );
-                }
-            } else if($req->approved && $admin && $strRefundId !== '' && $setManualFinish){
-                Mail::to($user->email)->send(
-                    new UserRefundNotification(
+                } catch (\Throwable $th) {
+                    ResendTrxNotification::writeErrorLog('App\Mail\UserRefundNotification', "User Refund Notification", [
                         'Approved / Accepted',
                         $eventNames,
                         $refundData->purchase_id,
                         $ticketNames,
                         $ticketStrIds,
                         $refundData->message
-                    )
-                );
+                    ], $user->email);
+                    $mail_status = false;
+                }
             }
 
-        return $errorMessages;
+        return ["errors" => $errorMessages, "mail_status" => $mail_status];
     }
 
     public function considerationRefund(Request $req){
@@ -1467,8 +1524,8 @@ class PchCtrl extends Controller
         if ($refundData->event()->first()->deleted === 1) {
             return response()->json(["error" => "Event telah dibatalkan, organizer tidak memiliki wewenang untuk mengatur data refund"], 403);
         }
-        $errors = $this->considerationRefundMain($req, [$refundData]);
-        return response()->json(count($errors) === 0 ? ["message" => "Refund dari purchase ID " . $refundData->purchase_id . " berhasil diubah statusnya"] : ["message" => "Refund gagal dilakukan karena tiket sudah tidak valid atau sudah checkin"], count($errors) === 0 ? 202 : 403);
+        $res = $this->considerationRefundMain($req, [$refundData]);
+        return response()->json(count($res["errors"]) === 0 ? ["message" => "Refund dari purchase ID " . $refundData->purchase_id . " berhasil diubah statusnya", "mail_status" => $res["mail_status"]] : ["message" => "Refund gagal dilakukan karena tiket sudah tidak valid atau sudah checkin", "mail_status" => $res["mail_status"]], count($res["errors"]) === 0 ? 202 : 403);
     }
 
     public function setFinishRefund($refundIds)

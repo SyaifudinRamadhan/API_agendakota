@@ -18,6 +18,8 @@ return new class extends Migration
             $table->string('acc_name');
             $table->string('acc_number');
             $table->boolean('status')->default(false);
+            $table->string('otp');
+            $table->dateTime('exp_to_verify');
             $table->integer('deleted')->default(0);
             $table->timestamps();
         });

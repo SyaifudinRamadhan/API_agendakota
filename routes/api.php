@@ -271,13 +271,6 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
                 Route::get('/selected-activity', [\App\Http\Controllers\AdminCtrl::class, 'getSlctActivity']);
                 Route::get('/selected-activities', [\App\Http\Controllers\AdminCtrl::class, 'listSlctActivities']);
 
-                Route::get('/resend-e-ticket/{email}/{paymentId}', function($email, $paymentId){
-                    Mail::to($email)->send(new ETicket(Payment::where('id', $paymentId)->first()));
-                });
-                Route::get('/resend-trx-notification/{email}/{paymentId}', function($email, $paymentId){
-                    Mail::to($email)->send(new TrxNotification(Payment::where('id', $paymentId)->first()));
-                });
-
                 // Primary admin route
                 Route::put('/commision-price/update', [\App\Http\Controllers\AdminCtrl::class, 'udpdateProfitSetting']);
                 Route::get('/refund-setting', [\App\Http\Controllers\AdminCtrl::class, 'refundSettings']);
@@ -347,6 +340,10 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
                 Route::get('/refund', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'getRefund']);
                 // Route::post('/refund/change-state', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'considerationRefund']);
                 // Route::post('/refund/set-finish', [\App\Http\Controllers\AdminPrimaryCtrl::class, 'setFinishRefund']);
+
+                Route::get('/mail-errors', [\App\Http\Controllers\ResendTrxNotification::class, 'get']);
+                Route::delete('/mail-errors/delete', [\App\Http\Controllers\ResendTrxNotification::class, 'delete']);
+                Route::post('/mail-errors/resend', [\App\Http\Controllers\ResendTrxNotification::class, 'mainResend']);
             });
         });
     });

@@ -137,4 +137,9 @@ class Event extends Model
     {
         return $this->hasOne(LimitReschedule::class, 'event_id');
     }
+
+    public function thumbnails(): HasMany
+    {
+        return $this->hasMany(EventThumbnail::class, 'event_id');
+    }
 }

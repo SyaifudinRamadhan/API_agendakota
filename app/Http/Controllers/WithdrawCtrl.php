@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Mail\AdminWdNotification;
+use App\Mail\VerificationBank;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Auth;
@@ -19,8 +20,10 @@ use App\Models\Ticket;
 use DateTime;
 use DateTimeZone;
 use DateInterval;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Xendit\Disbursements;
+use Illuminate\Support\Str;
 
 class WithdrawCtrl extends Controller
 {
@@ -46,24 +49,32 @@ class WithdrawCtrl extends Controller
         if (count(BillAccount::where('org_id', $req->org->id)->where('status', 0)->get()) > 0) {
             return response()->json(["error" => "Tou have un-verified account. Please verify it first !!!"], 406);
         }
+        $otp = Str::password(8, true, true, false);
+        $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         $data = BillAccount::create([
             'org_id' => $req->org->id,
             'bank_name' => $req->bank_name,
             'acc_name' => $req->acc_name,
             'acc_number' => $req->acc_number,
             'status' => 0,
+            'otp' => $otp,
+            'exp_to_verify' => $now->add(new DateInterval('PT2M')),
             'deleted' => 0
         ]);
-        $auth = new Authenticate();
-        $msg = $auth->generateOtp(Auth::user()->email, false, [
-            'code_bank' => $data->bank_name,
-            'acc_number' => $data->acc_number
-        ]);
+        $mail_status = true;
+        $email = Auth::user()->email;
+        try {
+            Mail::to($email)->send(new VerificationBank($data->bank_name, $data->acc_number, $otp));
+        } catch (\Throwable $th) {
+            ResendTrxNotification::writeErrorLog('App\Mail\VerificationBank', "bank verification", [$data->bank_name, $data->acc_number, $otp], $email);
+            $mail_status = false;
+        }
         $data->icon = '/storage/images/bank-icons/' . $data->bank_name . '.png';
         $data->bank_name = config('banks')[$data->bank_name];
         return response()->json([
             "data" => $data,
-            "message" => $msg["message"]
+            "message" => "check your email to get the OTP code",
+            "mail_status" => $mail_status
         ], 201);
     }
 
@@ -101,13 +112,27 @@ class WithdrawCtrl extends Controller
         if (!$bankAcc->first()) {
             return response()->json(["error" => "Bank account data not found"], 404);
         }
-        $user = Auth::user();
-        $otp = $user->otp()->first();
-        if (!$otp) {
-            return response()->json(["error" => "OTP not found for this user"], 404);
-        }
-        if ($otp->otp_code != $req->otp) {
+        if ($bankAcc->first()->otp != $req->otp) {
             return response()->json(["error" => "OTP code is not valid"], 403);
+        }
+        $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+        $exp = new DateTime($bankAcc->first()->exp_to_verify, new DateTimeZone('Asia/Jakarta'));
+        if($now > $exp){
+            $otp = Str::password(8, true, true, false);
+            $bankAcc->update([
+                "otp" => $otp,
+                "exp_to_verify" => $now->add(new DateInterval("PT2M")),
+            ]);
+            $mail_status = true;
+            $email = Auth::user()->email;
+            $data = $bankAcc->first();
+            try {
+                Mail::to($email)->send(new VerificationBank($data->bank_name, $data->acc_number, $otp));
+            } catch (\Throwable $th) {
+                ResendTrxNotification::writeErrorLog('App\Mail\VerificationBank', "bank verification", [$data->bank_name, $data->acc_number, $otp], $email);
+                $mail_status = false;
+            }
+            return response()->json(["message" => "Verification failed. OTP expired. You will receive new OTP code to verify your bank account", "mail_status" => $mail_status], 403);
         }
         $bankAcc->update(["status" => 1]);
         return response()->json(["message" => "verification successfull"], 202);
@@ -191,17 +216,23 @@ class WithdrawCtrl extends Controller
             'status' => 0
         ]);
         $user = Auth::user();
-        Mail::to(config('agendakota.admin_email'))->send(new AdminWdNotification(
-            $eventData->name,
-            $eventData->id,
-            $req->org->name,
-            $req->org->id,
-            ($nominal <= 10000 ? $nominal : ($nominal - $profitSetting->admin_fee_wd)),
-            // (($basicAmount - ($basicAmount * (floatval(config('agendakota.commission'))))) - intval(config('agendakota.profit_plus'))),
-            $bankAcc->acc_number,
-            $user->name,
-            $user->email
-        ));
+        try {
+            Mail::to(config('agendakota.admin_email'))->send(new AdminWdNotification(
+                $eventData->name,
+                $eventData->id,
+                $req->org->name,
+                $req->org->id,
+                ($nominal <= 10000 ? $nominal : ($nominal - $profitSetting->admin_fee_wd)),
+                // (($basicAmount - ($basicAmount * (floatval(config('agendakota.commission'))))) - intval(config('agendakota.profit_plus'))),
+                $bankAcc->acc_number,
+                $user->name,
+                $user->email
+            ));
+        } catch (\Throwable $th) {
+            Withdraw::where('id', $wd->id)->delete();
+            Log::info("Error With Mail Server : Failed send mail withdraw notification. Withdraw reset");
+            return response()->json(["error" => "Mail server error. Please try again later"], 500);
+        }
         return response()->json(["data" => $wd, "event" => $eventData, "bank" => $bankAcc], 201);
     }
 

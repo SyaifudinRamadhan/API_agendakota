@@ -6,6 +6,7 @@ use App\Models\AvailableDayTicketSell;
 use Illuminate\Http\Request;
 use App\Models\Event;
 use App\Models\Breakdown;
+use App\Models\EventThumbnail;
 use App\Models\LimitReschedule;
 use App\Models\Organization;
 use App\Models\Purchase;
@@ -32,6 +33,84 @@ class EventCtrl extends Controller
         3. Tour Travel (recurring)
       -> The first group, is the left of the existing list of categories 
     =================================================================*/
+    private function validateThumbnails(Request $req, int $limitSize)
+    {
+        if(!$req->hasFile('thumbnails')){
+            return null;
+        }
+        $files = $req->file('thumbnails');
+        $valid = true;
+        if(is_array($files)){
+            for ($i=0; $i < count($files); $i++) { 
+                if($files[$i]->filesize > $limitSize || ($files[$i]->filetype != 'image/png' && $files[$i]->filetype != 'image/PNG' && $files[$i]->filetype != 'image/jpeg' && $files[$i]->filetype != 'image/JPEG')){
+                    $valid = false;
+                    $i = count($files);
+                }
+            }
+        }else{
+            if($files->filesize > $limitSize || ($files->filetype != 'image/png' && $files->filetype != 'image/PNG' && $files->filetype != 'image/jpeg' && $files->filetype != 'image/JPEG')){
+                $valid = false;
+            }else{
+                $files = [$files];
+            }
+        }
+        return ["isValid" => $valid, "data" => $files];
+    }
+
+    private function createThumbnails(Request $req, String $eventId, Array $files)
+    {
+        $insert = [];
+        for ($i=0; $i < count($files); $i++) { 
+            $fileName = BasicFunctional::randomStr(5).'_'.time().'.'.$files[$i]->getCLientOriginalExtension();
+            $files[$i]->storeAs('public/event_banners', $fileName);
+            $fileName = "/storage/event_banners/".$fileName;
+            array_push($insert, [
+                'event_id' => $eventId,
+                'image' => $fileName,
+                'priority' => $i
+            ]);
+        }
+        EventThumbnail::create($insert);   
+    }
+
+    private function updateThumbnails(Request $req, Array $lastOrder, Array $newImages, Array $newImgOrder)
+    {
+        /*
+            ---------------------- Variable structure ------------------------
+            -> lasOrder => [
+                ['image name','oder number'], ['image name 2', 'order number 2'], ...
+            ]
+            -> newImages => Array files php ([file1, file2, ...])
+            -> newImgOrder => [new image/file 1 order number, new image/file 2 order number, ...]
+            -------------------------------------------------------------------
+        */
+        $data = [];
+        // prepare new images
+        for ($i=0; $i < count($newImages); $i++) { 
+            $fileName = BasicFunctional::randomStr(5).'_'.time().'.'.$newImages[$i]->getClientOriginalExtension();
+            $newImages[$i]->storeAs('publuc/event_banners', $fileName);
+            $fileName = "/storage/event_banners/".$fileName;
+            // update image on lastOrder with new file image
+            for ($j=0; $j < count($lastOrder); $j++) { 
+                if($lastOrder[$j][1] == $newImgOrder[$i]){
+                    $lastOrder[$j][0] = $fileName;
+                    if($i+1 < count($newImages)){
+                        $j = count($lastOrder);
+                    }
+                }
+                if($i+1 === count($newImages)){
+                    array_push($data, [
+                        'event_id' => $req->event_id,
+                        'image' => $fileName,
+                        'priority' => $lastOrder[$i][1]
+                    ]);
+                }
+            }
+        }
+        EventThumbnail::where('event_id', $req->event->id)->delete();
+        EventThumbnail::create($data);
+    }
+    
     public function create(Request $req, $orgId)
     {
         // $pkg = PkgPricing::where('id', $req->pkg_id)->where('deleted',  0)->first();
@@ -543,17 +622,18 @@ class EventCtrl extends Controller
                 $reservedSeats = [];
             }
         } else if ($ticket->seat_number == 1 || $ticket->seat_number == true) {
-            $allSeatNumber = range(0, intval($ticket->quantity));
             $reservedSeats = DB::table('purchases')
                 ->join('reserved_seats', 'reserved_seats.pch_id', '=', 'purchases.id')
                 ->select(['reserved_seats.seat_number'])
                 ->where('purchases.ticket_id', '=', $ticket->id)
                 ->get();
+            $allSeatNumber = range(1, intval($ticket->quantity) + count($reservedSeats));
         }
         if ($ticket->seat_number == 1 || $ticket->seat_number == true) {
+            $ticket->basicSeatsQty = count($allSeatNumber);
             foreach ($reservedSeats as $rsvSeat) {
                 $removedIndex = array_search((int)($rsvSeat->seat_number), $allSeatNumber);
-                if ($removedIndex) {
+                if (gettype($removedIndex) === "integer") {
                     array_splice($allSeatNumber,  $removedIndex, 1);
                 }
             }

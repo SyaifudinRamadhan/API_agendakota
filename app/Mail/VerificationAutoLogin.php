@@ -16,10 +16,10 @@ class VerificationAutoLogin extends Mailable
     /**
      * Create a new message instance.
      */
-    public function __construct($user, $password)
+    public function __construct($username, $userEmail, $password)
     {
-        $this->username = $user->name;
-        $this->email = $user->email;
+        $this->username = $username;
+        $this->email = $userEmail;
         $this->password = $password;
     }
 
