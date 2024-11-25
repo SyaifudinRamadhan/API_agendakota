@@ -66,4 +66,9 @@ class Organization extends Model
     {
         return $this->hasOne(CredibilityOrg::class, 'org_id');
     }
+
+    public function legality(): HasOne
+    {
+        return $this->hasOne(CredibilityOrg::class, 'org_id');
+    }
 }

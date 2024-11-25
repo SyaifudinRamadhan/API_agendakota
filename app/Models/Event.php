@@ -110,7 +110,7 @@ class Event extends Model
 
     public function tickets(): HasMany
     {
-        return $this->hasMany(Ticket::class, 'event_id')->where('deleted', 0);
+        return $this->hasMany(Ticket::class, 'event_id')->where('deleted', 0)->orderBy('price', 'ASC');
     }
 
     public function ticketsNonFilter(): HasMany
