@@ -15,5 +15,7 @@ class ProfitSetting extends Model
         'admin_fee_wd',
         'mul_pay_gate_fee',
         'tax_fee',
-   ];
+        'wa_quota_price_inv',
+        'wa_quota_price_ntf',
+    ];
 }

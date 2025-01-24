@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
 use App\Models\Checkin;
-use App\Models\Purchase;
-use App\Models\Ticket;
 use App\Models\Event;
 use App\Models\Invitation;
+use App\Models\Purchase;
+use App\Models\Ticket;
 use DateInterval;
 use DateTime;
 use DateTimeZone;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class CheckinCtrl extends Controller
 {
@@ -22,7 +22,7 @@ class CheckinCtrl extends Controller
         $validator = Validator::make(
             $req->all(),
             [
-                "event_id" => "required|string"
+                "event_id" => "required|string",
             ]
         );
         if ($validator->fails()) {
@@ -64,7 +64,7 @@ class CheckinCtrl extends Controller
                         [
                             'pch_id' => $purchase->id,
                             'event_id' => $event->id,
-                            'status' => 1
+                            'status' => 1,
                         ]
                     );
                     return response()->json(
@@ -73,7 +73,7 @@ class CheckinCtrl extends Controller
                             "event" => $event,
                             "user" => Auth::user(),
                             "purchase" => $purchase,
-                            "ticket" => $purchase->ticket()->first()
+                            "ticket" => $purchase->ticket()->first(),
                         ],
                         201
                     );
@@ -97,15 +97,15 @@ class CheckinCtrl extends Controller
         $validator = Validator::make(
             $req->all(),
             [
-                "qr_str" => "required|string"
+                "qr_str" => "required|string",
             ]
         );
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
         $qrStr = explode("*~^|-|^~*", $req->qr_str);
-        if(count($qrStr) < 2){
-            Log::info("Error scan QR organizer. QR Code is : ".$req->qr_str);
+        if (count($qrStr) < 2) {
+            Log::info("Error scan QR organizer. QR Code is : " . $req->qr_str);
             return response()->json(["error" => "Purchase data not found in this event"], 404);
         }
         $purchase = Purchase::where('id', $qrStr[0])->where('user_id', $qrStr[1])->first();
@@ -137,10 +137,10 @@ class CheckinCtrl extends Controller
         ) {
             return response()->json(["error" => $now > $endEvent ? "The ticket has expired" : "Checkin can only be done when the event has started"], 403);
         }
-        if($purchase->is_mine == 0){
+        if ($purchase->is_mine == 0) {
             Invitation::where('pch_id', $purchase->id)->delete();
             Purchase::where('id', $purchase->id)->update([
-                'is_mine' => true
+                'is_mine' => true,
             ]);
         }
         $checkin = Checkin::where('pch_id', $purchase->id)->first();
@@ -152,7 +152,7 @@ class CheckinCtrl extends Controller
                     "user" => $purchase->user()->first(),
                     "ticket" => $purchase->ticket()->first(),
                     "event" => $req->event,
-                    "status" => 2
+                    "status" => 2,
                 ],
                 201
             );
@@ -161,7 +161,7 @@ class CheckinCtrl extends Controller
             [
                 'pch_id' => $purchase->id,
                 'event_id' => $req->event->id,
-                'status' => 1
+                'status' => 1,
             ]
         );
         return response()->json(
@@ -171,7 +171,7 @@ class CheckinCtrl extends Controller
                 "user" => $purchase->user()->first(),
                 "ticket" => $purchase->ticket()->first(),
                 "event" => $req->event,
-                "status" => 1
+                "status" => 1,
             ],
             201
         );
@@ -213,6 +213,7 @@ class CheckinCtrl extends Controller
                         $purchase->checkin = $purchase->checkin()->first();
                         $purchase->visitDate = $purchase->visitDate()->first();
                         $purchase->seatNumber = $purchase->seatNumber()->first();
+                        $purchase->orgInv = $purchase->orgInv()->first();
                         $purchases[] = $purchase;
                         if ($purchase->checkin != null) {
                             $checkined[] = $purchase;
@@ -226,6 +227,7 @@ class CheckinCtrl extends Controller
                     $purchase->checkin = $purchase->checkin()->first();
                     $purchase->visitDate = $purchase->visitDate()->first();
                     $purchase->seatNumber = $purchase->seatNumber()->first();
+                    $purchase->orgInv = $purchase->orgInv()->first();
                     $purchases[] = $purchase;
                     if ($purchase->checkin != null) {
                         $checkined[] = $purchase;
@@ -239,7 +241,7 @@ class CheckinCtrl extends Controller
             [
                 "checkined" => $checkined,
                 "not_checkin" => $notCheckin,
-                "all" => $purchases
+                "all" => $purchases,
             ],
             200
         );

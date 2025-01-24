@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -29,7 +29,9 @@ class Organization extends Model
         'whatsapp',
         'website',
         'desc',
-        'deleted'
+        'allow_create_inv',
+        'create_inv_quota',
+        'deleted',
     ];
 
     public function user(): BelongsTo
@@ -70,5 +72,10 @@ class Organization extends Model
     public function legality(): HasOne
     {
         return $this->hasOne(CredibilityOrg::class, 'org_id');
+    }
+
+    public function logAddInvQuota(): HasMany
+    {
+        return $this->hasMany(LogAddInvQuota::class, 'org_id');
     }
 }

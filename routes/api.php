@@ -1,14 +1,9 @@
 <?php
 
-use App\Mail\ETicket;
-use App\Mail\TrxNotification;
-use App\Mail\TwoFactorNoitication;
-use App\Mail\VerificationAutoLogin;
-use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 /*
 |--------------------------------------------------------------------------
@@ -19,10 +14,13 @@ use Illuminate\Support\Facades\Route;
 | routes are loaded by the RouteServiceProvider and all of them will
 | be assigned to the "api" middleware group. Make something great!
 |
-*/
+ */
 // Route::get('/test-mail', function(){
 //     Mail::to('syaifudinramadhan@gmail.com')->send(new TwoFactorNoitication(User::where('email', "syaifudinramadhan@gmail.com")->first() ,"fTF^&57"));
 // });
+Route::get('/test', function (Request $req) {
+    return Storage::delete('private/inv_attchs/' . 'pMh4T_1737634058.png');
+});
 // Route::get('/download-ticket', [\App\Http\Controllers\PchCtrl::class, 'downloadTicket']);
 Route::get('/verify/{subId}', [\App\Http\Controllers\Authenticate::class, 'verify'])->name('verify');
 Route::get('/verify/{subId}/auto/{redirect}', [\App\Http\Controllers\Authenticate::class, 'verify'])->name('verifyAndRedirect');
@@ -189,6 +187,12 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
                             Route::post('/mail/resend', [\App\Http\Controllers\MailBroadcastCtrl::class, 'resendMail']);
                             Route::delete('/mail/delete', [\App\Http\Controllers\MailBroadcastCtrl::class, 'delete']);
                             Route::get('/mail/gets', [\App\Http\Controllers\MailBroadcastCtrl::class, 'gets']);
+                            Route::post('/create-invitation', [\App\Http\Controllers\OrgInvCtrl::class, 'singleCreateInv']);
+                            Route::post('/create-bulk-invitation', [\App\Http\Controllers\OrgInvCtrl::class, 'bulkCreateInv']);
+                            Route::post('/create-bulk-invitation-v2', [\App\Http\Controllers\OrgInvCtrl::class, 'bulkCreateInvV2']);
+                            Route::delete('/cancel-invitations', [\App\Http\Controllers\OrgInvCtrl::class, 'cancelInv']);
+                            Route::get('/invitations', [\App\Http\Controllers\OrgInvCtrl::class, 'getAll']);
+                            Route::get('/invitation-attachment/{invId}/file/{file}', [\App\Http\Controllers\SpecialFilesCtrl::class, 'AttachInvProtection']);
                         });
                     });
                 });
@@ -344,6 +348,7 @@ Route::middleware('apiToken')->prefix('/')->group(function () {
                 Route::get('/mail-errors', [\App\Http\Controllers\ResendTrxNotification::class, 'get']);
                 Route::delete('/mail-errors/delete', [\App\Http\Controllers\ResendTrxNotification::class, 'delete']);
                 Route::post('/mail-errors/resend', [\App\Http\Controllers\ResendTrxNotification::class, 'mainResend']);
+                Route::post('/activate-org-invitation', [\App\Http\Controllers\AdminCtrl::class, 'activateInvFeature']);
             });
         });
     });

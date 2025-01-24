@@ -20,6 +20,7 @@ return new class extends Migration
             $table->integer('amount');
             $table->integer('tax_amount');
             $table->boolean('is_mine')->default(false);
+            $table->boolean('org_inv')->default(false);
             $table->timestamps();
         });
     }
