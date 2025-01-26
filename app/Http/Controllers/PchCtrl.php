@@ -340,7 +340,7 @@ class PchCtrl extends Controller
             if (intval($tickets[$index]->max_purchase) < $value && !$forOrgInv && ($tickets[$index]->event->category != 'Attraction' && $tickets[$index]->event->category != 'Daily Activities' && $tickets[$index]->event->category != 'Tour Travel (recurring)')) {
                 return ["error" => "Max purchases is " . $tickets[$index]->max_purchase . " / user", "code" => 403];
             }
-            if ($tickets[$index]->event->is_publish == 1 || $tickets[$index]->event->is_publish >= 3) {
+            if (($tickets[$index]->event->is_publish == 1 || $tickets[$index]->event->is_publish >= 3) && !$forOrgInv) {
                 return ["error" => "This has not been published yet or is still in draft form", "code" => 403];
             }
 
