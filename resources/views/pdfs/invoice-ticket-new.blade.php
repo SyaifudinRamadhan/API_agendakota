@@ -1,7 +1,7 @@
 <?php
-use Carbon\Carbon;
-setlocale(LC_ALL, 'id_ID');
-Carbon::setLocale('id');
+    use Carbon\Carbon;
+    setlocale(LC_ALL, 'id_ID');
+    Carbon::setLocale('id');
 ?>
 
 <!doctype html>
@@ -101,6 +101,9 @@ Carbon::setLocale('id');
                 <p class="fw-bold text-center mb-auto">
                     {{ $purchase->id . '*~^|-|^~*' . $purchase->user_id }}
                 </p>
+                @if ($purchase->ticket->secretInfo)
+                    <p href="{{ $purchase->ticket->secretInfo->meet_link }}" class="w-100 text-center fw-bold text-primary m-auto">Link Meet : {{ $purchase->ticket->secretInfo->meet_link }}</p>
+                @endif
             </div>
 
             <div class="col-6 border border-black rounded-3 d-flex flex-column p-4" style="margin-left: 15px;">
@@ -112,18 +115,22 @@ Carbon::setLocale('id');
                     {{ $purchase->orgInv ? $purchase->orgInv->name : $purchase->user->name }}
                 </p>
                 @if($purchase->orgInv)
-                    @if (isset($decrypted))
-                        <p class="fw-bold text-secondary mb-2">
-                            Kode Akses
-                        </p>
-                        <p class="fw-bold mb-4">
-                            {{ $decrypted->otpCode }}
-                        </p>
-                    @endif
+                    {{--
+
+                        @if (isset($decrypted))
+                            <p class="fw-bold text-secondary mb-2">
+                                Kode Akses
+                            </p>
+                            <p class="fw-bold mb-4">
+                                {{ $decrypted->otpCode }}
+                            </p>
+                        @endif
+
+                    --}}
                     <p class="fw-bold text-secondary mb-2">
                         Nomor Telepon / WhatsApp
                     </p>
-                    <p class="fw-bold mb-auto">
+                    <p class="fw-bold mb-4">
                         {{ $purchase->orgInv->wa_num }}
                     </p>
                 @else
@@ -133,6 +140,7 @@ Carbon::setLocale('id');
                     <p class="fw-bold mb-4">
                         {{ $purchase->user->email }}
                     </p>
+                @endif
                     <p class="fw-bold text-secondary mb-2">
                         Order ID
                     </p>
@@ -145,7 +153,6 @@ Carbon::setLocale('id');
                     <p class="fw-bold mb-auto">
                         {{Carbon::parse($purchase->payment->created_at)->isoFormat('D MMMM Y')}}
                     </p>
-                @endif
             </div>
         </div>
     </div>
