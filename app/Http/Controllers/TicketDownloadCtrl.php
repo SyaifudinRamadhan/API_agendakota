@@ -76,6 +76,9 @@ class TicketDownloadCtrl extends Controller
             'ticket.event',
             'ticket.event.org',
         ])->first();
+        if (! $purchase) {
+            return abort(404, 'Invitation not found');
+        }
         return view('download-ticket', [
             "decrypted" => $decrypted,
             "urlKey"    => $urlKey,
