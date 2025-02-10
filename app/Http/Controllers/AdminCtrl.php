@@ -357,7 +357,7 @@ class AdminCtrl extends Controller
         if ($validator->fails()) {
             return response()->json($validator->errors(), 403);
         }
-        $fBanner     = isset($req->banner_large) && $req->banner_large == true ? FRontBannerLarge::where('id', $req->id) : FrontBanner::where('id', $req->f_banner_id);
+        $fBanner     = isset($req->banner_large) && $req->banner_large == true ? FrontBannerLarge::where('id', $req->f_banner_id) : FrontBanner::where('id', $req->f_banner_id);
         $fBannerData = $fBanner->first();
         if (! $fBannerData) {
             return response()->json(["error" => "Data not found"], 404);
