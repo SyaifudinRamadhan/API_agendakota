@@ -277,7 +277,6 @@ class OrgInvCtrl extends Controller
             return response()->json(["error" => "Ticket data is blank or not found. Please input valid ticket name from your event"], 404);
         }
         // dd($req->ticket_ids, $req->visit_dates, $req->seat_numbers ,$names, $mailTargets, $waNumbers, $invoiceImages);
-        return response()->json(["error" => [$req, $names, $mailTargets, $waNumbers, $invoiceImages, $visitDates, $seatNumbers]]);
         return $this->coreSender($req, $names, $mailTargets, $waNumbers, $invoiceImages, $visitDates, $seatNumbers);
     }
 

@@ -469,7 +469,7 @@ class PchCtrl extends Controller
         if ($req->visit_dates && count($dailyTickets) > 0) {
             $visitDates = (array) $req->visit_dates;
             if (count($visitDates) == 0 || count($visitDates) != count($dailyTickets)) {
-                return ["error" => "Visit Date is can't blank if you choose a ticket with daily type or count visit dates key not match with list of ticket id", "code" => 403];
+                return ["error" => count($visitDates) == 0 ? "Visit Date is can't blank if you choose a ticket with daily type or count visit dates key not match with list of ticket id" : "Plase input visit dates data according to the ticket and event type", "code" => 403];
             }
             $pchsTcDates = DB::table('purchases')
                 ->select(DB::raw('purchases.ticket_id as ticketId, daily_tickets.visit_date as visitDate, count(purchases.id) as qty'))
@@ -538,7 +538,7 @@ class PchCtrl extends Controller
         if ($req->seat_numbers && count($seatNumberTickets) > 0) {
             $seatNumbers = (array) $req->seat_numbers;
             if (count($seatNumbers) == 0 || count($seatNumbers) != count($seatNumberTickets)) {
-                return ["error" => "Seat number is can't blank if you choose a ticket with seat nummber option", "code" => 403];
+                return ["error" => count($seatNumbers) == 0 ? "Seat number is can't blank if you choose a ticket with seat nummber option" : "Please input seat number data according to the ticket type", "code" => 403];
             }
             $hasPurchasedRaw = null;
             if (count($visitDates) == 0) {
