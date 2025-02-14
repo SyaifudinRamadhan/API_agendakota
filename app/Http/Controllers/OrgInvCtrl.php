@@ -273,6 +273,9 @@ class OrgInvCtrl extends Controller
         if (isset($req->with_wa) && $req->with_wa == true && ($req->org->allow_create_inv == false || $req->org->create_inv_quota < count($waNumbers))) {
             return response()->json(["error" => "Your whatsapp invitation quota is low"], 403);
         }
+        if(count($req->ticket_ids) === 0){
+            return response()->json(["error" => "Ticket data is blank or not found. Please input valid ticket name from your event"], 404);
+        }
         // dd($req->ticket_ids, $req->visit_dates, $req->seat_numbers ,$names, $mailTargets, $waNumbers, $invoiceImages);
 
         return $this->coreSender($req, $names, $mailTargets, $waNumbers, $invoiceImages, $visitDates, $seatNumbers);
