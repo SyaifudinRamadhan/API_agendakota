@@ -250,9 +250,9 @@
                               color: #ffffff;
                             "><img
                                                         src="{{ $message->embed(public_path('storage') . '/images/mail-send-img/logo-ak2020.png') }}"
-                                                        width="136" height="36" alt="SimpleApp"
+                                                        width="176" height="36" alt="SimpleApp"
                                                         style="
-                                max-width: 136px;
+                                max-width: 176px;
                                 -ms-interpolation-mode: bicubic;
                                 vertical-align: middle;
                                 border: 0;

@@ -1364,8 +1364,8 @@ class AdminCtrl extends Controller
     private function countPurchases($event)
     {
         $total = 0;
-        foreach ($event->tickets()->get() as $ticket) {
-            $total += count($ticket->purchases()->get());
+        foreach ($event->tickets as $ticket) {
+            $total += count($ticket->purchases);
         }
         return $total;
     }
@@ -1380,16 +1380,18 @@ class AdminCtrl extends Controller
             'admin_fee_wd'     => 'required|numeric',
             'mul_pay_gate_fee' => 'required|numeric',
             'tax_fee'          => 'required|numeric',
+            'wa_inv_price'     => 'required|numeric',
         ]);
         if ($validator->fails()) {
             return response()->json(["error" => $validator->errors()], 403);
         }
         ProfitSetting::where('id', 1)->update([
-            'ticket_commision' => $req->ticket_commision,
-            'admin_fee_trx'    => $req->admin_fee_trx,
-            'admin_fee_wd'     => $req->admin_fee_wd,
-            'mul_pay_gate_fee' => $req->mul_pay_gate_fee,
-            'tax_fee'          => $req->tax_fee,
+            'ticket_commision'   => $req->ticket_commision,
+            'admin_fee_trx'      => $req->admin_fee_trx,
+            'admin_fee_wd'       => $req->admin_fee_wd,
+            'mul_pay_gate_fee'   => $req->mul_pay_gate_fee,
+            'tax_fee'            => $req->tax_fee,
+            'wa_quota_price_inv' => $req->wa_inv_price,
         ]);
         return response()->json(["profit_setting" => ProfitSetting::first()], 200);
     }

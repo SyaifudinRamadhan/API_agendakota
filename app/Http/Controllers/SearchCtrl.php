@@ -14,8 +14,8 @@ class SearchCtrl extends Controller
     private function countPurchases($event)
     {
         $total = 0;
-        foreach ($event->tickets()->get() as $ticket) {
-            $total += count($ticket->purchases()->get());
+        foreach ($event->tickets as $ticket) {
+            $total += count($ticket->purchases);
         }
         return $total;
     }
@@ -40,11 +40,11 @@ class SearchCtrl extends Controller
                 $tmp = null;
             }
             
-            $events[$i]->org = $events[$i]->org()->first();
+            // $events[$i]->org = $events[$i]->org()->first();
             if($events[$i]->org && $events[$i]->deleted === 0 && new DateTime($events[$i]->end_date . " " . $events[$i]->end_time, new DateTimeZone('Asia/Jakarta')) >= new DateTime('now', new DateTimeZone('Asia/Jakarta'))){
-                $events[$i]->available_days = $events[$i]->availableDays()->get();
-                $events[$i]->org->legality = $events[$i]->org->credibilityData()->first();
-                $events[$i]->tickets = $events[$i]->tickets()->orderBy('price', 'ASC')->get();
+                // $events[$i]->available_days = $events[$i]->availableDays()->get();
+                // $events[$i]->org->legality = $events[$i]->org->credibilityData()->first();
+                // $events[$i]->tickets = $events[$i]->tickets()->orderBy('price', 'ASC')->get();
                 array_push($fixEvents, $events[$i]);
             }
         }
@@ -54,7 +54,13 @@ class SearchCtrl extends Controller
     public function popularEvents()
     {
         $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-        $events = Event::where('end_date', '>=', $now->format('Y-m-d'))->where('is_publish', 2)->where('visibility', true)->get();
+        $events = Event::where('end_date', '>=', $now->format('Y-m-d'))->where('is_publish', 2)->where('visibility', true)->with([
+            'org', 
+            'availableDays',
+            'org.legality',
+            'tickets',
+            'tickets.purchases'
+        ])->get();
         return response()->json(["events" => $this->basePopEvents($events)], 200);
     }
 
@@ -62,7 +68,13 @@ class SearchCtrl extends Controller
     {
         $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         $city = ViralCity::first()->city()->first();
-        $events = Event::where('end_date', '>=', $now->format('Y-m-d'))->where('city', 'like', '%' . $city->name . '%')->where('is_publish', 2)->where('visibility', true)->get();
+        $events = Event::where('end_date', '>=', $now->format('Y-m-d'))->where('city', 'like', '%' . $city->name . '%')->where('is_publish', 2)->where('visibility', true)->with([
+            'org', 
+            'availableDays',
+            'org.legality',
+            'tickets',
+            'tickets.purchases'
+        ])->get();
         return response()->json(["city" => $city, "events" => $this->basePopEvents($events)], 200);
     }
 
@@ -115,7 +127,13 @@ class SearchCtrl extends Controller
         $events = [];
         $untilDate = $req->until_date ? new DateTime($req->until_date, new DateTimeZone('Asia/Jakarta')) : null;
 
-        foreach ($req->category ? Event::where($whereClauses)->whereIn('category', is_array($req->category) ? $req->category : [$req->category])->get() : Event::where($whereClauses)->get() as $event) {
+        foreach ($req->category ? Event::where($whereClauses)->whereIn('category', is_array($req->category) ? $req->category : [$req->category])->get() : Event::where($whereClauses)->with([
+            'org', 
+            'availableDays',
+            'org.legality',
+            'tickets',
+            'tickets.purchases'
+        ])->get() as $event) {
             $state = true;
             $trueTopic = true;
             $trueTime = true;

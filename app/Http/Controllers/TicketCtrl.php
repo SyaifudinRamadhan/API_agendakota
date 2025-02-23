@@ -4,12 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\DailyTicketLimit;
 use App\Models\SecretInfoTicket;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use App\Models\Ticket;
 use DateTime;
 use DateTimeZone;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Validator;
 
 class TicketCtrl extends Controller
 {
@@ -21,7 +21,7 @@ class TicketCtrl extends Controller
             'type_price' => 'required|string',
             'max_purchase' => 'required|numeric',
             'seat_map' => 'image|max:2048',
-            'cover' => 'image|max:2048'
+            'cover' => 'image|max:2048',
             // meet_link => 'required'  (for type webnar only)
         ]);
         if ($validator->fails()) {
@@ -45,7 +45,7 @@ class TicketCtrl extends Controller
         }
         $start = null;
         $end = null;
-        if($req->event->category === "Webinar" && !isset($req->meet_link)){
+        if ($req->event->category === "Webinar" && !isset($req->meet_link)) {
             return response()->json(["error" => "Meet link is required for type webinar"], 403);
         }
         if ($req->event->category != 'Attraction' && $req->event->category != 'Daily Activities' && $req->event->category != 'Tour Travel (recurring)') {
@@ -58,16 +58,16 @@ class TicketCtrl extends Controller
             } catch (\Throwable $th) {
                 return response()->json(["error" => "Invalid format input date or time"], 400);
             }
-            
+
             if ($start > $end) {
                 return response()->json(["error" => "Start date must be lower than end date or end date of the event"], 403);
             }
 
             $endEvent = new DateTime($req->event->end_date, new DateTimeZone('Asia/Jakarta'));
-            if($start > $endEvent){
+            if ($start > $endEvent) {
                 $start = new DateTime($req->event->start_date, new DateTimeZone('Asia/Jakarta'));
             }
-            if($end > $endEvent){
+            if ($end > $endEvent) {
                 $end = new DateTime($req->event->end_date, new DateTimeZone('Asia/Jakarta'));
             }
         } else {
@@ -110,14 +110,14 @@ class TicketCtrl extends Controller
         if (($req->event->category == 'Attraction' || $req->event->category == 'Daily Activities' || $req->event->category == 'Tour Travel (recurring)')) {
             DailyTicketLimit::create([
                 'ticket_id' => $ticket->id,
-                'limit_quantity' => abs($req->daily_limit_qty)
+                'limit_quantity' => abs($req->daily_limit_qty),
             ]);
         }
-        if($req->event->category === "Webinar"){
+        if ($req->event->category === "Webinar") {
             $secretInfo = SecretInfoTicket::create([
                 'ticket_id' => $ticket->id,
                 'meet_link' => $req->meet_link,
-                'desc' => !isset($req->additional_desc) ? '' : $req->additional_desc
+                'desc' => !isset($req->additional_desc) ? '' : $req->additional_desc,
             ]);
             $ticket->secretInfo = $secretInfo;
         }
@@ -127,7 +127,7 @@ class TicketCtrl extends Controller
     public function bulkCreate(Request $req)
     {
         $validatorBasic = Validator::make($req->all(), [
-            'ticket_datas' => 'required|array'
+            'ticket_datas' => 'required|array',
         ]);
         if ($validatorBasic->fails()) {
             return response()->json($validatorBasic->errors(), 403);
@@ -145,7 +145,7 @@ class TicketCtrl extends Controller
                 'cover' => 'image|max:2048',
                 // meet_link => 'required'  (for type webnar only)
             ]);
-            $ticket_data = (object)$ticket_data;
+            $ticket_data = (object) $ticket_data;
             if ($validator->fails()) {
                 return response()->json($validator->errors(), 403);
             }
@@ -154,7 +154,7 @@ class TicketCtrl extends Controller
             }
             $start = null;
             $end = null;
-            if($req->event->category === "Webinar" && !isset($ticket_data->meet_link)){
+            if ($req->event->category === "Webinar" && !isset($ticket_data->meet_link)) {
                 return response()->json(["error" => "Meet link is required for type webinar"], 403);
             }
             if ($req->event->category != 'Attraction' && $req->event->category != 'Daily Activities' && $req->event->category != 'Tour Travel (recurring)') {
@@ -167,16 +167,16 @@ class TicketCtrl extends Controller
                 } catch (\Throwable $th) {
                     return response()->json(["error" => "Invalid format input date or time"], 400);
                 }
-                
+
                 if ($start > $end) {
                     return response()->json(["error" => "Start date must be lower than end date or end date of the event"], 403);
                 }
 
                 $endEvent = new DateTime($req->event->end_date, new DateTimeZone('Asia/Jakarta'));
-                if($start > $endEvent){
+                if ($start > $endEvent) {
                     $start = new DateTime($req->event->start_date, new DateTimeZone('Asia/Jakarta'));
                 }
-                if($end > $endEvent){
+                if ($end > $endEvent) {
                     $end = new DateTime($req->event->end_date, new DateTimeZone('Asia/Jakarta'));
                 }
             } else {
@@ -192,7 +192,7 @@ class TicketCtrl extends Controller
         }
 
         foreach ($req->ticket_datas as $key => $ticket_data) {
-            $ticket_data = (object)$ticket_data;
+            $ticket_data = (object) $ticket_data;
             $seatMap = null;
             // return response()->json(["data" => $ticket_data->enable_seat_number == "false" ? false : true], 500);
             if ($ticket_data->enable_seat_number == true && isset($ticket_data->seat_map)) {
@@ -226,14 +226,14 @@ class TicketCtrl extends Controller
             if (($req->event->category == 'Attraction' || $req->event->category == 'Daily Activities' || $req->event->category == 'Tour Travel (recurring)')) {
                 DailyTicketLimit::create([
                     'ticket_id' => $ticket->id,
-                    'limit_quantity' => abs($ticket_data->daily_limit_qty)
+                    'limit_quantity' => abs($ticket_data->daily_limit_qty),
                 ]);
             }
-            if($req->event->category === "Webinar"){
+            if ($req->event->category === "Webinar") {
                 SecretInfoTicket::create([
                     'ticket_id' => $ticket->id,
                     'meet_link' => $ticket_data->meet_link,
-                    'desc' => !isset($ticket_data->additional_desc) ? '' : $ticket_data->additional_desc
+                    'desc' => !isset($ticket_data->additional_desc) ? '' : $ticket_data->additional_desc,
                 ]);
             }
         }
@@ -249,7 +249,7 @@ class TicketCtrl extends Controller
             'type_price' => 'required|string',
             'max_purchase' => 'required|numeric',
             'seat_map' => 'image|max:2048',
-            'cover' => 'image|max:2048'
+            'cover' => 'image|max:2048',
             // meet_link => 'required'  (for type webnar only)
         ]);
         if ($validator->fails()) {
@@ -270,7 +270,7 @@ class TicketCtrl extends Controller
         }
         $start = null;
         $end = null;
-        if($req->event->category === "Webinar" && !isset($req->meet_link)){
+        if ($req->event->category === "Webinar" && !isset($req->meet_link)) {
             return response()->json(["error" => "Meet link is required for type webinar"], 403);
         }
         if ($req->event->category != 'Attraction' && $req->event->category != 'Daily Activities' && $req->event->category != 'Tour Travel (recurring)') {
@@ -331,22 +331,22 @@ class TicketCtrl extends Controller
             'end_date' => $end->format('Y-m-d'),
             'seat_number' => $req->enable_seat_number == true ? true : false,
             'max_purchase' => abs($req->max_purchase),
-            'seat_map' => $seatMap
+            'seat_map' => $seatMap,
         ]);
         DailyTicketLimit::where('ticket_id', $req->ticket_id)->delete();
         if (($req->event->category == 'Attraction' || $req->event->category == 'Daily Activities' || $req->event->category == 'Tour Travel (recurring)') && $updated > 0) {
             DailyTicketLimit::create([
                 'ticket_id' => $req->ticket_id,
-                'limit_quantity' => abs($req->daily_limit_qty)
+                'limit_quantity' => abs($req->daily_limit_qty),
             ]);
         }
         $ticket = $ticketObj->first();
-        if($req->event->category === "Webinar"){
+        if ($req->event->category === "Webinar") {
             SecretInfoTicket::where('ticket_id', $ticket->id)->delete();
             $secretInfo = SecretInfoTicket::create([
                 'ticket_id' => $ticket->id,
                 'meet_link' => $req->meet_link,
-                'desc' => !isset($req->additional_desc) ? '' : $req->additional_desc
+                'desc' => !isset($req->additional_desc) ? '' : $req->additional_desc,
             ]);
             $ticket->secretInfo = $secretInfo;
         }
@@ -375,7 +375,7 @@ class TicketCtrl extends Controller
             ) {
                 return response()->json(["error" => "You can't remove this ticket. Because your event are in progress and this ticket have linked with selled active tickets"], 403);
             }
-            
+
             if ($ticket->first()->type_price == 1) {
                 $deleted = $ticket->update(["deleted" => 1]);
             } else {
@@ -394,7 +394,7 @@ class TicketCtrl extends Controller
                 ) {
                     return response()->json(["error" => "You can't remove this ticket. Because your event are in progress and this ticket have linked with selled active tickets"], 403);
                 }
-                
+
                 if ($fixPurchases > 0) {
                     $deleted = $ticket->update(["deleted" => 1]);
                 } else {
@@ -408,14 +408,15 @@ class TicketCtrl extends Controller
         return response()->json(["deleted" => $deleted], 202);
     }
 
-    public function rollbackTicket(Request $req) {
+    public function rollbackTicket(Request $req)
+    {
         $isAdmin = $req->user ? $req->user->admin()->first() : null;
-        if(!$isAdmin){
+        if (!$isAdmin) {
             return response()->json(["error" => "Action not allowed for another admin"], 403);
         }
         $ticket = Ticket::where('id', $req->ticket_id);
-        if(!$ticket->first()){
-            return response()->json(["error" => "Ticket not found !"], 404);    
+        if (!$ticket->first()) {
+            return response()->json(["error" => "Ticket not found !"], 404);
         }
         $ticket->update(["deleted" => 0]);
         return response()->json(["message" => "Rollback ticket success"], 202);
@@ -441,7 +442,7 @@ class TicketCtrl extends Controller
         if (($req->event->category == 'Attraction' || $req->event->category == 'Daily Activities' || $req->event->category == 'Tour Travel (recurring)')) {
             $ticket->limit_daily = $ticket->limitDaily()->first();
         }
-        if($req->event->category === "Webinar"){
+        if ($req->event->category === "Webinar") {
             $ticket->secretInfo = $ticket->secretInfo()->first();
         }
         return response()->json(["ticket" => $ticket], 200);
@@ -458,9 +459,10 @@ class TicketCtrl extends Controller
         if (count($tickets) == 0) {
             return response()->json(["error" => "Tickets data not found for this event"], 404);
         }
+
         foreach ($tickets as $ticket) {
             $purchases = [];
-            foreach ($ticket->purchases()->get() as $purchase) {
+            foreach ($ticket->purchases()->with(['user', 'payment', 'checkin', 'visitDate', 'seatNumber', 'orgInv'])->get() as $purchase) {
                 // if ($ticket->type_price != 1) {
                 //     if ($purchase->payment()->first()->pay_state != 'EXPIRED') {
                 //         $purchase->user = $purchase->user()->first();
@@ -478,18 +480,19 @@ class TicketCtrl extends Controller
                 //     $purchase->seatNumber = $purchase->seatNumber()->first();
                 //     $purchases[] = $purchase;
                 // }
-                $purchase->user = $purchase->user()->first();
-                $purchase->payment = $purchase->payment()->first();
-                $purchase->checkin = $purchase->checkin()->first();
-                $purchase->visitDate = $purchase->visitDate()->first();
-                $purchase->seatNumber = $purchase->seatNumber()->first();
+                $purchase->user = $purchase->user;
+                $purchase->payment = $purchase->payment;
+                $purchase->checkin = $purchase->checkin;
+                $purchase->visitDate = $purchase->visitDate;
+                $purchase->seatNumber = $purchase->seatNumber;
+                $purchase->orgInv = $purchase->orgInv;
                 $purchases[] = $purchase;
             }
             $ticket->purchases = $purchases;
             if (($req->event->category == 'Attraction' || $req->event->category == 'Daily Activities' || $req->event->category == 'Tour Travel (recurring)')) {
                 $ticket->limit_daily = $ticket->limitDaily()->first();
             }
-            if($forOrganizer && $req->event->category === "Webinar"){
+            if ($forOrganizer && $req->event->category === "Webinar") {
                 $ticket->secretInfo = $ticket->secretInfo()->first();
             }
         }

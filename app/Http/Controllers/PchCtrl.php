@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App;
@@ -8,43 +7,44 @@ use App\Mail\ETicket;
 use App\Mail\TrxNotification;
 use App\Mail\UserRefundNotification;
 use App\Models\DailyTicket;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Auth;
-use App\Models\Purchase;
-use App\Models\Payment;
-use App\Models\RefundData;
-use App\Models\Ticket;
-use App\Models\ReservedSeat;
-use App\Models\Voucher;
 use App\Models\DisburstmentRefund;
+use App\Models\Payment;
 use App\Models\ProfitSetting;
+use App\Models\Purchase;
+use App\Models\RefundData;
 use App\Models\RefundSetting;
+use App\Models\ReservedSeat;
+use App\Models\Ticket;
+use App\Models\Voucher;
+use Barryvdh\Snappy\Facades\SnappyPdf;
+use DateInterval;
 use DateTime;
 use DateTimeZone;
-use DateInterval;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
-use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 
 class PchCtrl extends Controller
 {
     private function setTrxEWallet($payId, $code_method, $amount, $taxTotal, $profitSetting, $mobileNumber = null, $cashtag = null)
     {
         $methods = config('payconfigs.methods');
-        if (!$methods["e-wallet"][$code_method]) {
+        if (! $methods["e-wallet"][$code_method]) {
             return response()->json(["error" => "Payment method not found"], 404);
         }
-        $orderId = uniqid("trx_ewallet", true);
+        $orderId     = uniqid("trx_ewallet", true);
         $platformFee = $profitSetting->mul_pay_gate_fee * ($methods["e-wallet"][$code_method][2] * ($amount - $taxTotal));
-        $amount = ceil($amount + $profitSetting->admin_fee_trx + $platformFee);
-        $params = [
-            'reference_id' => $orderId,
-            'currency' => 'IDR',
-            'amount' => $amount,
+        $amount      = ceil($amount + $profitSetting->admin_fee_trx + $platformFee);
+        $params      = [
+            'reference_id'    => $orderId,
+            'currency'        => 'IDR',
+            'amount'          => $amount,
             'checkout_method' => 'ONE_TIME_PAYMENT',
-            'channel_code' => $methods["e-wallet"][$code_method][0],
+            'channel_code'    => $methods["e-wallet"][$code_method][0],
         ];
 
         if ($code_method == "014") {
@@ -77,85 +77,85 @@ class PchCtrl extends Controller
 
         $curl = curl_init();
 
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => 'https://api.xendit.co/ewallets/charges',
+        curl_setopt_array($curl, [
+            CURLOPT_URL            => 'https://api.xendit.co/ewallets/charges',
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
+            CURLOPT_ENCODING       => '',
+            CURLOPT_MAXREDIRS      => 10,
+            CURLOPT_TIMEOUT        => 0,
             CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => json_encode($params),
-            CURLOPT_HTTPHEADER => array(
+            CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST  => 'POST',
+            CURLOPT_POSTFIELDS     => json_encode($params),
+            CURLOPT_HTTPHEADER     => [
                 'Content-Type: application/json',
-                'Authorization: ' . 'Basic ' . base64_encode(env('XENDIT_API_WRITE') . ':')
-            ),
-        ));
+                'Authorization: ' . 'Basic ' . base64_encode(env('XENDIT_API_WRITE') . ':'),
+            ],
+        ]);
 
         $createEWalletCharge = curl_exec($curl);
         curl_close($curl);
         $createEWalletCharge = json_decode($createEWalletCharge);
-        $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+        $now                 = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         Payment::where('id', $payId)->update(
             [
-                'token_trx' => $createEWalletCharge->id,
-                'pay_state' => $createEWalletCharge->status,
-                'order_id' => $orderId,
-                'price' => $amount,
-                'admin_fee' => $profitSetting->admin_fee_trx,
+                'token_trx'    => $createEWalletCharge->id,
+                'pay_state'    => $createEWalletCharge->status,
+                'order_id'     => $orderId,
+                'price'        => $amount,
+                'admin_fee'    => $profitSetting->admin_fee_trx,
                 'platform_fee' => $platformFee,
-                'code_method' => $code_method,
-                'pay_links' => $createEWalletCharge->actions ? ($createEWalletCharge->actions->desktop_web_checkout_url ? $createEWalletCharge->actions->desktop_web_checkout_url : ($createEWalletCharge->actions->mobile_web_checkout_url ? $createEWalletCharge->actions->mobile_web_checkout_url : $createEWalletCharge->actions->mobile_deeplink_checkout_url)) : '',
-                'expired' => $now->add(new DateInterval($code_method == "014" ? 'PT1M' : 'PT30M'))->format('Y-m-d H:i:s')
+                'code_method'  => $code_method,
+                'pay_links'    => $createEWalletCharge->actions ? ($createEWalletCharge->actions->desktop_web_checkout_url ? $createEWalletCharge->actions->desktop_web_checkout_url : ($createEWalletCharge->actions->mobile_web_checkout_url ? $createEWalletCharge->actions->mobile_web_checkout_url : $createEWalletCharge->actions->mobile_deeplink_checkout_url)) : '',
+                'expired'      => $now->add(new DateInterval($code_method == "014" ? 'PT1M' : 'PT30M'))->format('Y-m-d H:i:s'),
             ]
         );
         return [
-            "payment" => $createEWalletCharge, 
+            "payment"  => $createEWalletCharge,
             "platform" => $platformFee,
-            "total" => $amount, 
-            "status" => 201
+            "total"    => $amount,
+            "status"   => 201,
         ];
     }
 
-    private function setTrxQris($payId, $code_method, $amount, $taxTotal, $profitSetting,)
+    private function setTrxQris($payId, $code_method, $amount, $taxTotal, $profitSetting)
     {
         $methods = config('payconfigs.methods')["qris"][$code_method];
-        if (!$methods) {
+        if (! $methods) {
             return response()->json(["error" => "Payment method not found"], 404);
         }
-        $now24 = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-        $orderId = uniqid("trx_qris", true);
-        $curl = curl_init();
+        $now24       = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+        $orderId     = uniqid("trx_qris", true);
+        $curl        = curl_init();
         $platformFee = $profitSetting->mul_pay_gate_fee * ($methods[2] * ($amount - $taxTotal));
-        $amount = ceil($amount + $profitSetting->admin_fee_trx + $platformFee);
+        $amount      = ceil($amount + $profitSetting->admin_fee_trx + $platformFee);
         curl_setopt_array(
             $curl,
             [
-                CURLOPT_URL => 'https://api.xendit.co/qr_codes',
+                CURLOPT_URL            => 'https://api.xendit.co/qr_codes',
                 CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_ENCODING => '',
-                CURLOPT_MAXREDIRS => 10,
-                CURLOPT_TIMEOUT => 0,
+                CURLOPT_ENCODING       => '',
+                CURLOPT_MAXREDIRS      => 10,
+                CURLOPT_TIMEOUT        => 0,
                 CURLOPT_FOLLOWLOCATION => true,
-                CURLOPT_HTTP_VERSION => "CURL_HTTP_VERSION_1_1",
-                CURLOPT_CUSTOMREQUEST => 'POST',
-                CURLOPT_POSTFIELDS => json_encode(
+                CURLOPT_HTTP_VERSION   => "CURL_HTTP_VERSION_1_1",
+                CURLOPT_CUSTOMREQUEST  => 'POST',
+                CURLOPT_POSTFIELDS     => json_encode(
                     [
                         "reference_id" => $orderId,
-                        "type" => "DYNAMIC",
-                        "currency" => "IDR",
-                        "amount" => $amount,
+                        "type"         => "DYNAMIC",
+                        "currency"     => "IDR",
+                        "amount"       => $amount,
                         "channel_code" => config('payconfigs.methods')["qris"][$code_method][0],
-                        "expires_at" => str_replace(' ', 'T', $now24->add(new DateInterval('PT30M'))->format('Y-m-d H:i:s')) . 'Z',
+                        "expires_at"   => str_replace(' ', 'T', $now24->add(new DateInterval('PT30M'))->format('Y-m-d H:i:s')) . 'Z',
                         // "expires_at" => str_replace(' ', 'T', $now24->add(new DateInterval('PT7H'))->format('Y-m-d H:i:s')) . 'Z',
                     ]
                 ),
-                CURLOPT_HTTPHEADER => array(
+                CURLOPT_HTTPHEADER     => [
                     'Content-Type: application/json',
                     'api-version: 2022-07-31',
-                    'Authorization: ' . 'Basic ' . base64_encode(env('XENDIT_API_WRITE') . ':')
-                ),
+                    'Authorization: ' . 'Basic ' . base64_encode(env('XENDIT_API_WRITE') . ':'),
+                ],
             ]
         );
         $response = curl_exec($curl);
@@ -163,68 +163,68 @@ class PchCtrl extends Controller
         $response = json_decode($response);
         Payment::where('id', $payId)->update(
             [
-                'token_trx' => $response->id,
-                'pay_state' => "PENDING",
-                'order_id' => $orderId,
-                'price' => $amount,
-                'admin_fee' => $profitSetting->admin_fee_trx,
+                'token_trx'    => $response->id,
+                'pay_state'    => "PENDING",
+                'order_id'     => $orderId,
+                'price'        => $amount,
+                'admin_fee'    => $profitSetting->admin_fee_trx,
                 'platform_fee' => $platformFee,
-                'code_method' => $code_method,
-                'expired' => $now24->format('Y-m-d H:i:s'),
-                'qr_str' => $response->qr_string
+                'code_method'  => $code_method,
+                'expired'      => $now24->format('Y-m-d H:i:s'),
+                'qr_str'       => $response->qr_string,
             ]
         );
         return [
-            "payment" => $response, 
+            "payment"  => $response,
             "platform" => $platformFee,
-            "total" => $amount,
-            "status" => 201];
+            "total"    => $amount,
+            "status"   => 201];
     }
 
-    private function setTrxVirAccount($payId, $code_method, $amount, $profitSetting,)
+    private function setTrxVirAccount($payId, $code_method, $amount, $profitSettings)
     {
         $methods = config('payconfigs.methods');
-        if (!$methods["VA"][$code_method]) {
+        if (! $methods["VA"][$code_method]) {
             return response()->json(["error" => "Payment method not found"], 404);
         }
         $payment = Payment::where('id', $payId);
-        $now24 = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+        $now24   = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         $orderId = uniqid("trx_va", true);
-        
+
         $platformFee = $profitSetting->mul_pay_gate_fee * $methods["VA"][$code_method][2];
-        $amount = ceil($amount + $profitSetting->admin_fee_trx + $platformFee);
-        $params = [
-            "external_id" => $orderId,
-            "bank_code" => $methods["VA"][$code_method][0],
-            "name" => str_replace('-', ' ', $payment->first()
-                ->purchases()->get()[0]
-                ->ticket()->first()
-                ->event()->first()
-                ->slug),
-            "is_single_use" => true,
-            "is_closed" => true,
-            "expected_amount" => $amount,
-            "expiration_date" => str_replace(' ', 'T', $now24->add(new DateInterval('PT30M'))->format('Y-m-d H:i:s')) . 'Z',
+        $amount      = ceil($amount + $profitSetting->admin_fee_trx + $platformFee);
+        $params      = [
+            "external_id"     => $orderId,
+            "bank_code"       => $methods["VA"][$code_method][0],
+            "name"            => str_replace('-', ' ', $payment->first()
+                    ->purchases()->get()[0]
+                    ->ticket()->first()
+                    ->event()->first()
+                    ->slug),
+                "is_single_use"   => true,
+                "is_closed"       => true,
+                "expected_amount" => $amount,
+                "expiration_date" => str_replace(' ', 'T', $now24->add(new DateInterval('PT30M'))->format('Y-m-d H:i:s')) . 'Z',
             // "expiration_date" => str_replace(' ', 'T', $now24->add(new DateInterval('PT7H'))->format('Y-m-d H:i:s')) . 'Z',
         ];
 
         $curl = curl_init();
 
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => 'https://api.xendit.co/callback_virtual_accounts',
+        curl_setopt_array($curl, [
+            CURLOPT_URL            => 'https://api.xendit.co/callback_virtual_accounts',
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
+            CURLOPT_ENCODING       => '',
+            CURLOPT_MAXREDIRS      => 10,
+            CURLOPT_TIMEOUT        => 0,
             CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS =>json_encode($params),
-            CURLOPT_HTTPHEADER => array(
+            CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST  => 'POST',
+            CURLOPT_POSTFIELDS     => json_encode($params),
+            CURLOPT_HTTPHEADER     => [
                 'Content-Type: application/json',
-                'Authorization: ' . 'Basic ' . base64_encode(env('XENDIT_API_WRITE') . ':')
-            ),
-        ));
+                'Authorization: ' . 'Basic ' . base64_encode(env('XENDIT_API_WRITE') . ':'),
+            ],
+        ]);
 
         $createVA = curl_exec($curl);
         curl_close($curl);
@@ -233,27 +233,27 @@ class PchCtrl extends Controller
 
         $payment->update(
             [
-                'token_trx' => $createVA->id,
-                'pay_state' => "PENDING",
-                'order_id' => $orderId,
-                'price' => $amount,
-                'admin_fee' => $profitSetting->admin_fee_trx,
+                'token_trx'    => $createVA->id,
+                'pay_state'    => "PENDING",
+                'order_id'     => $orderId,
+                'price'        => $amount,
+                'admin_fee'    => $profitSetting->admin_fee_trx,
                 'platform_fee' => $platformFee,
-                'code_method' => $code_method,
-                'expired' => $now24->format('Y-m-d H:i:s'),
-                'virtual_acc' => $createVA->account_number
+                'code_method'  => $code_method,
+                'expired'      => $now24->format('Y-m-d H:i:s'),
+                'virtual_acc'  => $createVA->account_number,
             ]
         );
         return [
-            "payment" => $createVA,
+            "payment"  => $createVA,
             "platform" => $platformFee,
-            "total" => $amount, 
-            "status" => 201];
+            "total"    => $amount,
+            "status"   => 201];
     }
 
     public function loadTrxData()
     {
-        $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+        $now      = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         $payments = Payment::where('pay_state', 'PENDING')->where('expired', '<', $now->format('Y-m-d H:i:s'))->get();
         // Log::info($payments);
         // $test = [];
@@ -266,7 +266,7 @@ class PchCtrl extends Controller
                 foreach ($purchases as $key => $value) {
                     Ticket::where('id', $key)->where('type_price', '!=', 1)->where('quantity', '!=', -1)->update(
                         [
-                            'quantity' => intval($value[0]->ticket()->first()->quantity) + count($value)
+                            'quantity' => intval($value[0]->ticket()->first()->quantity) + count($value),
                         ]
                     );
                     foreach ($value as $pch) {
@@ -279,7 +279,7 @@ class PchCtrl extends Controller
                 }
                 Payment::where('id', $payment->id)->update(
                     [
-                        'pay_state' => "EXPIRED"
+                        'pay_state' => "EXPIRED",
                     ]
                 );
             }
@@ -287,183 +287,133 @@ class PchCtrl extends Controller
         // return $test;
     }
 
-    private function rollbackPurchase($ticket_ids, $payment)
+    private function rollbackPurchase($ticket_ids, $ticket_datas, $payment, $forOrgInv)
     {
-        foreach ($ticket_ids as $key => $value) {
-            $ticketObj = Ticket::where('id', $key);
-            Ticket::where('id', $key)->where('quantity', '!=', -1)->update(
-                [
-                    "quantity" => intval($ticketObj->first()->quantity) + $value
-                ]
-            );
+        $i          = 0;
+        $allWhenSql = "case ";
+        $allIds     = [];
+        if ($forOrgInv == false) {
+            foreach ($ticket_ids as $key => $value) {
+                array_push($allIds, $key);
+                $allWhenSql .= ("when id='" . $key . "' then '" . ($ticket_datas[$i]->quantity + $value) . "' ");
+                $i++;
+            }
+            if ($allWhenSql != "case ") {
+                $allWhenSql .= " end";
+                Ticket::whereIn('id', $allIds)->where('quantity', '!=', -1)->update(
+                    [
+                        "quantity" => DB::raw($allWhenSql),
+                    ]
+                );
+            }
         }
         Payment::where('id', $payment->id)->delete();
     }
 
-    private function basicValidator($req, $ticket_ids, $now)
+    private function basicValidator($req, $ticket_ids, $now, bool $forOrgInv = false)
     {
-        // $customPriceTickets = [];
-        // $dailyTickets = [];
-        // $seatNumberTickets = [];
-        // foreach ($ticket_ids as $key => $value) {
-        //     $ticket = Ticket::where('id', $key)->where('deleted', 0)->first();
-        //     if (!$ticket) {
-        //         return ["error" => "Ticket is not found", "code" => 404];
-        //     }
-        //     // if (intval($ticket->max_purchase) < $value) {
-        //     //     return ["error" => "Max purchases is " . $ticket->max_purchase . " / user", "code" => 403];
-        //     // }
-        //     if ($ticket->type_price == 3 && !$req->custom_prices) {
-        //         return ["error" => "Custom prices field is required for custom price ticket", "code" => 403];
-        //     }
-        //     if ($ticket->type_price != 1 && !$req->pay_method) {
-        //         return ["error" => "pay_method code is required", "code" => 403];
-        //     }
-        //     if (intval($ticket->max_purchase) < $value) {
-        //         return ["error" => "Max purchases is " . $ticket->max_purchase . " / user", "code" => 403];
-        //     }
-        //     $event = $ticket->event()->first();
-        //     $startTicket = new DateTime($ticket->start_date, new DateTimeZone('Asia/Jakarta'));
-        //     $endTicket = new DateTime($ticket->end_date, new DateTimeZone('Asia/Jakarta'));
-        //     if ($event->is_publish == 1 || $event->is_publish >= 3) {
-        //         return ["error" => "This has not been published yet or is still in draft form", "code" => 403];
-        //     }
-
-        //     $purchases = $ticket->purchases()->where('user_id', Auth::user()->id)->get();
-
-        //     if ($event->single_trx == 1) {
-        //         $hasPayments = false;
-        //         foreach ($purchases as $pch) {
-        //             if ($pch->payment()->first()->pay_state != 'EXPIRED' && $pch->payment()->first()->user_id == Auth::user()->id) {
-        //                 $hasPayments = true;
-        //                 break;
-        //             }
-        //         }
-        //         if ($hasPayments) {
-        //             return ["error" => "The event of this ticket accepted single transaction only", "code" => 403];
-        //         }
-        //     }
-        //     if ($now > new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta'))) {
-        //         return ["error" => "This event or event ticket has been expired", "code" => 403];
-        //     }
-        //     if (($event->category != 'Attraction' && $event->category != 'Daily Activities' && $event->category != 'Tour Travel (recurring)')
-        //         && ($startTicket > $now || $endTicket < $now)
-        //     ) {
-        //         return ['error' => "Ticket " . $ticket->name . " is not yet available", "code" => 403];
-        //     }
-        //     if (($event->category != 'Attraction' && $event->category != 'Daily Activities' && $event->category != 'Tour Travel (recurring)')
-        //         && intval($ticket->quantity) < $value
-        //     ) {
-        //         return ["error" => "Only " . $ticket->quantity . " tickets left for your selected id", "code" => 403];
-        //     }
-        //     if (($event->category == 'Attraction' || $event->category == 'Daily Activities' || $event->category == 'Tour Travel (recurring)')
-        //         && !$req->visit_dates
-        //     ) {
-        //         return ["error" => "Visit dates form is required for event with type attraction, daily activities, or tour travel (recurring)", "code" => 403];
-        //     }
-        //     if (count($event->availableDays()->get()) == 0 && ($event->category == 'Attraction' || $event->category == 'Daily Activities' || $event->category == 'Tour Travel (recurring)')) {
-        //         return ["error" => "Tickets not yet available for this event in this date or day", "code" => 404];
-        //     }
-        //     if (($ticket->seat_number == true || $ticket->seat_number == 1) && !$req->seat_numbers) {
-        //         return ["error" => "Set numbers options is required for this ticket", "code" => 403];
-        //     }
-        //     if ($ticket->type_price == 3) {
-        //         $customPriceTickets[$key] = $value;
-        //     }
-        //     if ($event->category == 'Attraction' || $event->category == 'Daily Activities' || $event->category == 'Tour Travel (recurring)') {
-        //         $dailyTickets[$key] = $value;
-        //     }
-        //     if ($ticket->seat_number == true || $ticket->seat_number == 1) {
-        //         $seatNumberTickets[$key] = $value;
-        //     }
-        // }
-        // return [
-        //     "customPriceTickets" => $customPriceTickets,
-        //     "dailyTickets" => $dailyTickets,
-        //     "seatNumberTickets" => $seatNumberTickets
-        // ];
-        $customPriceTickets = [];
-        $dailyTickets = [];
-        $seatNumberTickets = [];
+        $customPriceTickets    = [];
+        $dailyTickets          = [];
+        $seatNumberTickets     = [];
+        $dailyTicketsData      = [];
+        $seatNumberTicketsData = [];
+        $ticketIds             = array_keys($ticket_ids);
+        $tickets               = Ticket::whereIn('id', $ticketIds)->
+            where('deleted', 0)->orderByRaw("FIELD(id, '" . implode("','", $ticketIds) . "')")->
+            with(['event', 'purchases', 'limitDaily', 'purchases.payment', 'event.availableDays'])->
+            lockForUpdate()->
+            get();
+        if (count($tickets) != count($ticket_ids)) {
+            return ["error" => "Ticket is not found", "code" => 404];
+        }
+        $index = 0;
+        $user  = Auth::user();
         foreach ($ticket_ids as $key => $value) {
-            $ticket = Ticket::where('id', $key)->where('deleted', 0)->first();
-            if (!$ticket) {
-                return ["error" => "Ticket is not found", "code" => 404];
-            }
-            // if (intval($ticket->max_purchase) < $value) {
-            //     return ["error" => "Max purchases is " . $ticket->max_purchase . " / user", "code" => 403];
-            // }
-            if ($ticket->type_price == 3 && !$req->custom_prices) {
+
+            if ($tickets[$index]->type_price == 3 && ! $req->custom_prices && ! $forOrgInv) {
                 return ["error" => "Custom prices field is required for custom price ticket", "code" => 403];
             }
-            if ($ticket->type_price != 1 && !$req->pay_method) {
+            if ($tickets[$index]->type_price != 1 && ! $req->pay_method && ! $forOrgInv) {
                 return ["error" => "pay_method code is required", "code" => 403];
             }
-            if (intval($ticket->max_purchase) < $value && ($ticket->event()->first()->category != 'Attraction' && $ticket->event()->first()->category != 'Daily Activities' && $ticket->event()->first()->category != 'Tour Travel (recurring)')) {
-                return ["error" => "Max purchases is " . $ticket->max_purchase . " / user", "code" => 403];
+            if (intval($tickets[$index]->max_purchase) < $value && ! $forOrgInv && ($tickets[$index]->event->category != 'Attraction' && $tickets[$index]->event->category != 'Daily Activities' && $tickets[$index]->event->category != 'Tour Travel (recurring)')) {
+                return ["error" => "Max purchases is " . $tickets[$index]->max_purchase . " / user", "code" => 403];
             }
-            $event = $ticket->event()->first();
-            if ($event->is_publish == 1 || $event->is_publish >= 3) {
+            if (($tickets[$index]->event->is_publish == 1 || $tickets[$index]->event->is_publish >= 3) && ! $forOrgInv) {
                 return ["error" => "This has not been published yet or is still in draft form", "code" => 403];
             }
 
-            $startTicket = new DateTime($ticket->start_date. ' 00:00:00', new DateTimeZone('Asia/Jakarta'));
-            $endTicket = new DateTime($ticket->end_date === $event->end_date ? ($ticket->end_date.' '.$event->end_time) : ($ticket->end_date.' 23:59:00'), new DateTimeZone('Asia/Jakarta'));
+            $startTicket = new DateTime($tickets[$index]->start_date . ' 00:00:00', new DateTimeZone('Asia/Jakarta'));
+            $endTicket   = new DateTime($tickets[$index]->end_date === $tickets[$index]->event->end_date ? ($tickets[$index]->end_date . ' ' . $tickets[$index]->event->end_time) : ($tickets[$index]->end_date . ' 23:59:00'), new DateTimeZone('Asia/Jakarta'));
 
-            $purchases = $ticket->purchases()->where('user_id', Auth::user()->id)->get();
+            // $purchases = $tickets[$index]->purchases()->where('user_id', $user->id)->get();
 
             $hasPayments = false;
-            foreach ($purchases as $pch) {
-                if ($event->single_trx == 1 && $pch->payment()->first()->pay_state != 'EXPIRED' && $pch->payment()->first()->user_id == Auth::user()->id) {
-                    $hasPayments = true;
-                    break;
-                } else if ($pch->payment()->first()->pay_state === 'PENDING' && $pch->payment()->first()->user_id == Auth::user()->id){
-                    $hasPayments = true;
-                    break;
+            if (! $forOrgInv) {
+                $purchases = [];
+                foreach ($tickets[$index]->purchases as $pch) {
+                    if ($pch->user_id == $user->id) {
+                        array_push($purchases, $pch);
+                    }
+                }
+                foreach ($purchases as $pch) {
+                    if ($tickets[$index]->event->single_trx == 1 && $pch->payment->pay_state != 'EXPIRED' && $pch->payment->user_id == $user->id) {
+                        $hasPayments = true;
+                        break;
+                    } else if ($pch->payment->pay_state === 'PENDING' && $pch->payment->user_id == $user->id) {
+                        $hasPayments = true;
+                        break;
+                    }
                 }
             }
-            if ($hasPayments) {
-                return ["error" => $event->single_trx == 1 ? "The event of this ticket accepted single transaction only" : "Please complete your last transaction first before create new transaction", "code" => 403];
+            if ($hasPayments && ! $forOrgInv) {
+                return ["error" => $tickets[$index]->event->single_trx == 1 ? "The event of this ticket accepted single transaction only" : "Please complete your last transaction first before create new transaction", "code" => 403];
             }
 
-            if ($now > new DateTime($event->end_date . ' ' . $event->end_time, new DateTimeZone('Asia/Jakarta'))) {
+            if ($now > new DateTime($tickets[$index]->event->end_date . ' ' . $tickets[$index]->event->end_time, new DateTimeZone('Asia/Jakarta'))) {
                 return ["error" => "This event or event ticket has been expired", "code" => 403];
             }
-            if (($event->category != 'Attraction' && $event->category != 'Daily Activities' && $event->category != 'Tour Travel (recurring)')
+            if (($tickets[$index]->event->category != 'Attraction' && $tickets[$index]->event->category != 'Daily Activities' && $tickets[$index]->event->category != 'Tour Travel (recurring)')
                 && ($startTicket > $now || $endTicket < $now)
             ) {
-                return ['error' => "Ticket " . $ticket->name . " is not yet available", "code" => 403];
+                return ['error' => "Ticket " . $tickets[$index]->name . " is not yet available", "code" => 403];
             }
-            if (($event->category != 'Attraction' && $event->category != 'Daily Activities' && $event->category != 'Tour Travel (recurring)')
-                && intval($ticket->quantity) < $value
+            if (($tickets[$index]->event->category != 'Attraction' && $tickets[$index]->event->category != 'Daily Activities' && $tickets[$index]->event->category != 'Tour Travel (recurring)')
+                && intval($tickets[$index]->quantity) < $value && ! $forOrgInv
             ) {
-                return ["error" => "Only " . $ticket->quantity . " tickets left for your selected id", "code" => 403];
+                return ["error" => "Only " . $tickets[$index]->quantity . " tickets left for your selected id", "code" => 403];
             }
-            if (($event->category == 'Attraction' || $event->category == 'Daily Activities' || $event->category == 'Tour Travel (recurring)')
-                && !$req->visit_dates
+            if (($tickets[$index]->event->category == 'Attraction' || $tickets[$index]->event->category == 'Daily Activities' || $tickets[$index]->event->category == 'Tour Travel (recurring)')
+                && ! $req->visit_dates
             ) {
                 return ["error" => "Visit dates form is required for event with type attraction, daily activities, or tour travel (recurring)", "code" => 403];
             }
-            if (count($event->availableDays()->get()) == 0 && ($event->category == 'Attraction' || $event->category == 'Daily Activities' || $event->category == 'Tour Travel (recurring)')) {
+            if (count($tickets[$index]->event->availableDays) == 0 && ($tickets[$index]->event->category == 'Attraction' || $tickets[$index]->event->category == 'Daily Activities' || $tickets[$index]->event->category == 'Tour Travel (recurring)')) {
                 return ["error" => "Tickets not yet available for this event in this date or day", "code" => 404];
             }
-            if (($ticket->seat_number == true || $ticket->seat_number == 1) && !$req->seat_numbers) {
+            if (($tickets[$index]->seat_number == true || $tickets[$index]->seat_number == 1) && ! $req->seat_numbers) {
                 return ["error" => "Set numbers options is required for this ticket", "code" => 403];
             }
-            if ($ticket->type_price == 3) {
+            if ($tickets[$index]->type_price == 3 && ! $forOrgInv) {
                 $customPriceTickets[$key] = $value;
             }
-            if ($event->category == 'Attraction' || $event->category == 'Daily Activities' || $event->category == 'Tour Travel (recurring)') {
-                $dailyTickets[$key] = $value;
+            if ($tickets[$index]->event->category == 'Attraction' || $tickets[$index]->event->category == 'Daily Activities' || $tickets[$index]->event->category == 'Tour Travel (recurring)') {
+                $dailyTickets[$key]     = $value;
+                $dailyTicketsData[$key] = $tickets[$index];
             }
-            if ($ticket->seat_number == true || $ticket->seat_number == 1) {
-                $seatNumberTickets[$key] = $value;
+            if ($tickets[$index]->seat_number == true || $tickets[$index]->seat_number == 1) {
+                $seatNumberTickets[$key]     = $value;
+                $seatNumberTicketsData[$key] = $tickets[$index];
             }
+            $index++;
         }
         return [
-            "customPriceTickets" => $customPriceTickets,
-            "dailyTickets" => $dailyTickets,
-            "seatNumberTickets" => $seatNumberTickets
+            "customPriceTickets"    => $customPriceTickets,
+            "dailyTickets"          => $dailyTickets,
+            "seatNumberTickets"     => $seatNumberTickets,
+            "dailyTicketsData"      => $dailyTicketsData,
+            "seatNumberTicketsData" => $seatNumberTicketsData,
+            "all_ticket"            => $tickets,
         ];
     }
 
@@ -471,11 +421,11 @@ class PchCtrl extends Controller
     {
         $remainingVoucher = 0;
         if ($req->voucher_code) {
-            $start = new DateTime($voucher->start, new DateTimeZone('Asia/Jakarta'));
-            $end = new DateTime(explode(' ', $voucher->end)[0]." 23:59:59", new DateTimeZone('Asia/Jakarta'));
+            $start       = new DateTime($voucher->start, new DateTimeZone('Asia/Jakarta'));
+            $end         = new DateTime(explode(' ', $voucher->end)[0] . " 23:59:59", new DateTimeZone('Asia/Jakarta'));
             $purchasesVc = [];
-            foreach (Purchase::where('code', $req->voucher_code)->get() as $pch) {
-                if($pch->payment()->first()->pay_state !== "EXPIRED"){
+            foreach (Purchase::where('code', $req->voucher_code)->with(['payment'])->get() as $pch) {
+                if ($pch->payment->pay_state !== "EXPIRED") {
                     array_push($purchasesVc, $pch);
                 }
             }
@@ -489,19 +439,6 @@ class PchCtrl extends Controller
 
     private function customPriceValidator($req, $customPriceTickets)
     {
-        // $customPrices = [];
-        // if ($req->custom_prices && count($customPriceTickets) > 0) {
-        //     $customPrices = (array) $req->custom_prices;
-        //     if (count($customPrices) == 0 || count($customPrices) != count($customPriceTickets)) {
-        //         return ["error" => "Custom prices field is required for custom price ticket or count custom prices key not match with list of ticket id", "code" => 403];
-        //     }
-        //     foreach ($customPrices as $key => $value) {
-        //         if (!array_key_exists($key, $customPriceTickets) || intval($value) < 10000) {
-        //             return ["error" => !array_key_exists($key, $customPriceTickets) ? "Custom price ticket id key not match with list of ticket_ids" : "Sorry, minimum transaction of one paid (custom_price field) ticket is IDR Rp. 10.000,-", "code" => 403];
-        //         }
-        //     }
-        // }
-        // return ["customPrices" => $customPrices];
         $customPrices = [];
         if ($req->custom_prices && count($customPriceTickets) > 0) {
             $customPrices = (array) $req->custom_prices;
@@ -509,7 +446,7 @@ class PchCtrl extends Controller
                 return ["error" => "Custom prices field is required for custom price ticket or count custom prices key not match with list of ticket id", "code" => 403];
             }
             foreach ($customPrices as $key => $prices) {
-                if (!array_key_exists($key, $customPriceTickets)) {
+                if (! array_key_exists($key, $customPriceTickets)) {
                     return ["error" => "Custom price ticket id key not match with list of ticket_ids", "code" => 403];
                 }
                 if (count($prices) !== $customPriceTickets[$key]) {
@@ -525,62 +462,35 @@ class PchCtrl extends Controller
         return ["customPrices" => $customPrices];
     }
 
-    private function visitDatesValidator($req, $dailyTickets, $now)
+    private function visitDatesValidator($req, $dailyTickets, $dailyTicketsData, $now, bool $forOrgInv = false)
     {
-        // $visitDates = [];
-        // if ($req->visit_dates && count($dailyTickets) > 0) {
-        //     $visitDates = (array) $req->visit_dates;
-        //     if (count($visitDates) == 0 || count($visitDates) != count($dailyTickets)) {
-        //         return ["error" => "Visit Date is can't blank if you choose a ticket with daily type or count visit dates key not match with list of ticket id", "code" => 403];
-        //     }
-        //     foreach ($visitDates as $key => $value) {
-        //         if (!array_key_exists($key, $dailyTickets) || (count($value) == 0 || !is_array($value))) {
-        //             return ["error" => "Visit Date is can't blank if you choose a ticket with daily type", "code" => 403];
-        //         }
-        //         $ticket = Ticket::where('id', $key)->first();
-        //         foreach ($value as $date) {
-        //             try {
-        //                 $dateFormat = new DateTime($date, new DateTimeZone('Asia/Jakarta'));
-        //             } catch (\Throwable $th) {
-        //                 return ["error" => "Invalid date format", "code" => 403];
-        //             }
-        //             if ($now->format('Y-m-d') > $dateFormat->format('Y-m-d')) {
-        //                 return ["error" => "Visit date must be greater than date now", "code" => 403];
-        //             }
-        //             $availableDay = $ticket->event()->first()->availableDays()->where('day', $dateFormat->format('D'))->first();
-        //             if (!$availableDay) {
-        //                 return ["error" => "This ticket not yet available for this event in this date or day", "code" => 404];
-        //             }
-        //             $pchsTcDate = DB::table('purchases')
-        //                 ->join('daily_tickets', 'purchases.id', '=', 'daily_tickets.purchase_id')
-        //                 ->where('purchases.ticket_id', '=', $key)
-        //                 ->where('daily_tickets.visit_date', '=', $dateFormat->format('Y-m-d'))
-        //                 ->get();
-        //             if ((intval($ticket->limitDaily()->first()->limit_quantity) - count($pchsTcDate)) < $dailyTickets[$key]) {
-        //                 return ["error" => "Limit ticket for " . $dateFormat->format('Y-m-d') . " has been reached", "code" => 403];
-        //             }
-        //             $limitTime = new DateTime($availableDay->max_limit_time, new DateTimeZone('Asia/Jakarta'));
-        //             if ($now->format('Y-m-d') == $dateFormat->format('Y-m-d') && $now->format("H:i") >= $limitTime->format("H:i")) {
-        //                 return ["error" => "Sorry, this ticket is closed for this time. Please reserve again before " . $limitTime->format("H:i"), "code" => 403];
-        //             }
-        //         }
-        //     }
-        // }
-        // return ["visitDates" => $visitDates];
         $visitDates = [];
         if ($req->visit_dates && count($dailyTickets) > 0) {
             $visitDates = (array) $req->visit_dates;
             if (count($visitDates) == 0 || count($visitDates) != count($dailyTickets)) {
-                return ["error" => "Visit Date is can't blank if you choose a ticket with daily type or count visit dates key not match with list of ticket id", "code" => 403];
+                return ["error" => count($visitDates) == 0 ? "Visit Date is can't blank if you choose a ticket with daily type or count visit dates key not match with list of ticket id" : "Plase input visit dates data according to the ticket and event type", "code" => 403];
             }
+            $pchsTcDates = DB::table('purchases')
+                ->select(DB::raw('purchases.ticket_id as ticketId, daily_tickets.visit_date as visitDate, count(purchases.id) as qty'))
+                ->join('daily_tickets', 'purchases.id', '=', 'daily_tickets.purchase_id')
+                ->whereIn('purchases.ticket_id', array_keys($visitDates))
+                ->whereIn('daily_tickets.visit_date', array_unique(array_reduce($visitDates, function ($last, $curr) {
+                    if (! $last) {
+                        return $curr;
+                    }
+                    return array_merge($last, $curr);
+                })))
+            // ->orderByRaw("FIELD(purchases.ticket_id, '".implode("','", array_keys($visitDates))."')")
+                ->groupBy('purchases.ticket_id', 'daily_tickets.visit_date')
+                ->get()->toArray();
+
             foreach ($visitDates as $key => $value) {
-                if (!array_key_exists($key, $dailyTickets) || (count($value) == 0 || !is_array($value))) {
+                if (! array_key_exists($key, $dailyTickets) || (count($value) == 0 || ! is_array($value))) {
                     return ["error" => "Visit Date is can't blank if you choose a ticket with daily type", "code" => 403];
                 }
                 if (count($value) !== $dailyTickets[$key]) {
                     return ["error" => "Count of vist dates not equal with quanity of ticket", "code" => 403];
                 }
-                $ticket = Ticket::where('id', $key)->first();
 
                 foreach (array_count_values($value) as $date => $count) {
                     try {
@@ -591,19 +501,24 @@ class PchCtrl extends Controller
                     if ($now->format('Y-m-d') > $dateFormat->format('Y-m-d')) {
                         return ["error" => "Visit date must be greater than date now", "code" => 403];
                     }
-                    if (intval($ticket->max_purchase) < $count) {
-                        return ["error" => "Max purchases is " . $ticket->max_purchase . " / user", "code" => 403];
+                    if (intval($dailyTicketsData[$key]->max_purchase) < $count && ! $forOrgInv) {
+                        return ["error" => "Max purchases is " . $dailyTicketsData[$key]->max_purchase . " / user", "code" => 403];
                     }
-                    $availableDay = $ticket->event()->first()->availableDays()->where('day', $dateFormat->format('D'))->first();
-                    if (!$availableDay) {
+                    $availableDay = null;
+                    for ($i = 0; $i < count($dailyTicketsData[$key]->event->availableDays); $i++) {
+                        if ($dailyTicketsData[$key]->event->availableDays[$i]->day == $dateFormat->format('D')) {
+                            $availableDay = $dailyTicketsData[$key]->event->availableDays[$i];
+                            $i            = count($dailyTicketsData[$key]->event->availableDays);
+                        }
+                    }
+                    if (! $availableDay) {
                         return ["error" => "This ticket not yet available for this event in this date or day", "code" => 404];
                     }
-                    $pchsTcDate = DB::table('purchases')
-                        ->join('daily_tickets', 'purchases.id', '=', 'daily_tickets.purchase_id')
-                        ->where('purchases.ticket_id', '=', $key)
-                        ->where('daily_tickets.visit_date', '=', $dateFormat->format('Y-m-d'))
-                        ->get();
-                    if ((intval($ticket->limitDaily()->first()->limit_quantity) - count($pchsTcDate)) < $count) {
+                    $hasPurchased = array_filter($pchsTcDates, function ($val) use ($key, $dateFormat) {
+                        $date = new DateTime($val->visitDate, new DateTimeZone('Asia/Jakarta'));
+                        return $val->ticketId == $key && $date->format('Y-m-d') == $dateFormat->format('Y-m-d');
+                    });
+                    if ((intval($dailyTicketsData[$key]->limitDaily->limit_quantity) - (count($hasPurchased) == 0 ? 0 : reset($hasPurchased)->qty)) < $count && ! $forOrgInv) {
                         return ["error" => "Limit ticket for " . $dateFormat->format('Y-m-d') . " has been reached", "code" => 403];
                     }
                     $limitTime = new DateTime($availableDay->max_limit_time, new DateTimeZone('Asia/Jakarta'));
@@ -616,84 +531,51 @@ class PchCtrl extends Controller
         return ["visitDates" => $visitDates];
     }
 
-    private function seatNumbersValidator($req, $seatNumberTickets, $dailyTickets, $visitDates)
+    private function seatNumbersValidator($req, $seatNumberTickets, $seatNumberTicketsData, $dailyTickets, $visitDates)
     {
-        // $seatNumbers = [];
-        // if ($req->seat_numbers && count($seatNumberTickets) > 0) {
-        //     $seatNumbers = (array) $req->seat_numbers;
-        //     if (count($seatNumbers) == 0 || count($seatNumbers) != count($seatNumberTickets)) {
-        //         return ["error" => "Seat number is can't blank if you choose a ticket with seat nummber option", "code" => 403];
-        //     }
-        //     foreach ($seatNumbers as $key => $value) {
-        //         if (!array_key_exists($key, $seatNumberTickets) || count($value) == 0 || !is_array($value)) {
-        //             return ["error" => "Seat number is can't blank if you choose a ticket with seat number option", "code" => 403];
-        //         }
-        //         if (count($value) < $seatNumberTickets[$key] || (array_key_exists($key, $dailyTickets) && (count($visitDates[$key]) * $dailyTickets[$key]) > count($value))) {
-        //             return ["error" => "Count of seat nummber must be same as total ticket have selected", "code" => 403];
-        //         }
-        //         if (array_key_exists($key, $dailyTickets)) {
-        //             for ($i = 0; $i < count($visitDates[$key]); $i++) {
-        //                 $arrDup = [];
-        //                 $indexSeatLoop = $i;
-        //                 for ($j = 0; $j < $dailyTickets[$key]; $j++) {
-        //                     array_key_exists($value[$indexSeatLoop], $arrDup) ? $arrDup[$value[$indexSeatLoop]]++ : $arrDup[$value[$indexSeatLoop]] = 1;
-        //                     if ($arrDup[$value[$indexSeatLoop]] > 1) {
-        //                         return ["error" => "You can't reserved same seat number in one ticket on same time / date", "code" => 403];
-        //                     }
-        //                     $indexSeatLoop += count($visitDates[$key]);
-        //                 }
-        //             }
-        //         } else if (count($value) != count(array_unique($value))) {
-        //             return ["error" => "You can't reserved same seat number in one ticket on same time / date", "code" => 403];
-        //         }
-        //         $ticket = Ticket::where('id', $key)->first();
-        //         $ticketLimitation = $ticket->limitDaily()->first();
-        //         $indexSeatNumDate = 0;
-        //         for ($i = 0; $i < $seatNumberTickets[$key]; $i++) {
-        //             $hasPurchased = null;
-        //             if (array_key_exists($key, $visitDates)) {
-        //                 for ($j = 0; $j < count($visitDates[$key]); $j++) {
-        //                     if ($value[$indexSeatNumDate] <= 0 || $value[$indexSeatNumDate] > intval($ticketLimitation->limit_quantity)) {
-        //                         return ["error" => "Seat number is only available beetwen 1 to " . $ticketLimitation->limit_quantity, "code" => 404];
-        //                     }
-        //                     $dateFormat = new DateTime($visitDates[$key][$j], new DateTimeZone('Asia/Jakarta'));
-        //                     $hasPurchased = DB::table('purchases')
-        //                         ->join('daily_tickets', 'purchases.id', '=', 'daily_tickets.purchase_id')
-        //                         ->join('reserved_seats', 'purchases.id', '=', 'reserved_seats.pch_id')
-        //                         ->where('purchases.ticket_id', '=', $key)
-        //                         ->where('daily_tickets.visit_date', '=', $dateFormat->format('Y-m-d'))
-        //                         ->where('reserved_seats.seat_number', '=', $value[$indexSeatNumDate])
-        //                         ->get();
-        //                     $indexSeatNumDate++;
-        //                     if (count($hasPurchased) > 0) {
-        //                         return ["error" => "This seat number has reserved. Please choose other seat number", "code" => 404];
-        //                     }
-        //                 }
-        //             } else {
-        //                 if ($value[$i] <= 0 || $value[$i] > intval($ticket->quantity)) {
-        //                     return ["error" => "Seat number is only available beetwen 1 to " . $ticket->quantity, "code" => 404];
-        //                 }
-        //                 $hasPurchased = DB::table('purchases')
-        //                     ->join('reserved_seats', 'purchases.id', '=', 'reserved_seats.pch_id')
-        //                     ->where('purchases.ticket_id', '=', $key)
-        //                     ->where('reserved_seats.seat_number', '=', $value[$i])
-        //                     ->get();
-        //                 if (count($hasPurchased) > 0) {
-        //                     return ["error" => "This seat number has reserved. Please choose other seat number", "code" => 404];
-        //                 }
-        //             }
-        //         }
-        //     }
-        // }
-        // return ["seatNumbers" => $seatNumbers];
         $seatNumbers = [];
         if ($req->seat_numbers && count($seatNumberTickets) > 0) {
             $seatNumbers = (array) $req->seat_numbers;
             if (count($seatNumbers) == 0 || count($seatNumbers) != count($seatNumberTickets)) {
-                return ["error" => "Seat number is can't blank if you choose a ticket with seat nummber option", "code" => 403];
+                return ["error" => count($seatNumbers) == 0 ? "Seat number is can't blank if you choose a ticket with seat nummber option" : "Please input seat number data according to the ticket type", "code" => 403];
+            }
+            $hasPurchasedRaw = null;
+            if (count($visitDates) == 0) {
+                $hasPurchasedRaw = DB::table('purchases')->
+                    select(DB::raw("purchases.ticket_id AS ticketId, reserved_seats.seat_number AS seatNumber"))->
+                    join('reserved_seats', 'reserved_seats.pch_id', '=', 'purchases.id')->
+                    whereIn('purchases.ticket_id', array_keys($seatNumbers))->
+                    whereIn('reserved_seats.seat_number', array_unique(array_reduce($seatNumbers, function ($last, $curr) {
+                    if (! $last) {
+                        return $curr;
+                    }
+                    return array_merge($last, $curr);
+                })))->
+                    get()->toArray();
+            } else {
+                $hasPurchasedRaw = DB::table('purchases')->
+                    select(DB::raw("purchases.ticket_id AS ticketId, daily_tickets.visit_date AS visitDate, reserved_seats.seat_number AS seatNumber"))->
+                    join('reserved_seats', 'reserved_seats.pch_id', '=', 'purchases.id')->
+                    leftJoin('daily_tickets', 'daily_tickets.purchase_id', '=', 'purchases.id')->
+                    whereIn('purchases.ticket_id', array_keys($seatNumbers))->
+                    whereIn('reserved_seats.seat_number', array_unique(array_reduce($seatNumbers, function ($last, $curr) {
+                    if (! $last) {
+                        return $curr;
+                    }
+                    return array_merge($last, $curr);
+                })))->
+                    where(function ($query) use ($visitDates) {
+                    $query->whereIn('daily_tickets.visit_date', array_unique(array_reduce($visitDates, function ($last, $curr) {
+                        if (! $last) {
+                            return $curr;
+                        }
+                        return array_merge($last, $curr);
+                    })))->orWhereNull('daily_tickets.id');
+                })->
+                    get()->toArray();
             }
             foreach ($seatNumbers as $key => $value) {
-                if (!array_key_exists($key, $seatNumberTickets) || count($value) == 0 || !is_array($value)) {
+                if (! array_key_exists($key, $seatNumberTickets) || count($value) == 0 || ! is_array($value)) {
                     return ["error" => "Seat number is can't blank if you choose a ticket with seat number option", "code" => 403];
                 }
                 if (count($value) < $seatNumberTickets[$key] || (array_key_exists($key, $dailyTickets) && count($visitDates[$key]) > count($value))) {
@@ -716,31 +598,24 @@ class PchCtrl extends Controller
                 } else if (count($value) != count(array_unique($value))) {
                     return ["error" => "You can't reserved same seat number in one ticket on same time / date", "code" => 403];
                 }
-                $ticket = Ticket::where('id', $key)->first();
-                $ticketLimitation = $ticket->limitDaily()->first();
                 for ($i = 0; $i < $seatNumberTickets[$key]; $i++) {
                     $hasPurchased = null;
                     if (array_key_exists($key, $visitDates)) {
-                        if ($value[$i] <= 0 || $value[$i] > intval($ticketLimitation->limit_quantity)) {
-                            return ["error" => "Seat number is only available beetwen 1 to " . $ticketLimitation->limit_quantity, "code" => 404];
+                        if ($value[$i] <= 0 || $value[$i] > intval($seatNumberTicketsData[$key]->limitDaily->limit_quantity)) {
+                            return ["error" => "Seat number is only available beetwen 1 to " . $seatNumberTicketsData[$key]->limitDaily->limit_quantity, "code" => 404];
                         }
-                        $dateFormat = new DateTime($visitDates[$key][$i], new DateTimeZone('Asia/Jakarta'));
-                        $hasPurchased = DB::table('purchases')
-                            ->join('daily_tickets', 'purchases.id', '=', 'daily_tickets.purchase_id')
-                            ->join('reserved_seats', 'purchases.id', '=', 'reserved_seats.pch_id')
-                            ->where('purchases.ticket_id', '=', $key)
-                            ->where('daily_tickets.visit_date', '=', $dateFormat->format('Y-m-d'))
-                            ->where('reserved_seats.seat_number', '=', $value[$i])
-                            ->get();
+                        $dateFormat   = new DateTime($visitDates[$key][$i], new DateTimeZone('Asia/Jakarta'));
+                        $hasPurchased = array_filter($hasPurchasedRaw, function ($val) use ($dateFormat, $key, $value, $i) {
+                            $d = new DateTime($val->visitDate, new DateTimeZone('Asia/Jakarta'));
+                            return $d->format('Y-m-d') == $dateFormat->format('Y-m-d') && $val->ticketId == $key && $val->seatNumber == $value[$i];
+                        });
                     } else {
-                        if ($value[$i] <= 0 || $value[$i] > intval($ticket->quantity)) {
-                            return ["error" => "Seat number is only available beetwen 1 to " . $ticket->quantity, "code" => 404];
+                        if ($value[$i] <= 0 || $value[$i] > intval($seatNumberTicketsData[$key]->quantity)) {
+                            return ["error" => "Seat number is only available beetwen 1 to " . $seatNumberTicketsData[$key]->quantity, "code" => 404];
                         }
-                        $hasPurchased = DB::table('purchases')
-                            ->join('reserved_seats', 'purchases.id', '=', 'reserved_seats.pch_id')
-                            ->where('purchases.ticket_id', '=', $key)
-                            ->where('reserved_seats.seat_number', '=', $value[$i])
-                            ->get();
+                        $hasPurchased = array_filter($hasPurchasedRaw, function ($val) use ($key, $value, $i) {
+                            return $val->ticketId == $key && $val->seatNumber == $value[$i];
+                        });
                     }
                     if (count($hasPurchased) > 0) {
                         return ["error" => "This seat number has reserved. Please choose other seat number", "code" => 404];
@@ -751,96 +626,51 @@ class PchCtrl extends Controller
         return ["seatNumbers" => $seatNumbers];
     }
 
-    private function basicCreateData($req, $ticket_ids, $visitDates, $customPrices, $seatNumbers, $voucher, $payment, $remainingVoucher)
+    private function basicCreateData($req, $ticket_ids, $ticket_datas, $visitDates, $customPrices, $seatNumbers, $voucher, $payment, $remainingVoucher, bool $forOrgInv = false)
     {
-        // $totalPay = 0;
-        // return ["error" => ["vistDates" => $visitDates, "csPrices" => $customPrices, "seatNumbers" => $seatNumbers], 403];
-        // $purchases = [];
-        // foreach ($ticket_ids as $key => $value) {
-        //     $ticketObj = Ticket::where('id', $key);
-        //     $indexVisitDates = 0;
-        //     array_key_exists($key, $visitDates) ? $value *= count($visitDates[$key]) : '';
-        //     for ($i = 0; $i < $value; $i++) {
-        //         $amount = 0;
-        //         $voucherCode = '-';
-        //         $priceTicket = $ticketObj->first()->type_price == 3 ? $customPrices[$key] : $ticketObj->first()->price;
-        //         if ($req->voucher_code) {
-        //             if ($voucher->event_id == $ticketObj->first()->event_id && $remainingVoucher > 0) {
-        //                 $amount = (intval($priceTicket) - (intval($priceTicket) * (intval($voucher->discount) / 100)));
-        //                 $voucherCode = $req->voucher_code;
-        //                 $remainingVoucher -= 1;
-        //             } else {
-        //                 $amount = intval($priceTicket);
-        //             }
-        //         } else {
-        //             $amount = intval($priceTicket);
-        //         }
-        //         $totalPay += $amount;
-        //         $pch = Purchase::create(
-        //             [
-        //                 'user_id' => Auth::user()->id,
-        //                 'pay_id' => $payment->id,
-        //                 'ticket_id' => $key,
-        //                 'amount' => $amount,
-        //                 'code' => $voucherCode,
-        //                 'is_mine' => true
-        //             ]
-        //         );
-        //         $purchases[] = $pch;
-        //         if (array_key_exists($key, $visitDates)) {
-        //             if ($indexVisitDates >= count($visitDates[$key])) {
-        //                 $indexVisitDates = 0;
-        //             }
-        //             $visitDate = new DateTime($visitDates[$key][$indexVisitDates], new DateTimeZone('Asia/Jakarta'));
-        //             DailyTicket::create(
-        //                 [
-        //                     "purchase_id" => $pch->id,
-        //                     "visit_date" => $visitDate->format('Y-m-d')
-        //                 ]
-        //             );
-        //             $indexVisitDates++;
-        //         }
-        //         if (array_key_exists($key, $seatNumbers)) {
-        //             ReservedSeat::create(
-        //                 [
-        //                     "pch_id" => $pch->id,
-        //                     "seat_number" => $seatNumbers[$key][$i]
-        //                 ]
-        //             );
-        //         }
-        //     }
-        //     // update quantity ticket
-        //     Ticket::where('id', $key)->where('quantity', '!=', -1)->update(
-        //         [
-        //             "quantity" => intval($ticketObj->first()->quantity) - $value
-        //         ]
-        //     );
-        // }
-        // return [
-        //     "totalPay" => $totalPay,
-        //     "purchases" => $purchases
-        // ];
-        $totalPay = 0;
-        $netTotal = 0;
-        $taxTotal = 0;
-        $purchases = [];
-        $profitSetting = ProfitSetting::first();
-        $vcTickets = $req->voucher_code ? $voucher->forTickets()->get() : [];
+        /*
+        ==================================================================================
+        Status code :
+        - (0) => failed
+        - (1) => success
+        ==================================================================================
+         */
+
+        $totalPay          = 0;
+        $netTotal          = 0;
+        $taxTotal          = 0;
+        $purchases         = [];
+        $pchIds            = [];
+        $visitDatesIns     = [];
+        $visitDatesInsIds  = [];
+        $seatNumbersIns    = [];
+        $seatNumbersInsIds = [];
+        $profitSetting     = ProfitSetting::first();
+        $vcTickets         = $req->voucher_code ? $voucher->forTickets()->get() : [];
+        $ticketsValue      = [];
+        $strWhenSql        = "case ";
+        $onlyTicketId      = [];
+        $outIndex          = 0;
         foreach ($ticket_ids as $key => $value) {
-            $ticketObj = Ticket::where('id', $key);
             $spcVc = false;
             foreach ($vcTickets as $vcTicket) {
-                if($vcTicket->ticket_id === $key){
+                if ($vcTicket->ticket_id === $key) {
                     $spcVc = true;
                 }
             }
+            if ($forOrgInv == false) {
+                $strWhenSql .= ("when id='" . $key . "' then '" . (intval($ticket_datas[$outIndex]->quantity) - $value) . "' ");
+            }
+            array_push($onlyTicketId, $key);
             for ($i = 0; $i < $value; $i++) {
-                $amount = 0;
+                $amount      = 0;
                 $voucherCode = '-';
-                $priceTicket = $ticketObj->first()->type_price == 3 ? $customPrices[$key][$i] : $ticketObj->first()->price;
-                if ($req->voucher_code) {
-                    if ($voucher->event_id == $ticketObj->first()->event_id && $remainingVoucher > 0 && (count($vcTickets) == 0 || ($spcVc))) {
-                        $amount = (intval($priceTicket) - ($voucher->discount > 1 ? intval($voucher->discount) : (intval($priceTicket) * floatval($voucher->discount))));
+                $priceTicket = $ticket_datas[$outIndex]->type_price == 3 ? $customPrices[$key][$i] : $ticket_datas[$outIndex]->price;
+                if ($forOrgInv == true) {
+                    $amount = 0;
+                } else if ($req->voucher_code) {
+                    if ($voucher->event_id == $ticket_datas[$outIndex]->event_id && $remainingVoucher > 0 && (count($vcTickets) == 0 || ($spcVc))) {
+                        $amount      = (intval($priceTicket) - ($voucher->discount > 1 ? intval($voucher->discount) : (intval($priceTicket) * floatval($voucher->discount))));
                         $voucherCode = $req->voucher_code;
                         $remainingVoucher -= 1;
                     } else {
@@ -853,53 +683,101 @@ class PchCtrl extends Controller
                 $totalPay += ($amount + $taxAmount);
                 $netTotal += $amount;
                 $taxTotal += $taxAmount;
-                $pch = Purchase::create(
+                $pchId = Str::uuid();
+                array_push($pchIds, $pchId);
+                array_push($purchases,
                     [
-                        'user_id' => Auth::user()->id,
-                        'pay_id' => $payment->id,
-                        'ticket_id' => $key,
-                        'amount' => $amount,
+                        'id'         => $pchId,
+                        'user_id'    => Auth::user()->id,
+                        'pay_id'     => $payment->id,
+                        'ticket_id'  => $key,
+                        'amount'     => $amount,
                         'tax_amount' => $taxAmount,
-                        'code' => $voucherCode,
-                        'is_mine' => true
+                        'code'       => $forOrgInv == true ? "-" : $voucherCode,
+                        'is_mine'    => true,
+                        'org_inv'    => $forOrgInv,
+                        'created_at' => now(),
+                        'updated_at' => now(),
                     ]
                 );
-                $purchases[] = $pch;
                 if (array_key_exists($key, $visitDates)) {
                     $visitDate = new DateTime($visitDates[$key][$i], new DateTimeZone('Asia/Jakarta'));
-                    DailyTicket::create(
-                        [
-                            "purchase_id" => $pch->id,
-                            "visit_date" => $visitDate->format('Y-m-d')
-                        ]
-                    );
+                    array_push($visitDatesInsIds, Str::uuid());
+                    array_push($visitDatesIns, [
+                        "id"          => $visitDatesInsIds[count($visitDatesInsIds) - 1],
+                        "purchase_id" => $pchId,
+                        "visit_date"  => $visitDate->format('Y-m-d'),
+                        'created_at'  => now(),
+                        'updated_at'  => now(),
+                    ]);
                 }
                 if (array_key_exists($key, $seatNumbers)) {
-                    ReservedSeat::create(
-                        [
-                            "pch_id" => $pch->id,
-                            "seat_number" => $seatNumbers[$key][$i]
-                        ]
-                    );
+                    array_push($seatNumbersInsIds, Str::uuid());
+                    array_push($seatNumbersIns, [
+                        "id"          => $seatNumbersInsIds[count($seatNumbersInsIds) - 1],
+                        "pch_id"      => $pchId,
+                        "seat_number" => $seatNumbers[$key][$i],
+                        'created_at'  => now(),
+                        'updated_at'  => now(),
+                    ]);
                 }
             }
-            // update quantity ticket
-            Ticket::where('id', $key)->where('quantity', '!=', -1)->update(
-                [
-                    "quantity" => intval($ticketObj->first()->quantity) - $value
-                ]
-            );
+            $outIndex++;
         }
-        return [
-            "netTotal" => $netTotal,
-            "taxTotal" => $taxTotal,
-            "totalPay" => $totalPay,
-            "purchases" => $purchases,
-            "profitSetting" => $profitSetting
+
+        if ($strWhenSql == "case ") {
+            $strWhenSql = null;
+        } else {
+            $strWhenSql .= " end";
+        }
+
+        try {
+            Purchase::insert($purchases);
+        } catch (\Throwable $th) {
+            return ["status" => 0];
+        }
+        try {
+            if (count($visitDatesIns) > 0) {
+                DailyTicket::insert($visitDatesIns);
+            }
+            if (count($seatNumbersIns) > 0) {
+                ReservedSeat::insert($seatNumbersIns);
+            }
+        } catch (\Throwable $th) {
+            return ["status" => 0];
+        }
+        // update quantity ticket
+        try {
+            if ($strWhenSql != null && $forOrgInv == false) {
+                Ticket::whereIn('id', $onlyTicketId)->where('quantity', '!=', -1)->update(
+                    [
+                        "quantity" => DB::raw($strWhenSql),
+                    ]
+                );
+            }
+        } catch (\Throwable $th) {
+            $this->rollbackPurchase($ticket_ids, $ticket_datas, $payment, $forOrgInv);
+            return [
+                "status" => 0,
+                "msg"    => "Deatchlock timeout",
+            ];
+        }
+
+        $returnData = [
+            "netTotal"       => $netTotal,
+            "taxTotal"       => $taxTotal,
+            "totalPay"       => $totalPay,
+            "purchases"      => $purchases,
+            "profitSetting"  => $profitSetting,
+            "visitDatesIns"  => $visitDatesIns,
+            "seatNumbersIns" => $seatNumbersIns,
+            "status"         => 1,
         ];
+
+        return $returnData;
     }
 
-    public function create(Request $req)
+    public function create(Request $req, bool $forOrg = false)
     {
         $this->loadTrxData();
         $validator = Validator::make(
@@ -908,97 +786,122 @@ class PchCtrl extends Controller
                 'ticket_ids' => 'required',
             ]
         );
-        if ($validator->fails()) {
+        if ($validator->fails() && ! isset($req->ticket_ids)) {
             return response()->json(["error" => "Please select one ticket or more for doing a transaction"], 403);
         }
-        if ((intval($req->pay_method) == 14 && !$req->mobile_number) || (intval($req->pay_method) == 15 && !$req->cashtag)) {
+        if ((intval($req->pay_method) == 14 && ! $req->mobile_number) || (intval($req->pay_method) == 15 && ! $req->cashtag)) {
             return response()->json(["error" => "mobile number is required for pay method with OVO or $" . "cashtag is required for pay method with JeniusPay"], 403);
         }
-        $voucher = Voucher::where('code', $req->voucher_code)->first();
-        if ($req->voucher_code && !$voucher) {
-            return response()->json(["error" => "Voucher code not found"], 404);
-        }
-        $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-
-        $validatorVouchers = $this->voucherValidator($req, $voucher, $now);
-        if (array_key_exists("error", $validatorVouchers)) {
-            return response()->json($validatorVouchers, $validatorVouchers["code"]);
-        }
-        $remainingVoucher = $validatorVouchers["remainingVoucher"];
-        $ticket_ids = [];
-        foreach ($req->ticket_ids as $ticket_id) {
-            if (!array_key_exists($ticket_id, $ticket_ids)) {
-                $ticket_ids[$ticket_id] = 1;
-            } else {
-                $ticket_ids[$ticket_id] += 1;
+        $errorValidator = [
+            "status" => false,
+            "data"   => null,
+        ];
+        DB::beginTransaction();
+        try {
+            $voucher = Voucher::where('code', $req->voucher_code)->lockForUpdate()->first();
+            if ($req->voucher_code && ! $voucher) {
+                throw new \Exception(json_encode(["error" => "Voucher code not found", "code" => 404]));
             }
-        }
-        $basicvalidator = $this->basicValidator($req, $ticket_ids, $now);
-        if (array_key_exists("error", $basicvalidator)) {
-            return response()->json($basicvalidator, $basicvalidator["code"]);
-        }
-        $customPriceTickets = $basicvalidator["customPriceTickets"];
-        $dailyTickets = $basicvalidator["dailyTickets"];
-        $seatNumberTickets = $basicvalidator["seatNumberTickets"];
+            $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
 
-        $validatorCustomPrices = $this->customPriceValidator($req, $customPriceTickets);
-        if (array_key_exists("error", $validatorCustomPrices)) {
-            return response()->json($validatorCustomPrices, $validatorCustomPrices["code"]);
-        }
-        $customPrices = $validatorCustomPrices["customPrices"];
+            $validatorVouchers = $this->voucherValidator($req, $voucher, $now);
+            if (array_key_exists("error", $validatorVouchers)) {
+                throw new \Exception(json_encode($validatorVouchers));
+            }
+            $remainingVoucher = $validatorVouchers["remainingVoucher"];
+            $ticket_ids       = array_count_values($req->ticket_ids);
 
-        $validatorVisitDates = $this->visitDatesValidator($req, $dailyTickets, $now);
-        if (array_key_exists("error", $validatorVisitDates)) {
-            return response()->json($validatorVisitDates, $validatorVisitDates["code"]);
-        }
-        $visitDates = $validatorVisitDates["visitDates"];
+            $basicvalidator = $this->basicValidator($req, $ticket_ids, $now, $forOrg);
+            if (array_key_exists("error", $basicvalidator)) {
+                throw new \Exception(json_encode($basicvalidator));
+            }
+            $customPriceTickets = $basicvalidator["customPriceTickets"];
+            $dailyTickets       = $basicvalidator["dailyTickets"];
+            $seatNumberTickets  = $basicvalidator["seatNumberTickets"];
 
-        $validatorSeatNumbers = $this->seatNumbersValidator($req, $seatNumberTickets, $dailyTickets, $visitDates);
-        if (array_key_exists("error", $validatorSeatNumbers)) {
-            return response()->json($validatorSeatNumbers, $validatorSeatNumbers["code"]);
-        }
-        $seatNumbers = $validatorSeatNumbers["seatNumbers"];
-        // create trx dummy and get the ID
+            $validatorCustomPrices = $this->customPriceValidator($req, $customPriceTickets);
+            if (array_key_exists("error", $validatorCustomPrices)) {
+                throw new \Exception(json_encode($validatorCustomPrices));
+            }
+            $customPrices = $validatorCustomPrices["customPrices"];
 
-        $payment = Payment::create(
-            [
-                'user_id' => Auth::user()->id,
-                'token_trx' => '-',
-                'pay_state' => 'PENDING',
-                'order_id' => '-',
-                'price' => 0,
-                'admin_fee' => 0,
-                'platform_fee' => 0
-            ]
-        );
-        // return response()->json($this->basicCreateData($req, $ticket_ids, $visitDates, $customPrices, $seatNumbers, $voucher, $payment, $remainingVoucher));
-        $mainCreateData = $this->basicCreateData($req, $ticket_ids, $visitDates, $customPrices, $seatNumbers, $voucher, $payment, $remainingVoucher);
-        $totalPay = $mainCreateData["totalPay"];
+            $validatorVisitDates = $this->visitDatesValidator($req, $dailyTickets, $basicvalidator["dailyTicketsData"], $now, $forOrg);
+            if (array_key_exists("error", $validatorVisitDates)) {
+                throw new \Exception(json_encode($validatorVisitDates));
+            }
+            $visitDates = $validatorVisitDates["visitDates"];
+
+            $validatorSeatNumbers = $this->seatNumbersValidator($req, $seatNumberTickets, $basicvalidator["seatNumberTicketsData"], $dailyTickets, $visitDates);
+            if (array_key_exists("error", $validatorSeatNumbers)) {
+                throw new \Exception(json_encode($validatorSeatNumbers));
+            }
+            $seatNumbers = $validatorSeatNumbers["seatNumbers"];
+            // create trx dummy and get the ID
+
+            $payment = Payment::create(
+                [
+                    'user_id'      => Auth::user()->id,
+                    'token_trx'    => '-',
+                    'pay_state'    => 'PENDING',
+                    'order_id'     => '-',
+                    'price'        => 0,
+                    'admin_fee'    => 0,
+                    'platform_fee' => 0,
+                ]
+            );
+            // return response()->json($this->basicCreateData($req, $ticket_ids, $visitDates, $customPrices, $seatNumbers, $voucher, $payment, $remainingVoucher));
+            $mainCreateData = $this->basicCreateData($req, $ticket_ids, $basicvalidator["all_ticket"], $visitDates, $customPrices, $seatNumbers, $voucher, $payment, $remainingVoucher, $forOrg);
+            DB::commit();
+        } catch (\Throwable $th) {
+            DB::rollBack();
+            Log::info($th);
+            $error = json_decode($th->getMessage(), true);
+            if ($error) {
+                return response()->json($error, $error["code"] ?? 500);
+            }
+            return response()->json(["error" => "Database is busy. Please try again later"], 500);
+        }
+        if ($mainCreateData["status"] === 0) {
+            Payment::where('id', $payment->id)->delete();
+            return response()->json(["error" => isset($mainCreateData["msg"]) ? $mainCreateData["msg"] : "Duplicated UUID"], 500);
+        }
+        $totalPay      = $mainCreateData["totalPay"];
         $profitSetting = $mainCreateData["profitSetting"];
-        $purchases = $mainCreateData["purchases"];
-        $netTotal = $mainCreateData["netTotal"];
-        $taxTotal = $mainCreateData["taxTotal"];
+        $purchases     = $mainCreateData["purchases"];
+        $netTotal      = $mainCreateData["netTotal"];
+        $taxTotal      = $mainCreateData["taxTotal"];
         if ($totalPay < 10000 && $totalPay > 0) {
-            $this->rollbackPurchase($ticket_ids, $payment);
+            $this->rollbackPurchase($ticket_ids, $basicValidator["all_ticket"], $payment, $forOrg);
             return response()->json(["error" => "Sorry, minimal transaction (for non-free ticket) is IDR Rp. 10.000,-. Please remove the voucher code first"], 403);
         }
         // change trx data
         $paymentXendit = null;
-        if ($totalPay == 0) {
+        if ($forOrg) {
             $orderId = uniqid('trx_free', true);
             Payment::where('id', $payment->id)->update(
                 [
                     'token_trx' => '-',
                     'pay_state' => "SUCCEEDED",
-                    'order_id' => $orderId,
-                    'price' => 0
+                    'order_id'  => $orderId,
+                    'price'     => 0,
+                ]
+            );
+            $paymentXendit["payment"] = Payment::where('id', $payment->id)->first();
+        } else if ($totalPay == 0) {
+            $orderId = uniqid('trx_free', true);
+            Payment::where('id', $payment->id)->update(
+                [
+                    'token_trx' => '-',
+                    'pay_state' => "SUCCEEDED",
+                    'order_id'  => $orderId,
+                    'price'     => 0,
                 ]
             );
             $paymentXendit["payment"] = Payment::where('id', $payment->id)->first();
             try {
                 Mail::to($paymentXendit["payment"]->user()->first()->email)->send(new ETicket($payment->id));
             } catch (\Throwable $th) {
-                $this->rollbackPurchase($ticket_ids, $payment);
+                $this->rollbackPurchase($ticket_ids, $basicValidator["all_ticket"], $payment, $forOrg);
                 Log::info("Error With Mail Server : Failed send mail transaction. Transaction reset");
                 return response()->json(["error" => "Mail server error. Please try again later"], 500);
             }
@@ -1014,28 +917,30 @@ class PchCtrl extends Controller
                     $paymentXendit = $this->setTrxVirAccount($payment->id, $req->pay_method, $totalPay, $profitSetting);
                 }
             } catch (\Throwable $th) {
-                $this->rollbackPurchase($ticket_ids, $payment);
+                $this->rollbackPurchase($ticket_ids, $basicValidator["all_ticket"], $payment, $forOrg);
                 Log::info($th);
                 return response()->json(["error" => "Server error. Failed reach xendit server", "msg" => $th], 500);
             }
             try {
                 Mail::to(Auth::user()->email)->send(new TrxNotification($payment->id));
             } catch (\Throwable $th) {
-                $this->rollbackPurchase($ticket_ids, $payment);
+                $this->rollbackPurchase($ticket_ids, $basicValidator["all_ticket"], $payment, $forOrg);
                 Log::info("Error With Mail Server : Failed send mail transaction. Transaction reset");
                 return response()->json(["error" => "Mail server error. Please try again later"], 500);
             }
         }
         return response()->json(
             [
-                "local_pay_id" => $payment->id,
-                "payment" => $paymentXendit["payment"],
-                "purchases" => $purchases,
-                "netTotal" => $netTotal,
-                "taxTotal" => $taxTotal,
-                "adminFeeTrx" => $profitSetting->admin_fee_trx,
-                "platformFee" => array_key_exists("platform", $paymentXendit) ? $paymentXendit["platform"] : 0,
-                "total" => array_key_exists("total", $paymentXendit) ? $paymentXendit["total"] : 0,
+                "local_pay_id"   => $payment->id,
+                "payment"        => $paymentXendit["payment"],
+                "purchases"      => $purchases,
+                "netTotal"       => $netTotal,
+                "taxTotal"       => $taxTotal,
+                "adminFeeTrx"    => $profitSetting->admin_fee_trx,
+                "platformFee"    => array_key_exists("platform", $paymentXendit) ? $paymentXendit["platform"] : 0,
+                "total"          => array_key_exists("total", $paymentXendit) ? $paymentXendit["total"] : 0,
+                "visitDatesIns"  => $forOrg ? $mainCreateData["visitDatesIns"] : null,
+                "seatNumbersIns" => $forOrg ? $mainCreateData["seatNumbersIns"] : null,
             ],
             201
         );
@@ -1043,9 +948,9 @@ class PchCtrl extends Controller
 
     private function validationPurchase($req, $forRefund = false, $userData = null)
     {
-        $user = $userData == null ? Auth::user() : $userData;
+        $user     = $userData == null ? Auth::user() : $userData;
         $purchase = Purchase::where('id', $req->purchase_id)->where('user_id', $user->id)->first();
-        if (!$purchase) {
+        if (! $purchase) {
             return ["error" => "Purchase data not found", "code" => 404];
         }
         if ($purchase->amount != 0 && $purchase->payment()->first()->pay_state != 'SUCCEEDED') {
@@ -1055,15 +960,15 @@ class PchCtrl extends Controller
             return ["error" => "You have used this ticket, with identified by your checkin data", "code" => 403];
         }
         $ticket = Ticket::where('id', $purchase->ticket_id)->first();
-        $event = $ticket->event()->first();
+        $event  = $ticket->event()->first();
         if ($event->category != 'Attraction' && $event->category != 'Daily Activities' && $event->category != 'Tour Travel (recurring)' && $ticket->seat_number == false && $forRefund == false) {
             return ["error" => "Tickets for this event (which you have purchased) do not have a re-schedule feature", "code" => 403];
         }
         $pchVisitDate = $purchase->visitDate()->first();
-        $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+        $now          = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         if ($pchVisitDate && $forRefund === false) {
-            $visitDate = new DateTime($pchVisitDate->visit_date, new DateTimeZone('Asia/Jakarta'));
-            $limitTime = $event->availableDays()->where('day', $visitDate->format('D'))->first();
+            $visitDate   = new DateTime($pchVisitDate->visit_date, new DateTimeZone('Asia/Jakarta'));
+            $limitTime   = $event->availableDays()->where('day', $visitDate->format('D'))->first();
             $limitChange = new DateTime($pchVisitDate->visit_date . ' ' . $limitTime->max_limit_time, new DateTimeZone('Asia/Jakarta'));
             if ($now > $limitChange) {
                 return ["error" => "You can't change visit date if this ticket has expired", "code" => 403];
@@ -1074,9 +979,9 @@ class PchCtrl extends Controller
             return ["error" => "You can't refund / reschedule if the event has ended", "code" => 403];
         }
         return [
-            "ticket" => $ticket,
-            "event" => $event,
-            "purchase" => $purchase
+            "ticket"   => $ticket,
+            "event"    => $event,
+            "purchase" => $purchase,
         ];
     }
 
@@ -1087,10 +992,10 @@ class PchCtrl extends Controller
             return response()->json(["error" => $resValidate["error"]], $resValidate["code"]);
         }
         $availableRsc = $resValidate["event"]->availableReschedule()->first();
-        if (!$availableRsc) {
+        if (! $availableRsc) {
             return response()->json(["message" => "This ticket not have permission for doing Re-Schedule"], 403);
         }
-        $now =  new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+        $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
         // ============== Check limit re-schedule ===================
         $endDate = null;
         if ($resValidate["ticket"]->quantity == -1) {
@@ -1105,8 +1010,8 @@ class PchCtrl extends Controller
         }
         // ==========================================================
         $eventCtrl = new EventCtrl();
-        $date = null;
-        $strDate = $req->visit_date ? $req->visit_date : 'now';
+        $date      = null;
+        $strDate   = $req->visit_date ? $req->visit_date : 'now';
         try {
             $date = new DateTime($strDate, new DateTimeZone('Asia/Jakarta'));
             if ($date->format('Y-m-d') < $now->format('Y-m-d')) {
@@ -1115,11 +1020,11 @@ class PchCtrl extends Controller
         } catch (\Throwable $th) {
             return response()->json(["error" => "Invalid date format"], 403);
         }
-        $ticket = $eventCtrl->coreSeatNumberQtyTicket($resValidate["ticket"], $date);
+        $ticket         = $eventCtrl->coreSeatNumberQtyTicket($resValidate["ticket"], $date);
         $passSeatNumber = false;
-        $passVisitDate = false;
+        $passVisitDate  = false;
         if ($req->seat_number && $ticket->seat_number == true) {
-            if (!in_array(intval($req->seat_number), $ticket->available_seat_numbers)) {
+            if (! in_array(intval($req->seat_number), $ticket->available_seat_numbers)) {
                 return response()->json(["error" => "The seat number you selected is not available"], 404);
             }
             $passSeatNumber = true;
@@ -1144,14 +1049,14 @@ class PchCtrl extends Controller
         if ($passSeatNumber) {
             ReservedSeat::where('pch_id', $req->purchase_id)->update(
                 [
-                    'seat_number' => $req->seat_number
+                    'seat_number' => $req->seat_number,
                 ]
             );
         }
         if ($passVisitDate) {
             DailyTicket::where('purchase_id', $req->purchase_id)->update(
                 [
-                    'visit_date' => $date->format('Y-m-d')
+                    'visit_date' => $date->format('Y-m-d'),
                 ]
             );
         }
@@ -1161,98 +1066,98 @@ class PchCtrl extends Controller
 
     public function submitRefund(Request $req)
     {
-        if (!$req->message) {
+        if (! $req->message) {
             return response()->json(["error" => "Message field is required for admin consideration"], 403);
         }
-        if (!$req->phone_number) {
+        if (! $req->phone_number) {
             return response()->json(["error" => "Phone number field is required for admin consideration"], 403);
         }
-        if (!$req->account_number) {
+        if (! $req->account_number) {
             return response()->json(["error" => "Account number / VA number field is required for admin consideration"], 403);
         }
-        if (!$req->bank_code) {
+        if (! $req->bank_code) {
             return response()->json(["error" => "Bank code field is required for admin consideration"], 403);
         }
-        if (!$req->account_name) {
+        if (! $req->account_name) {
             return response()->json(["error" => "Account name field is required for admin consideration"], 403);
         }
-        if (!array_key_exists($req->bank_code, config('banks'))) {
+        if (! array_key_exists($req->bank_code, config('banks'))) {
             return response()->json(["error" => "Bank code not available"], 404);
         }
 
         $purchase = Purchase::where('id', $req->purchase_id)->first();
-        if(!$purchase){
+        if (! $purchase) {
             return response()->json(["error" => "Purchase data not found"], 404);
         }
 
-        $pchs = [];
+        $pchs  = [];
         $event = $purchase->ticket()->first()->event()->first();
 
-        if($event->deleted === 0){
-            if($event->allow_refund == 1 && !RefundData::where('purchase_id', $purchase->id)->first()){
+        if ($event->deleted === 0) {
+            if ($event->allow_refund == 1 && ! RefundData::where('purchase_id', $purchase->id)->first()) {
                 $resValidate = $this->validationPurchase($req, true);
-                if (!array_key_exists("error", $resValidate)) {
+                if (! array_key_exists("error", $resValidate)) {
                     array_push($pchs, $resValidate);
                 }
             }
-        }else{
+        } else {
             foreach ($purchase->payment()->first()->purchases()->get() as $purchaseInner) {
                 $req->purchase_id = $purchaseInner->id;
-                if($purchaseInner->event()->first()->allow_refund == 1 && !RefundData::where('purchase_id', $purchaseInner->id)->first()){
+                if ($purchaseInner->event()->first()->allow_refund == 1 && ! RefundData::where('purchase_id', $purchaseInner->id)->first()) {
                     $resValidate = $this->validationPurchase($req, true);
-                    if (!array_key_exists("error", $resValidate)) {
+                    if (! array_key_exists("error", $resValidate)) {
                         array_push($pchs, $resValidate);
                     }
                 }
             }
         }
 
-        $user = Auth::user();
+        $user             = Auth::user();
         $refundPercentage = 0;
-        if($resValidate["event"]->deleted === 1){
+        if ($resValidate["event"]->deleted === 1) {
             $refundSettingDef = RefundSetting::where('day_before', -1)->first();
-            if($refundSettingDef){
+            if ($refundSettingDef) {
                 $refundPercentage = $refundSettingDef->allow_refund;
-            }else{
+            } else {
                 $refundPercentage = 1;
             }
-        }else{
+        } else {
             $visitDate = $resValidate['purchase']->visitDate()->first();
-            $start = null;
-            $now = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
-            if($visitDate){
+            $start     = null;
+            $now       = new DateTime('now', new DateTimeZone('Asia/Jakarta'));
+            if ($visitDate) {
                 $start = new DateTime($visitDate->visit_date, new DateTimeZone('Asia/Jakarta'));
-            }else{
+            } else {
                 $start = new DateTime($resValidate["event"]->start_date, new DateTimeZone('Asia/Jakarta'));
             }
-            if($now > $start){
+            if ($now > $start) {
                 $refundPercentage = 0;
-            }else{
-                $diff = date_diff($start, $now)->days * 24 + date_diff($start, $now)->h;
-                $refundSetting = RefundSetting::where('day_before', '>=', $diff)->orderBy('day_before', 'ASC')->first();
+            } else {
+                $diff             = date_diff($start, $now)->days * 24 + date_diff($start, $now)->h;
+                $refundSetting    = RefundSetting::where('day_before', '>=', $diff)->orderBy('day_before', 'ASC')->first();
                 $refundPercentage = $refundSetting ? $refundSetting->allow_refund : 1;
             }
         }
         foreach ($pchs as $pch) {
             RefundData::create(
                 [
-                    "purchase_id" => $pch["purchase"]->id,
-                    "user_id" => $user->id,
-                    "ticket_id" => $pch["ticket"]->id,
-                    "event_id" => $pch["event"]->id,
-                    "message" => $req->message,
-                    "phone_number" => $req->phone_number,
-                    "bank_code" => $req->bank_code,
-                    "account_name" => $req->account_name,
+                    "purchase_id"    => $pch["purchase"]->id,
+                    "user_id"        => $user->id,
+                    "ticket_id"      => $pch["ticket"]->id,
+                    "event_id"       => $pch["event"]->id,
+                    "message"        => $req->message,
+                    "phone_number"   => $req->phone_number,
+                    "bank_code"      => $req->bank_code,
+                    "account_name"   => $req->account_name,
                     "account_number" => $req->account_number,
-                    "percentage" => $refundPercentage,
-                    "nominal" => ceil($pch["purchase"]->amount * $refundPercentage),
-                    "basic_nominal" => $pch["purchase"]->amount
+                    "percentage"     => $refundPercentage,
+                    "nominal"        => ceil($pch["purchase"]->amount * $refundPercentage),
+                    "basic_nominal"  => $pch["purchase"]->amount,
                 ]
             );
         }
         $mail_status = true;
-        if(count($pchs) > 0){
+        if (count($pchs) > 0) {
             try {
                 Mail::to(config('agendakota.admin_email'))->send(
                     new AdminRefundNotification(
@@ -1284,11 +1189,11 @@ class PchCtrl extends Controller
                     $pchs[0]["purchase"]->id,
                     $pchs[0]["ticket"]->name,
                     $pchs[0]["ticket"]->id,
-                    $req->message
+                    $req->message,
                 ], config('agendakota.admin_email'), $pchs[0]["event"]->org()->first()->user()->first()->email);
                 $mail_status = false;
             }
-        }else{
+        } else {
             return response()->json(["error" => "Haven't valid purchase for refund"], 404);
         }
 
@@ -1300,10 +1205,10 @@ class PchCtrl extends Controller
     {
         $refundDatas = $admin ? RefundData::all() : RefundData::where('event_id', $req->event->id)->get();
         foreach ($refundDatas as $refundData) {
-            $refundData->user = $refundData->user()->first();
+            $refundData->user     = $refundData->user()->first();
             $refundData->purchase = $refundData->purchase()->first();
-            $refundData->ticket = $refundData->ticket()->first();
-            $refundData->event = $refundData->event()->first();
+            $refundData->ticket   = $refundData->ticket()->first();
+            $refundData->event    = $refundData->event()->first();
             // $refundData->status = $refundData->purchase ? 'Un Approved' : 'Approved';
         }
         return response()->json(["refund_datas" => $refundDatas], 200);
@@ -1317,13 +1222,13 @@ class PchCtrl extends Controller
     public function getRefund(Request $req, $refundId, $admin = false)
     {
         $refundData = $admin ? RefundData::where('id', $refundId)->first() : RefundData::where('id', $refundId)->where('event_id', $req->event->id)->first();
-        if (!$refundData) {
+        if (! $refundData) {
             return response()->json(["error" => "Refund data not found"], 404);
         }
-        $refundData->user = $refundData->user()->first();
+        $refundData->user     = $refundData->user()->first();
         $refundData->purchase = $refundData->purchase()->first();
-        $refundData->ticket = $refundData->ticket()->first();
-        $refundData->event = $refundData->event()->first();
+        $refundData->ticket   = $refundData->ticket()->first();
+        $refundData->event    = $refundData->event()->first();
         // $refundData->status = $refundData->purchase ? 'Un Approved' : 'Approved';
         return response()->json(["refund_data" => $refundData], 200);
     }
@@ -1337,22 +1242,22 @@ class PchCtrl extends Controller
     {
         $curl = curl_init();
 
-        curl_setopt_array($curl, array(
-            CURLOPT_URL => 'https://api.xendit.co/disbursements',
+        curl_setopt_array($curl, [
+            CURLOPT_URL            => 'https://api.xendit.co/disbursements',
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_ENCODING => '',
-            CURLOPT_MAXREDIRS => 10,
-            CURLOPT_TIMEOUT => 0,
+            CURLOPT_ENCODING       => '',
+            CURLOPT_MAXREDIRS      => 10,
+            CURLOPT_TIMEOUT        => 0,
             CURLOPT_FOLLOWLOCATION => true,
-            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-            CURLOPT_CUSTOMREQUEST => 'POST',
-            CURLOPT_POSTFIELDS => json_encode($disburstment),
-            CURLOPT_HTTPHEADER => array(
+            CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
+            CURLOPT_CUSTOMREQUEST  => 'POST',
+            CURLOPT_POSTFIELDS     => json_encode($disburstment),
+            CURLOPT_HTTPHEADER     => [
                 'Content-Type: application/json',
                 'X-IDEMPOTENCY-KEY: ' . time(),
-                'Authorization: Basic ' . base64_encode(env('XENDIT_API_WRITE') . ':')
-            ),
-        ));
+                'Authorization: Basic ' . base64_encode(env('XENDIT_API_WRITE') . ':'),
+            ],
+        ]);
 
         $response = curl_exec($curl);
 
@@ -1363,128 +1268,104 @@ class PchCtrl extends Controller
     public function considerationRefundMain(Request $req, $refundDatas = [], $admin = false, $setManualFinish = false)
     {
 
-         /*
-            TERM CONDITION REFUND PERCENTAGE
-            1. If refund because canceling event, percentage refund follow parameter -1 in column 'day_before' on table refund_table, or five 100% if parameter -1 not found
-            2. If refund is personal by user, percentage depend by different day before event start / selected visit date. With different parameter in colum 'day_before' on table refund_table.
-        */
+        /*
+        TERM CONDITION REFUND PERCENTAGE
+        1. If refund because canceling event, percentage refund follow parameter -1 in column 'day_before' on table refund_table, or five 100% if parameter -1 not found
+        2. If refund is personal by user, percentage depend by different day before event start / selected visit date. With different parameter in colum 'day_before' on table refund_table.
+         */
 
-            $user = null;
-            $nominal = 0;
-            $strRefundId = '';
-            $eventNames = ''; // for external_id disburstment
-            $ticketNames = ''; // for description disburstment
-            $ticketStrIds = ''; // for description disburstment
-            $errorMessages = [];
-            foreach ($refundDatas as $refundData) {
-                $user = $refundData->user()->first();
-                $req->purchase_id = $refundData->purchase_id;
-                // array_push($purchaseIds, $req->purchase_id);
-                $resValidate = $this->validationPurchase($req, true, $user);
-                if (array_key_exists("error", $resValidate)) {
-                    array_push($errorMessages, $resValidate["error"]);
-                }else{
-                    if (!$req->approved && $admin) {
-                        RefundData::where('id', $refundData->id)->delete();
-                    } else if (!$req->approved) {
-                        RefundData::where('id', $refundData->id)->update(["approve_org" => false]);
-                    } else {
-                        
-                        RefundData::where('id', $refundData->id)->update( $admin && $resValidate["event"]->deleted === 1 ? [
-                            "approve_admin" => true,
-                            "approve_org" => true,
-                            "mode" => $setManualFinish ? "manual" : "auto"
-                        ] : ($admin ? [
-                            "approve_admin" => true,
-                            "mode" => $setManualFinish ? "manual" : "auto"
-                        ] : [
-                            "approve_org" => true,
-                        ]));
-                        $nominal += RefundData::where('id', $refundData->id)->first()->nominal;
-                        if($setManualFinish && $admin){
-                            Purchase::where('id', $refundData->purchase_id)->delete();
-                        }
+        $user          = null;
+        $nominal       = 0;
+        $strRefundId   = '';
+        $eventNames    = ''; // for external_id disburstment
+        $ticketNames   = ''; // for description disburstment
+        $ticketStrIds  = ''; // for description disburstment
+        $errorMessages = [];
+        foreach ($refundDatas as $refundData) {
+            $user             = $refundData->user()->first();
+            $req->purchase_id = $refundData->purchase_id;
+            // array_push($purchaseIds, $req->purchase_id);
+            $resValidate = $this->validationPurchase($req, true, $user);
+            if (array_key_exists("error", $resValidate)) {
+                array_push($errorMessages, $resValidate["error"]);
+            } else {
+                if (! $req->approved && $admin) {
+                    RefundData::where('id', $refundData->id)->delete();
+                } else if (! $req->approved) {
+                    RefundData::where('id', $refundData->id)->update(["approve_org" => false]);
+                } else {
+
+                    RefundData::where('id', $refundData->id)->update($admin && $resValidate["event"]->deleted === 1 ? [
+                        "approve_admin" => true,
+                        "approve_org"   => true,
+                        "mode"          => $setManualFinish ? "manual" : "auto",
+                    ] : ($admin ? [
+                        "approve_admin" => true,
+                        "mode"          => $setManualFinish ? "manual" : "auto",
+                    ] : [
+                        "approve_org" => true,
+                    ]));
+                    $nominal += RefundData::where('id', $refundData->id)->first()->nominal;
+                    if ($setManualFinish && $admin) {
+                        Purchase::where('id', $refundData->purchase_id)->delete();
                     }
-                    $strRefundId .= $refundData->id . '~^&**&^~';
-                    $eventNames .= ($resValidate["event"]->name . ', '); // for external_id disburstment
-                    $ticketNames .= ($resValidate["ticket"]->name . ', '); // for description disburstment
-                    $ticketStrIds .= ($resValidate["ticket"]->id . ', '); // for description disburstment
                 }
+                $strRefundId .= $refundData->id . '~^&**&^~';
+                $eventNames .= ($resValidate["event"]->name . ', ');   // for external_id disburstment
+                $ticketNames .= ($resValidate["ticket"]->name . ', '); // for description disburstment
+                $ticketStrIds .= ($resValidate["ticket"]->id . ', ');  // for description disburstment
             }
-            $refundData = count($refundDatas) > 0 ? $refundDatas[count($refundDatas) - 1] : null; 
-            $mail_status = true;
-            if (!$req->approved && $strRefundId !== '') {
-                try {
-                    Mail::to($user->email)->send(
-                        new UserRefundNotification(
-                            'Un Approved / Rejected',
-                            $eventNames,
-                            $refundData->purchase_id,
-                            $ticketNames,
-                            $ticketStrIds,
-                            $refundData->message
-                        )
-                    );
-                } catch (\Throwable $th) {
-                    ResendTrxNotification::writeErrorLog('App\Mail\UserRefundNotification', "User Refund Notification", [
+        }
+        $refundData  = count($refundDatas) > 0 ? $refundDatas[count($refundDatas) - 1] : null;
+        $mail_status = true;
+        if (! $req->approved && $strRefundId !== '') {
+            try {
+                Mail::to($user->email)->send(
+                    new UserRefundNotification(
                         'Un Approved / Rejected',
                         $eventNames,
                         $refundData->purchase_id,
                         $ticketNames,
                         $ticketStrIds,
                         $refundData->message
-                    ], $user->email);
-                    $mail_status = false;
+                    )
+                );
+            } catch (\Throwable $th) {
+                ResendTrxNotification::writeErrorLog('App\Mail\UserRefundNotification', "User Refund Notification", [
+                    'Un Approved / Rejected',
+                    $eventNames,
+                    $refundData->purchase_id,
+                    $ticketNames,
+                    $ticketStrIds,
+                    $refundData->message,
+                ], $user->email);
+                $mail_status = false;
+            }
+        } else if ($req->approved && $admin && $strRefundId !== '' && ! $setManualFinish) {
+            $uniqueExternal    = uniqid('external_refund_', true);
+            $localDisburstment = DisburstmentRefund::create([
+                'disburstment_id' => $uniqueExternal,
+                'str_refund_ids'  => $strRefundId,
+            ]);
+            $res = $this->createDisburstment([
+                "external_id"         => $uniqueExternal,
+                "amount"              => ($nominal - intval(config('payconfigs.payout_fee'))),
+                "bank_code"           => $refundDatas[0]->bank_code,
+                "account_holder_name" => $refundDatas[0]->account_name,
+                "account_number"      => $refundDatas[0]->account_number,
+                "description"         => "Refund payment from event (" . $eventNames . ") and ticket (" . $ticketNames . ")",
+            ]);
+            // array_push($resOut, $res);
+            if (isset($res->error_code)) {
+                foreach ($refundDatas as $refundData) {
+                    RefundData::where('id', $refundData->id)->update([
+                        "approve_admin" => false,
+                    ]);
                 }
-            } else if ($req->approved && $admin && $strRefundId !== '' && !$setManualFinish) {
-                $uniqueExternal  = uniqid('external_refund_', true);
-                $localDisburstment = DisburstmentRefund::create([
-                    'disburstment_id' => $uniqueExternal,
-                    'str_refund_ids' => $strRefundId
-                ]);
-                $res = $this->createDisburstment([
-                    "external_id" => $uniqueExternal,
-                    "amount" => ($nominal - intval(config('payconfigs.payout_fee'))),
-                    "bank_code" =>  $refundDatas[0]->bank_code,
-                    "account_holder_name" =>  $refundDatas[0]->account_name,
-                    "account_number" => $refundDatas[0]->account_number,
-                    "description" => "Refund payment from event (" . $eventNames . ") and ticket (" . $ticketNames . ")",
-                ]);
-                // array_push($resOut, $res);
-                if (isset($res->error_code)) {
-                    foreach ($refundDatas as $refundData) {
-                        RefundData::where('id', $refundData->id)->update([
-                            "approve_admin" => false
-                        ]);
-                    }
 
-                    DisburstmentRefund::where('id', $localDisburstment->id)->delete();
-                    array_push($errorMessages, "Failed reach xendit server");
-                }else{
-                    try {
-                        Mail::to($user->email)->send(
-                            new UserRefundNotification(
-                                'Approved / Accepted',
-                                $eventNames,
-                                $refundData->purchase_id,
-                                $ticketNames,
-                                $ticketStrIds,
-                                $refundData->message
-                            )
-                        );
-                    } catch (\Throwable $th) {
-                        ResendTrxNotification::writeErrorLog('App\Mail\UserRefundNotification', "User Refund Notification", [
-                            'Approved / Accepted',
-                            $eventNames,
-                            $refundData->purchase_id,
-                            $ticketNames,
-                            $ticketStrIds,
-                            $refundData->message
-                        ], $user->email);
-                        $mail_status = false;
-                    }
-                }
-            } else if($req->approved && $admin && $strRefundId !== '' && $setManualFinish){
+                DisburstmentRefund::where('id', $localDisburstment->id)->delete();
+                array_push($errorMessages, "Failed reach xendit server");
+            } else {
                 try {
                     Mail::to($user->email)->send(
                         new UserRefundNotification(
@@ -1503,19 +1384,44 @@ class PchCtrl extends Controller
                         $refundData->purchase_id,
                         $ticketNames,
                         $ticketStrIds,
-                        $refundData->message
+                        $refundData->message,
                     ], $user->email);
                     $mail_status = false;
                 }
             }
+        } else if ($req->approved && $admin && $strRefundId !== '' && $setManualFinish) {
+            try {
+                Mail::to($user->email)->send(
+                    new UserRefundNotification(
+                        'Approved / Accepted',
+                        $eventNames,
+                        $refundData->purchase_id,
+                        $ticketNames,
+                        $ticketStrIds,
+                        $refundData->message
+                    )
+                );
+            } catch (\Throwable $th) {
+                ResendTrxNotification::writeErrorLog('App\Mail\UserRefundNotification', "User Refund Notification", [
+                    'Approved / Accepted',
+                    $eventNames,
+                    $refundData->purchase_id,
+                    $ticketNames,
+                    $ticketStrIds,
+                    $refundData->message,
+                ], $user->email);
+                $mail_status = false;
+            }
+        }
 
         return ["errors" => $errorMessages, "mail_status" => $mail_status];
     }
 
-    public function considerationRefund(Request $req){
+    public function considerationRefund(Request $req)
+    {
         $refundData = RefundData::where('id', $req->id)->first();
         // Filter refund data
-        if(!$refundData){
+        if (! $refundData) {
             return response()->json(["error" => "Data Refund tidak dapat ditemukan"], 404);
         }
         if ($refundData->approve_admin == true) {
@@ -1530,13 +1436,13 @@ class PchCtrl extends Controller
 
     public function setFinishRefund($refundIds)
     {
-        if (!is_array($refundIds)) {
+        if (! is_array($refundIds)) {
             return response()->json(["error" => "refund ids is an array"], 403);
         }
         $refundDatas = [];
         foreach ($refundIds as $refundId) {
             $refundData = RefundData::where('id', $refundId)->first();
-            if (!$refundData) {
+            if (! $refundData) {
                 return response()->json(["error" => "Refund data not found"], 404);
             }
             if ($refundData->purchase()->first() || $refundData->approve_admin == false) {
@@ -1546,7 +1452,7 @@ class PchCtrl extends Controller
         }
         foreach ($refundDatas as $refundData) {
             RefundData::where('id', $refundData->id)->update([
-                'finish' => true
+                'finish' => true,
             ]);
         }
         return response()->json(["message" => "Refund data has set to fisnish transfer"], 202);
@@ -1562,7 +1468,7 @@ class PchCtrl extends Controller
             foreach ($purchases as $key => $value) {
                 Ticket::where('id', $key)->where('type_price', '!=', 1)->where('quantity', '!=', -1)->update(
                     [
-                        'quantity' => intval($value[0]->ticket()->first()->quantity) + count($value)
+                        'quantity' => intval($value[0]->ticket()->first()->quantity) + count($value),
                     ]
                 );
                 foreach ($value as $pch) {
@@ -1575,7 +1481,7 @@ class PchCtrl extends Controller
             }
             Payment::where('id', $paymentData->id)->update(
                 [
-                    'pay_state' => "EXPIRED"
+                    'pay_state' => "EXPIRED",
                 ]
             );
             $paymentData->pay_state = "EXPIRED";
@@ -1586,41 +1492,41 @@ class PchCtrl extends Controller
     // This function to purchase by id
     public function get(Request $req)
     {
-        $user = Auth::user();
+        $user     = Auth::user();
         $purchase = Purchase::where('id', $req->pch_id)->where('user_id', $user->id)->first();
-        if (!$purchase) {
+        if (! $purchase) {
             return response()->json(["error" => "This purchase is not found"], 404);
         }
         $purchase->ticket = $purchase->ticket()->first();
         if ($purchase->ticket->quantity == -1) {
             $purchase->ticket->quantity = $purchase->ticket->limitDaily()->first()->limit_quantity;
         }
-        $purchase->ticket->event = $purchase->ticket->event()->first();
-        $purchase->ticket->event->available_days = $purchase->ticket->event->availableDays()->get();
+        $purchase->ticket->event                       = $purchase->ticket->event()->first();
+        $purchase->ticket->event->available_days       = $purchase->ticket->event->availableDays()->get();
         $purchase->ticket->event->available_reschedule = $purchase->ticket->event->availableReschedule()->first();
-        $purchase->ticket->event->org = $purchase->ticket->event->org()->first();
-        $purchase->ticket->event->org->legality = $purchase->ticket->event->org->credibilityData()->first();
+        $purchase->ticket->event->org                  = $purchase->ticket->event->org()->first();
+        $purchase->ticket->event->org->legality        = $purchase->ticket->event->org->credibilityData()->first();
 
-        $purchase->visitDate = $purchase->visitDate()->first();
+        $purchase->visitDate   = $purchase->visitDate()->first();
         $purchase->seat_number = $purchase->seatNumber()->first();
-        $payData = null;
+        $payData               = null;
         if ($purchase->payment()->first()->pay_state == 'PENDING') {
             $payData = $this->loadTrxValidation($purchase->payment()->first());
         } else {
-            $payData = $purchase->payment()->first();
+            $payData       = $purchase->payment()->first();
             $payData->user = $user;
         }
         $ticket = $purchase->ticket()->first();
         return response()->json(
             [
-                "purchase" => $purchase,
+                "purchase"    => $purchase,
                 'secret_info' => $ticket->secretInfo()->first(),
-                "payment" => $payData,
-                "qr_str" => $purchase->id . "*~^|-|^~*" . $user->id,
-                "ticket" => $ticket,
-                "event" => $ticket->event()->first(),
-                "visit_date" => $purchase->visitDate()->first(),
-                "seat_number" => $purchase->seatNumber()->first()
+                "payment"     => $payData,
+                "qr_str"      => $purchase->id . "*~^|-|^~*" . $user->id,
+                "ticket"      => $ticket,
+                "event"       => $ticket->event()->first(),
+                "visit_date"  => $purchase->visitDate()->first(),
+                "seat_number" => $purchase->seatNumber()->first(),
             ],
             200
         );
@@ -1629,7 +1535,7 @@ class PchCtrl extends Controller
     // thid function to get purchases by trx id
     public function purchases(Request $req)
     {
-        $user = Auth::user();
+        $user     = Auth::user();
         $paysData = Payment::where('user_id', $user->id)->get();
         if (count($paysData) == 0) {
             return response()->json(["error" => "Payment data not found"], 404);
@@ -1637,24 +1543,24 @@ class PchCtrl extends Controller
         $payments = [];
         foreach ($paysData as $payData) {
             $payData->user = $user;
-            $purchases = $payData->purchases()->where('user_id', $user->id)->get();
+            $purchases     = $payData->purchases()->where('user_id', $user->id)->where('org_inv', false)->get();
             foreach ($purchases as $purchase) {
-                $purchase->ticket = $purchase->ticket()->first();
+                $purchase->ticket      = $purchase->ticket()->first();
                 $purchase->secret_info = $purchase->ticket->secretInfo()->first();
                 if ($purchase->ticket->quantity == -1) {
                     $purchase->ticket->quantity = $purchase->ticket->limitDaily()->first()->limit_quantity;
                 }
-                $purchase->ticket->event = $purchase->ticket->event()->first();
-                $purchase->ticket->event->available_days = $purchase->ticket->event->availableDays()->get();
+                $purchase->ticket->event                       = $purchase->ticket->event()->first();
+                $purchase->ticket->event->available_days       = $purchase->ticket->event->availableDays()->get();
                 $purchase->ticket->event->available_reschedule = $purchase->ticket->event->availableReschedule()->first();
-                $purchase->ticket->event->org = $purchase->ticket->event->org()->first();
-                $purchase->ticket->event->org->legality = $purchase->ticket->event->org->credibilityData()->first();
-                $purchase->visit_date = $purchase->visitDate()->first();
-                $purchase->seat_number = $purchase->seatNumber()->first();
-                $purchase->qr_str = $purchase->id . "*~^|-|^~*" . $user->id;
-                $purchase->event_id = $purchase->ticket->event->id;
-                $purchase->event_name = $purchase->ticket->event->name;
-                $purchase->checkin = $purchase->checkin()->first();
+                $purchase->ticket->event->org                  = $purchase->ticket->event->org()->first();
+                $purchase->ticket->event->org->legality        = $purchase->ticket->event->org->credibilityData()->first();
+                $purchase->visit_date                          = $purchase->visitDate()->first();
+                $purchase->seat_number                         = $purchase->seatNumber()->first();
+                $purchase->qr_str                              = $purchase->id . "*~^|-|^~*" . $user->id;
+                $purchase->event_id                            = $purchase->ticket->event->id;
+                $purchase->event_name                          = $purchase->ticket->event->name;
+                $purchase->checkin                             = $purchase->checkin()->first();
             }
             $trx = null;
             if ($payData->pay_state == 'PENDING') {
@@ -1663,13 +1569,13 @@ class PchCtrl extends Controller
                 $trx = $payData;
             }
             $payments[] = [
-                "payment" => $trx,
-                "purchases" => $purchases
+                "payment"   => $trx,
+                "purchases" => $purchases,
             ];
         }
         return response()->json(
             [
-                "transactions" => $payments
+                "transactions" => $payments,
             ],
             200
         );
@@ -1679,43 +1585,32 @@ class PchCtrl extends Controller
     {
         $user = Auth::user();
         // $user = User::where('id', '9b08d7a9-fa50-4336-86dd-aeda11dd8271')->first();
-        $pch = Purchase::where('id', $req->purchase_id)->where('user_id', $user->id)->first();
-        if (!$pch) {
+        $pch = Purchase::where('id', $req->purchase_id)->where('user_id', $user->id)->with(['user', 'payment'])->first();
+        if (! $pch) {
             return response()->json(["error" => "Data not found"], 404);
         }
-        $start = null;
-        $end = null;
-        $time = '';
+        $start     = null;
+        $end       = null;
+        $time      = '';
         $visitDate = $pch->visitDate()->first();
-        $ticket = $pch->ticket()->first();
-        $event = $ticket->event()->first();
+        $ticket    = $pch->ticket()->first();
+        $event     = $ticket->event()->first();
         if ($visitDate) {
             $visitDate = new DateTime($visitDate->visit_date, new DateTimeZone('Asia/Jakarta'));
-            $start = $visitDate;
-            $end = $visitDate;
+            $start     = $visitDate;
+            $end       = $visitDate;
         } else {
             $start = new DateTime($event->start_date . " " . $event->start_time, new DateTimeZone('Asia/Jakarta'));
-            $end = new DateTime($event->end_date . " " . $event->end_time, new DateTimeZone('Asia/Jakarta'));
-            $time = $start->format("H:i") . ' - ' . $end->format("H:i") . ' WIB';
+            $end   = new DateTime($event->end_date . " " . $event->end_time, new DateTimeZone('Asia/Jakarta'));
+            $time  = $start->format("H:i") . ' - ' . $end->format("H:i") . ' WIB';
         }
         $seatNumber = $pch->seatNumber()->first();
-        
-        $org = $event->org()->first();
+
+        $org           = $event->org()->first();
         $org->legality = $org->credibilityData()->first();
-        $pdf = Pdf::loadView('pdfs.invoice-ticket', [
-            'myData' => $user, //√
-            'qrStr' => $pch->id . "*~^|-|^~*" . $user->id, //√
-            'startDate' => $start->format('d-m-Y'), // Srsing Y-m-d √
-            'endDate' => $end->format('d-m-Y'), // String Y-m-d √
-            'time' => $time, // String H:i WIB √
-            'payment' => $pch->payment()->first(),
-            'purchase' => $pch, // √
-            'ticket' => $ticket,
-            'event' => $event,
-            'org' => $org,
-            'type' => $req->type,  // √
-            'seat_number' => $seatNumber ? $seatNumber->seat_number : null
-        ])->setPaper('a4', 'portrait');
+        $pdf           = SnappyPdf::loadView('pdfs.invoice-ticket-new', [
+            "purchase" => $pch,
+        ])->setPaper('a4')->setOrientation('portrait')->setOption('enable-local-file-access', true);
         return $pdf->download();
     }
 }

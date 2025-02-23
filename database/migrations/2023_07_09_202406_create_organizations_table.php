@@ -28,6 +28,8 @@ return new class extends Migration
             $table->string('whatsapp');
             $table->string('website')->nullable();
             $table->text('desc');
+            $table->boolean('allow_create_inv')->default(false);
+            $table->integer('create_inv_quota')->default(0);
             $table->integer('deleted');
             $table->timestamps();
         });

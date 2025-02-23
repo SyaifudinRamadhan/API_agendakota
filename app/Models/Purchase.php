@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -21,6 +21,7 @@ class Purchase extends Model
         'amount',
         'tax_amount',
         'is_mine',
+        'org_inv',
     ];
 
     public function user(): BelongsTo
@@ -56,5 +57,15 @@ class Purchase extends Model
     public function seatNumber(): HasOne
     {
         return $this->hasOne(ReservedSeat::class, 'pch_id');
+    }
+
+    public function orgInv(): HasOne
+    {
+        return $this->hasOne(OrgInvitation::class, 'pch_id');
+    }
+
+    public function orgInvData(): HasOne
+    {
+        return $this->hasOne(OrgInvitation::class, 'pch_id');
     }
 }
