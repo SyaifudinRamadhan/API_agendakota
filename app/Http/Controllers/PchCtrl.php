@@ -796,6 +796,7 @@ class PchCtrl extends Controller
             "status" => false,
             "data"   => null,
         ];
+        $basicValidator = null;
         DB::beginTransaction();
         try {
             $voucher = Voucher::where('code', $req->voucher_code)->lockForUpdate()->first();
