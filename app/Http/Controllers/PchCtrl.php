@@ -796,7 +796,6 @@ class PchCtrl extends Controller
             "status" => false,
             "data"   => null,
         ];
-        $basicValidator = null;
         DB::beginTransaction();
         try {
             $voucher = Voucher::where('code', $req->voucher_code)->lockForUpdate()->first();
@@ -852,7 +851,93 @@ class PchCtrl extends Controller
             );
             // return response()->json($this->basicCreateData($req, $ticket_ids, $visitDates, $customPrices, $seatNumbers, $voucher, $payment, $remainingVoucher));
             $mainCreateData = $this->basicCreateData($req, $ticket_ids, $basicvalidator["all_ticket"], $visitDates, $customPrices, $seatNumbers, $voucher, $payment, $remainingVoucher, $forOrg);
+            
+            if ($mainCreateData["status"] === 0) {
+                Payment::where('id', $payment->id)->delete();
+                return response()->json(["error" => isset($mainCreateData["msg"]) ? $mainCreateData["msg"] : "Duplicated UUID"], 500);
+            }
+            $totalPay      = $mainCreateData["totalPay"];
+            $profitSetting = $mainCreateData["profitSetting"];
+            $purchases     = $mainCreateData["purchases"];
+            $netTotal      = $mainCreateData["netTotal"];
+            $taxTotal      = $mainCreateData["taxTotal"];
+            if ($totalPay < 10000 && $totalPay > 0) {
+                $this->rollbackPurchase($ticket_ids, $basicValidator["all_ticket"], $payment, $forOrg);
+                return response()->json(["error" => "Sorry, minimal transaction (for non-free ticket) is IDR Rp. 10.000,-. Please remove the voucher code first"], 403);
+            }
+            // change trx data
+            $paymentXendit = null;
+            if ($forOrg) {
+                $orderId = uniqid('trx_free', true);
+                Payment::where('id', $payment->id)->update(
+                    [
+                        'token_trx' => '-',
+                        'pay_state' => "SUCCEEDED",
+                        'order_id'  => $orderId,
+                        'price'     => 0,
+                    ]
+                );
+                $paymentXendit["payment"] = Payment::where('id', $payment->id)->first();
+            } else if ($totalPay == 0) {
+                $orderId = uniqid('trx_free', true);
+                Payment::where('id', $payment->id)->update(
+                    [
+                        'token_trx' => '-',
+                        'pay_state' => "SUCCEEDED",
+                        'order_id'  => $orderId,
+                        'price'     => 0,
+                    ]
+                );
+                $paymentXendit["payment"] = Payment::where('id', $payment->id)->first();
+                try {
+                    Mail::to($paymentXendit["payment"]->user()->first()->email)->send(new ETicket($payment->id));
+                } catch (\Throwable $th) {
+                    $this->rollbackPurchase($ticket_ids, $basicValidator["all_ticket"], $payment, $forOrg);
+                    Log::info("Error With Mail Server : Failed send mail transaction. Transaction reset");
+                    return response()->json(["error" => "Mail server error. Please try again later"], 500);
+                }
+            } else {
+                try {
+                    if (intval($req->pay_method) >= 11 && intval($req->pay_method) <= 15) {
+                        $paymentXendit = $this->setTrxEWallet($payment->id, $req->pay_method, $totalPay, $taxTotal, $profitSetting, $req->mobile_number, $req->cashtag);
+                    } else if (intval($req->pay_method) >= 21 && intval($req->pay_method) <= 22) {
+                        $paymentXendit = $this->setTrxQris($payment->id, $req->pay_method, $totalPay, $taxTotal, $profitSetting);
+                    } else if (intval($req->pay_method) >= 31 && intval($req->pay_method) <= 41) {
+                        $paymentXendit = $this->setTrxVirAccount($payment->id, $req->pay_method, $totalPay, $profitSetting);
+                    } else {
+                        $paymentXendit = $this->setTrxVirAccount($payment->id, $req->pay_method, $totalPay, $profitSetting);
+                    }
+                } catch (\Throwable $th) {
+                    $this->rollbackPurchase($ticket_ids, $basicValidator["all_ticket"], $payment, $forOrg);
+                    Log::info($th);
+                    return response()->json(["error" => "Server error. Failed reach xendit server", "msg" => $th], 500);
+                }
+                try {
+                    Mail::to(Auth::user()->email)->send(new TrxNotification($payment->id));
+                } catch (\Throwable $th) {
+                    $this->rollbackPurchase($ticket_ids, $basicValidator["all_ticket"], $payment, $forOrg);
+                    Log::info("Error With Mail Server : Failed send mail transaction. Transaction reset");
+                    return response()->json(["error" => "Mail server error. Please try again later"], 500);
+                }
+            }
+            
             DB::commit();
+
+            return response()->json(
+                [
+                    "local_pay_id"   => $payment->id,
+                    "payment"        => $paymentXendit["payment"],
+                    "purchases"      => $purchases,
+                    "netTotal"       => $netTotal,
+                    "taxTotal"       => $taxTotal,
+                    "adminFeeTrx"    => $profitSetting->admin_fee_trx,
+                    "platformFee"    => array_key_exists("platform", $paymentXendit) ? $paymentXendit["platform"] : 0,
+                    "total"          => array_key_exists("total", $paymentXendit) ? $paymentXendit["total"] : 0,
+                    "visitDatesIns"  => $forOrg ? $mainCreateData["visitDatesIns"] : null,
+                    "seatNumbersIns" => $forOrg ? $mainCreateData["seatNumbersIns"] : null,
+                ],
+                201
+            );
         } catch (\Throwable $th) {
             DB::rollBack();
             Log::info($th);
@@ -862,89 +947,6 @@ class PchCtrl extends Controller
             }
             return response()->json(["error" => "Database is busy. Please try again later"], 500);
         }
-        if ($mainCreateData["status"] === 0) {
-            Payment::where('id', $payment->id)->delete();
-            return response()->json(["error" => isset($mainCreateData["msg"]) ? $mainCreateData["msg"] : "Duplicated UUID"], 500);
-        }
-        $totalPay      = $mainCreateData["totalPay"];
-        $profitSetting = $mainCreateData["profitSetting"];
-        $purchases     = $mainCreateData["purchases"];
-        $netTotal      = $mainCreateData["netTotal"];
-        $taxTotal      = $mainCreateData["taxTotal"];
-        if ($totalPay < 10000 && $totalPay > 0) {
-            $this->rollbackPurchase($ticket_ids, $basicValidator["all_ticket"], $payment, $forOrg);
-            return response()->json(["error" => "Sorry, minimal transaction (for non-free ticket) is IDR Rp. 10.000,-. Please remove the voucher code first"], 403);
-        }
-        // change trx data
-        $paymentXendit = null;
-        if ($forOrg) {
-            $orderId = uniqid('trx_free', true);
-            Payment::where('id', $payment->id)->update(
-                [
-                    'token_trx' => '-',
-                    'pay_state' => "SUCCEEDED",
-                    'order_id'  => $orderId,
-                    'price'     => 0,
-                ]
-            );
-            $paymentXendit["payment"] = Payment::where('id', $payment->id)->first();
-        } else if ($totalPay == 0) {
-            $orderId = uniqid('trx_free', true);
-            Payment::where('id', $payment->id)->update(
-                [
-                    'token_trx' => '-',
-                    'pay_state' => "SUCCEEDED",
-                    'order_id'  => $orderId,
-                    'price'     => 0,
-                ]
-            );
-            $paymentXendit["payment"] = Payment::where('id', $payment->id)->first();
-            try {
-                Mail::to($paymentXendit["payment"]->user()->first()->email)->send(new ETicket($payment->id));
-            } catch (\Throwable $th) {
-                $this->rollbackPurchase($ticket_ids, $basicValidator["all_ticket"], $payment, $forOrg);
-                Log::info("Error With Mail Server : Failed send mail transaction. Transaction reset");
-                return response()->json(["error" => "Mail server error. Please try again later"], 500);
-            }
-        } else {
-            try {
-                if (intval($req->pay_method) >= 11 && intval($req->pay_method) <= 15) {
-                    $paymentXendit = $this->setTrxEWallet($payment->id, $req->pay_method, $totalPay, $taxTotal, $profitSetting, $req->mobile_number, $req->cashtag);
-                } else if (intval($req->pay_method) >= 21 && intval($req->pay_method) <= 22) {
-                    $paymentXendit = $this->setTrxQris($payment->id, $req->pay_method, $totalPay, $taxTotal, $profitSetting);
-                } else if (intval($req->pay_method) >= 31 && intval($req->pay_method) <= 41) {
-                    $paymentXendit = $this->setTrxVirAccount($payment->id, $req->pay_method, $totalPay, $profitSetting);
-                } else {
-                    $paymentXendit = $this->setTrxVirAccount($payment->id, $req->pay_method, $totalPay, $profitSetting);
-                }
-            } catch (\Throwable $th) {
-                $this->rollbackPurchase($ticket_ids, $basicValidator["all_ticket"], $payment, $forOrg);
-                Log::info($th);
-                return response()->json(["error" => "Server error. Failed reach xendit server", "msg" => $th], 500);
-            }
-            try {
-                Mail::to(Auth::user()->email)->send(new TrxNotification($payment->id));
-            } catch (\Throwable $th) {
-                $this->rollbackPurchase($ticket_ids, $basicValidator["all_ticket"], $payment, $forOrg);
-                Log::info("Error With Mail Server : Failed send mail transaction. Transaction reset");
-                return response()->json(["error" => "Mail server error. Please try again later"], 500);
-            }
-        }
-        return response()->json(
-            [
-                "local_pay_id"   => $payment->id,
-                "payment"        => $paymentXendit["payment"],
-                "purchases"      => $purchases,
-                "netTotal"       => $netTotal,
-                "taxTotal"       => $taxTotal,
-                "adminFeeTrx"    => $profitSetting->admin_fee_trx,
-                "platformFee"    => array_key_exists("platform", $paymentXendit) ? $paymentXendit["platform"] : 0,
-                "total"          => array_key_exists("total", $paymentXendit) ? $paymentXendit["total"] : 0,
-                "visitDatesIns"  => $forOrg ? $mainCreateData["visitDatesIns"] : null,
-                "seatNumbersIns" => $forOrg ? $mainCreateData["seatNumbersIns"] : null,
-            ],
-            201
-        );
     }
 
     private function validationPurchase($req, $forRefund = false, $userData = null)
